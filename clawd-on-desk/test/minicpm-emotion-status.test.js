@@ -11,7 +11,7 @@ test("chat emotion status uses a constrained main-to-renderer IPC surface", () =
   const main = src("minicpm-chat.js");
   const preload = src("preload-minicpm-chat.js");
   assert.match(main, /publishEmotionStatus\(\{ phase: "classifying"/);
-  assert.match(main, /phase: detected \? "detected" : "fallback"/);
+  assert.match(main, /publishEmotionStatus\(\{ phase: source, emotion \}\)/);
   assert.match(main, /"minicpm:emotion-status": async \(event\)/);
   assert.match(preload, /getEmotionStatus: \(\) => ipcRenderer\.invoke\("minicpm:emotion-status"\)/);
   assert.match(preload, /onEmotionStatus:/);

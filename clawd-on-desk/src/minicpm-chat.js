@@ -38,6 +38,7 @@ const { runAppleMusicCommand } = require("./apple-music-control");
 const { buildTimeContext } = require("./time-context");
 const { normalizeProfiles, selectActiveProfile } = require("./persona-profiles");
 const { createScreenCaptureService } = require("./screen-capture");
+const { EMOTIONS, parseEmotionResponse, extractAssistantText, inferEmotionFromText } = require("./chat-emotion-classifier");
 
 const isMac = process.platform === "darwin";
 const isWin = process.platform === "win32";
@@ -1555,11 +1556,10 @@ module.exports = function initMinicpmChat(ctx) {
   }
 
   function publishEmotionStatus(next) {
-    const phases = ["idle", "classifying", "detected", "fallback", "disabled"];
-    const emotions = ["calm", "focused", "happy", "shy", "surprised", "sleepy", "sad", "annoyed"];
+    const phases = ["idle", "classifying", "detected", "heuristic", "fallback", "disabled"];
     emotionStatus = {
       phase: phases.includes(next && next.phase) ? next.phase : "idle",
-      emotion: emotions.includes(next && next.emotion) ? next.emotion : "calm",
+      emotion: EMOTIONS.includes(next && next.emotion) ? next.emotion : "calm",
       updatedAt: Number.isFinite(next && next.updatedAt) ? next.updatedAt : Date.now(),
     };
     if (bubble && !bubble.isDestroyed()) {
@@ -1688,9 +1688,9 @@ module.exports = function initMinicpmChat(ctx) {
     const controller = new AbortController();
     emotionController = controller;
     publishEmotionStatus({ phase: "classifying", emotion: emotionStatus.emotion });
-    const timeout = setTimeout(() => controller.abort(), 3500);
+    const timeout = setTimeout(() => controller.abort(), 8000);
     let emotion = "calm";
-    let detected = false;
+    let source = "fallback";
     try {
       const cfg = getRemoteRuntimeConfig();
       const body = makeChatBody({
@@ -1698,28 +1698,28 @@ module.exports = function initMinicpmChat(ctx) {
         stream: false,
         temperature: 0,
         topP: 1,
-        maxTokens: 24,
+        maxTokens: 256,
         messages: [{ role: "user", content: text }],
-        system: "Classify the user's message into exactly one pet emotion. Reply with JSON only: {\"emotion\":\"calm|focused|happy|shy|surprised|sleepy|sad|annoyed\"}. No explanation.",
+        system: "Classify the emotional response a gentle desktop pet should show to the user's message. Return exactly one label and nothing else: calm, focused, happy, shy, surprised, sleepy, sad, or annoyed. Do not explain your reasoning.",
       });
       const result = await requestOpenAi({ endpoint: cfg.endpoint, apiKey: cfg.apiKey, body, signal: controller.signal });
-      const raw = String(result && result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content || "").trim();
-      const parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, ""));
-      if (parsed && ["calm", "focused", "happy", "shy", "surprised", "sleepy", "sad", "annoyed"].includes(parsed.emotion)) {
-        emotion = parsed.emotion;
-        detected = true;
-      }
+      const parsed = parseEmotionResponse(extractAssistantText(result));
+      if (parsed) { emotion = parsed; source = "detected"; }
     } catch {
-      // Best-effort classifier: errors deliberately remain invisible and
-      // simply restore the neutral expression.
-      emotion = "calm";
+      // The normal reply remains independent. A deterministic multilingual
+      // fallback below still gives the pet useful feedback when a provider
+      // rejects short classifier calls or a reasoning model times out.
     } finally {
       clearTimeout(timeout);
       if (emotionController === controller) emotionController = null;
     }
+    if (source === "fallback") {
+      const inferred = inferEmotionFromText(text);
+      if (inferred) { emotion = inferred; source = "heuristic"; }
+    }
     if (requestId === emotionRequestSeq) {
       try { ctx.setChatEmotion && ctx.setChatEmotion(emotion); } catch {}
-      publishEmotionStatus({ phase: detected ? "detected" : "fallback", emotion });
+      publishEmotionStatus({ phase: source, emotion });
     }
     return emotion;
   }

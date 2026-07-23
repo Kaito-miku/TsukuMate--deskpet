@@ -89,11 +89,11 @@ let updPillRevision = null;
 let latestEmotionStatus = { phase: "idle", emotion: "calm", updatedAt: null };
 
 const EMOTION_COPY = {
-  en: { prefix: "Emotion", idle: "not tested", classifying: "detecting…", fallback: "fallback", disabled: "API mode required", calm: "calm", focused: "focused", happy: "happy", shy: "shy", surprised: "surprised", sleepy: "sleepy", sad: "sad", annoyed: "annoyed" },
-  zh: { prefix: "最近情绪", idle: "尚未测试", classifying: "识别中…", fallback: "回退", disabled: "需要 API 模式", calm: "平静", focused: "专注", happy: "开心", shy: "害羞", surprised: "惊讶", sleepy: "困倦", sad: "难过", annoyed: "轻微不满" },
-  "zh-TW": { prefix: "最近情緒", idle: "尚未測試", classifying: "辨識中…", fallback: "回退", disabled: "需要 API 模式", calm: "平靜", focused: "專注", happy: "開心", shy: "害羞", surprised: "驚訝", sleepy: "睏倦", sad: "難過", annoyed: "輕微不滿" },
-  ja: { prefix: "最近の感情", idle: "未テスト", classifying: "判定中…", fallback: "フォールバック", disabled: "APIモードが必要", calm: "平静", focused: "集中", happy: "嬉しい", shy: "照れ", surprised: "驚き", sleepy: "眠い", sad: "悲しい", annoyed: "少し不満" },
-  ko: { prefix: "최근 감정", idle: "테스트 전", classifying: "판별 중…", fallback: "대체", disabled: "API 모드 필요", calm: "차분함", focused: "집중", happy: "기쁨", shy: "수줍음", surprised: "놀람", sleepy: "졸림", sad: "슬픔", annoyed: "약간 불만" },
+  en: { prefix: "Emotion", idle: "not tested", classifying: "detecting…", heuristic: "keyword fallback", fallback: "fallback", disabled: "API mode required", calm: "calm", focused: "focused", happy: "happy", shy: "shy", surprised: "surprised", sleepy: "sleepy", sad: "sad", annoyed: "annoyed" },
+  zh: { prefix: "最近情绪", idle: "尚未测试", classifying: "识别中…", heuristic: "关键词兜底", fallback: "回退", disabled: "需要 API 模式", calm: "平静", focused: "专注", happy: "开心", shy: "害羞", surprised: "惊讶", sleepy: "困倦", sad: "难过", annoyed: "轻微不满" },
+  "zh-TW": { prefix: "最近情緒", idle: "尚未測試", classifying: "辨識中…", heuristic: "關鍵詞備援", fallback: "回退", disabled: "需要 API 模式", calm: "平靜", focused: "專注", happy: "開心", shy: "害羞", surprised: "驚訝", sleepy: "睏倦", sad: "難過", annoyed: "輕微不滿" },
+  ja: { prefix: "最近の感情", idle: "未テスト", classifying: "判定中…", heuristic: "キーワード判定", fallback: "フォールバック", disabled: "APIモードが必要", calm: "平静", focused: "集中", happy: "嬉しい", shy: "照れ", surprised: "驚き", sleepy: "眠い", sad: "悲しい", annoyed: "少し不満" },
+  ko: { prefix: "최근 감정", idle: "테스트 전", classifying: "판별 중…", heuristic: "키워드 대체", fallback: "대체", disabled: "API 모드 필요", calm: "차분함", focused: "집중", happy: "기쁨", shy: "수줍음", surprised: "놀람", sleepy: "졸림", sad: "슬픔", annoyed: "약간 불만" },
 };
 
 function emotionDictionary() {
@@ -109,12 +109,13 @@ function renderEmotionStatus(payload) {
   if (!emotionStatusEl || !emotionStatusText) return;
   latestEmotionStatus = { ...latestEmotionStatus, ...(payload || {}) };
   const copy = emotionDictionary();
-  const phase = ["idle", "classifying", "detected", "fallback", "disabled"].includes(latestEmotionStatus.phase)
+  const phase = ["idle", "classifying", "detected", "heuristic", "fallback", "disabled"].includes(latestEmotionStatus.phase)
     ? latestEmotionStatus.phase : "idle";
   const emotion = copy[latestEmotionStatus.emotion] || copy.calm;
   let detail = emotion;
   if (phase === "idle") detail = copy.idle;
   else if (phase === "classifying") detail = copy.classifying;
+  else if (phase === "heuristic") detail = `${emotion} · ${copy.heuristic}`;
   else if (phase === "fallback") detail = `${emotion} · ${copy.fallback}`;
   else if (phase === "disabled") detail = copy.disabled;
   emotionStatusEl.dataset.phase = phase;
