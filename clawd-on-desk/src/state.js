@@ -78,6 +78,10 @@ const { SLEEP_SEQUENCE, STATE_PRIORITY, ONESHOT_STATES } = createStatePriorityCo
 
 // Session display hints — validated against theme.displayHintMap keys
 let DISPLAY_HINT_MAP = {};
+const CHAT_EMOTIONS = new Set(["calm", "focused", "happy", "shy", "surprised", "sleepy", "sad", "annoyed"]);
+const CHAT_EMOTION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+let chatEmotion = "calm";
+let chatEmotionTimer = null;
 
 // ── Session tracking ──
 const sessions = new Map();
@@ -488,7 +492,33 @@ function hasOwnVisualFiles(state) {
 }
 
 function resolveVisualBinding(state) {
-  return resolveVisualBindingWithBindings(state, STATE_BINDINGS);
+  // System states and hit reactions call this same resolver but don't expose
+  // mood assets: only idle represents the latest conversational emotion.
+  return resolveVisualBindingWithBindings(state, STATE_BINDINGS, {
+    emotion: state === "idle" ? chatEmotion : null,
+    emotions: theme && theme.emotions,
+  });
+}
+
+function getChatEmotion() { return chatEmotion; }
+
+function setChatEmotion(nextEmotion) {
+  const next = CHAT_EMOTIONS.has(nextEmotion) ? nextEmotion : "calm";
+  chatEmotion = next;
+  try { ctx.sendToRenderer("chat-emotion", chatEmotion); } catch {}
+  if (chatEmotionTimer) clearTimeout(chatEmotionTimer);
+  chatEmotionTimer = null;
+  if (next !== "calm") {
+    chatEmotionTimer = setTimeout(() => {
+      chatEmotionTimer = null;
+      chatEmotion = "calm";
+      if (currentState === "idle") applyState("idle", undefined, { force: true });
+    }, CHAT_EMOTION_IDLE_TIMEOUT_MS);
+  }
+  // Do not interrupt real work / sleep / click reactions.  The next return
+  // to idle resolves the current emotion automatically.
+  if (currentState === "idle") applyState("idle", undefined, { force: true });
+  return chatEmotion;
 }
 
 function applyResolvedDisplayState() {
@@ -2150,6 +2180,8 @@ function cleanup() {
   clearAllClaudeTranscriptCompletionProbes();
   if (eyeResendTimer) clearTimeout(eyeResendTimer);
   if (startupRecoveryTimer) clearTimeout(startupRecoveryTimer);
+  if (chatEmotionTimer) clearTimeout(chatEmotionTimer);
+  chatEmotionTimer = null;
   stopWakePoll();
   for (const { timer } of kimiPermissionHolds.values()) {
     if (timer) clearTimeout(timer);
@@ -2163,6 +2195,7 @@ function cleanup() {
 
 return {
   setState, applyState, updateSession, resolveDisplayState, resolveVisualBinding, setUpdateVisualState,
+  setChatEmotion, getChatEmotion,
   shouldDropForDnd,
   enableDoNotDisturb, disableDoNotDisturb,
   startStaleCleanup, stopStaleCleanup, startWakePoll, stopWakePoll,

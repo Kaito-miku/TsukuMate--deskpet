@@ -23,7 +23,7 @@
       return id;
     }
 
-    async function render(parent) {
+    async function render(parent, draft) {
       parent.innerHTML = "";
       const title = el("div", { className: "page-header" }, el("div", { className: "page-header-copy" },
         el("h1", { className: "page-title" }, "人格"),
@@ -32,8 +32,9 @@
       parent.appendChild(title);
       let data = { profiles: [], activeId: "" };
       try { data = await window.minicpmSettings.getPersonaProfiles(); } catch {}
-      const profiles = Array.isArray(data && data.profiles) ? data.profiles.map((item) => ({ ...item })) : [];
-      let activeId = data && data.activeId;
+      const profiles = draft && Array.isArray(draft.profiles) ? draft.profiles : (Array.isArray(data && data.profiles) ? data.profiles.map((item) => ({ ...item })) : []);
+      let activeId = draft && draft.activeId ? draft.activeId : data && data.activeId;
+      let selectedId = draft && Object.prototype.hasOwnProperty.call(draft, "selectedId") ? draft.selectedId : null;
       const section = el("section", { className: "section" });
       const rows = el("div", { className: "section-rows" });
       section.appendChild(rows);
@@ -49,37 +50,50 @@
         return true;
       };
 
-      const redraw = () => { void render(parent); };
+      const list = el("div", { className: "minicpm-api-profile-list" });
       for (const profile of profiles) {
-        const row = el("div", { className: "row minicpm-api-field" });
+        const item = el("button", { type: "button", className: profile.id === selectedId ? "minicpm-api-profile-item active" : "minicpm-api-profile-item" });
+        item.dataset.profileId = profile.id;
+        item.appendChild(el("span", { className: "minicpm-api-profile-name" }, profile.name || "未命名人格"));
+        item.appendChild(el("span", { className: "minicpm-api-profile-model" }, profile.id === activeId ? "当前使用" : "人格提示词"));
+        item.addEventListener("click", () => { void render(parent, { profiles, activeId, selectedId: selectedId === profile.id ? null : profile.id }); });
+        list.appendChild(item);
+      }
+      const profile = profiles.find((item) => item.id === selectedId);
+      if (profile) {
+        const row = el("div", { className: "minicpm-api-editor" });
+        const header = el("div", { className: "minicpm-api-editor-header" }, el("div", {}, el("span", { className: "minicpm-api-editor-title" }, "编辑人格"), el("span", { className: "minicpm-api-editor-hint" }, "保存后才会应用修改。")));
         const text = el("div", { className: "row-text" });
         const select = el("input", { type: "radio", name: "active-persona" });
         select.checked = profile.id === activeId;
-        select.addEventListener("change", async () => { activeId = profile.id; await save(); redraw(); });
+        select.addEventListener("change", () => { activeId = profile.id; });
         const name = el("input", { type: "text", className: "minicpm-adapter-editor-input", maxlength: "48" });
         name.value = profile.name;
         const prompt = el("textarea", { className: "minicpm-adapter-editor-input", rows: "6", maxlength: "4000" });
         prompt.value = profile.prompt;
         name.addEventListener("input", () => { profile.name = name.value.trim() || "未命名人格"; });
         prompt.addEventListener("input", () => { profile.prompt = prompt.value; });
-        text.appendChild(el("span", { className: "row-label" }, profile.id === activeId ? "当前人格" : "人格"));
-        text.appendChild(name);
-        text.appendChild(prompt);
-        row.appendChild(text);
-        const controls = el("div", { className: "row-control" }, select);
+        const fields = el("div", { className: "minicpm-api-editor-fields" });
+        fields.appendChild(el("label", { className: "minicpm-api-input-field" }, el("span", {}, "名称"), name));
+        fields.appendChild(el("label", { className: "minicpm-api-input-field" }, el("span", {}, "人格提示词"), prompt));
+        header.appendChild(el("label", { className: "minicpm-api-active-control" }, select, "设为当前人格"));
+        row.appendChild(header); row.appendChild(fields);
+        const controls = el("div", { className: "minicpm-api-editor-actions" });
         if (profiles.length > 1) {
           const remove = el("button", { type: "button", className: "soft-btn" }, "删除");
           remove.addEventListener("click", async () => {
             const index = profiles.indexOf(profile);
             profiles.splice(index, 1);
             if (activeId === profile.id) activeId = profiles[0].id;
-            await save(); redraw();
+            await save(); void render(parent, { profiles, activeId, selectedId: null });
           });
           controls.appendChild(remove);
         }
-        row.appendChild(controls);
-        rows.appendChild(row);
+        if (controls.childElementCount) row.appendChild(controls);
+        const selectedItem = Array.from(list.children).find((item) => item.dataset.profileId === profile.id);
+        if (selectedItem) selectedItem.after(row);
       }
+      rows.appendChild(el("div", { className: "minicpm-api-profile-list-row" }, list));
       const actions = el("div", { className: "row" }, el("div", { className: "row-text" }), el("div", { className: "row-control" }));
       const controls = actions.querySelector(".row-control");
       const add = el("button", { type: "button", className: "soft-btn" }, "新增人格");
@@ -87,7 +101,7 @@
         const used = new Set(profiles.map((item) => item.id));
         const name = "新人格";
         profiles.push({ id: makeId(`${name}-${Date.now()}`, used), name, prompt: "请填写这个人格的提示词。" });
-        redraw();
+        void render(parent, { profiles, activeId, selectedId: profiles[profiles.length - 1].id });
       });
       const commit = el("button", { type: "button", className: "soft-btn accent" }, "保存");
       commit.addEventListener("click", () => { void save(); });

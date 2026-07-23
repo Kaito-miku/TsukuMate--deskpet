@@ -50,6 +50,26 @@ html, body {
   background: transparent;
 }
 
+#live2d-stage {
+  display: none;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+#live2d-stage canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* renderer.js may replace the fallback <object>/<img> on every state change.
+   Keep that whole layer hidden while Live2D owns the visual. */
+#pet-container.live2d-active object,
+#pet-container.live2d-active img.clawd-img {
+  visibility: hidden !important;
+}
+
 #pet-container.mini-left {
   transform: scaleX(-1);
 }

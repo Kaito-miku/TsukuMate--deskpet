@@ -65,6 +65,12 @@ function hasOwnVisualFiles(stateBindings, state) {
 
 function resolveVisualBinding(state, stateBindings, options = {}) {
   const pickFile = typeof options.pickStateFile === "function" ? options.pickStateFile : pickStateFile;
+  // Mood visuals are intentionally considered only for the requested logical
+  // state.  A missing mood asset never alters state fallback semantics.
+  const emotionMap = options.emotions && options.emotion && options.emotions[options.emotion];
+  if (emotionMap && Array.isArray(emotionMap[state]) && emotionMap[state].length > 0) {
+    return pickFile(emotionMap[state]);
+  }
   let cursor = state;
   let visited = null;
   for (let hops = 0; hops <= 3; hops += 1) {

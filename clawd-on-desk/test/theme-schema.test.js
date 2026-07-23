@@ -46,6 +46,17 @@ describe("theme schema validation", () => {
     assert.ok(errors.some((error) => error.includes("updateBubbleAnchorBox must include finite")));
   });
 
+  it("validates and normalizes optional emotion state assets", () => {
+    const theme = schema.mergeDefaults(validThemeJson({
+      emotions: { happy: { idle: ["nested/happy.webp"] } },
+      sleepSequence: { mode: "direct" },
+    }), "test", false);
+    assert.deepStrictEqual(theme.emotions, { happy: { idle: ["happy.webp"] } });
+    assert.ok(schema.collectRequiredAssetFiles(theme).includes("happy.webp"));
+    const errors = schema.validateTheme(validThemeJson({ emotions: { furious: { idle: ["nope.webp"] } } }));
+    assert.ok(errors.some((error) => error.includes("not a supported emotion")));
+  });
+
   it("treats sleepSequence.mode=direct as not requiring full sleep art", () => {
     const errors = schema.validateTheme(validThemeJson({
       sleepSequence: { mode: "direct" },

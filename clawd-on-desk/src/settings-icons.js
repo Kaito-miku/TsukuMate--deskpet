@@ -44,6 +44,12 @@ const ICONS = {
     '<circle cx="16.5" cy="10.5" r="1" fill="currentColor"/>' +
     '</svg>',
 
+  live2d:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%">' +
+    '<path d="M7 4.5C8.4 3.5 10 3 12 3s3.6.5 5 1.5l1 5.5c0 5-2.5 9-6 11-3.5-2-6-6-6-11l1-5.5Z"/>' +
+    '<path d="M9 11h.01M15 11h.01M9.5 15c1.5 1 3.5 1 5 0M4 7l3 1M20 7l-3 1"/>' +
+    '</svg>',
+
   // 🎬 — clapperboard
   animMap:
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%">' +

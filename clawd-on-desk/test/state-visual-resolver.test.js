@@ -66,6 +66,16 @@ describe("state-visual-resolver bindings", () => {
     assert.strictEqual(hasOwnVisualFiles({ working: { files: ["a.svg"] } }, "working"), true);
     assert.strictEqual(hasOwnVisualFiles({ working: { files: [] } }, "working"), false);
   });
+
+  it("uses an emotion asset only when that state supplies one", () => {
+    const bindings = {
+      idle: { files: ["idle.svg"], fallbackTo: null },
+      working: { files: ["working.svg"], fallbackTo: null },
+    };
+    const options = { emotion: "happy", emotions: { happy: { idle: ["happy-idle.webp"] } } };
+    assert.strictEqual(resolveVisualBinding("idle", bindings, options), "happy-idle.webp");
+    assert.strictEqual(resolveVisualBinding("working", bindings, options), "working.svg");
+  });
 });
 
 describe("state-visual-resolver SVG overrides", () => {

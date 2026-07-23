@@ -73,6 +73,9 @@ const VISUAL_FALLBACK_STATES = new Set([
   "sleeping",
   "roam",
 ]);
+// Chat moods are deliberately a small, closed vocabulary.  Themes may omit
+// any entry; the runtime then safely uses the ordinary state asset.
+const EMOTION_NAMES = new Set(["calm", "focused", "happy", "shy", "surprised", "sleepy", "sad", "annoyed"]);
 
 function validateTheme(cfg) {
   const errors = [];
@@ -147,6 +150,28 @@ function validateTheme(cfg) {
       && (typeof cfg.updateVisuals.checking !== "string" || !cfg.updateVisuals.checking)
     ) {
       errors.push("updateVisuals.checking must be a non-empty string when present");
+    }
+  }
+
+  if (cfg.emotions !== undefined) {
+    if (!isPlainObject(cfg.emotions)) {
+      errors.push("emotions must be an object when present");
+    } else {
+      for (const [emotion, bindings] of Object.entries(cfg.emotions)) {
+        if (!EMOTION_NAMES.has(emotion)) {
+          errors.push(`emotions.${emotion} is not a supported emotion`);
+          continue;
+        }
+        if (!isPlainObject(bindings)) {
+          errors.push(`emotions.${emotion} must be an object`);
+          continue;
+        }
+        for (const [state, files] of Object.entries(bindings)) {
+          if (!Array.isArray(files) || !files.some((file) => typeof file === "string" && file)) {
+            errors.push(`emotions.${emotion}.${state} must be a non-empty array`);
+          }
+        }
+      }
     }
   }
 
@@ -350,8 +375,16 @@ function collectRequiredAssetFiles(theme) {
   const files = new Set();
   if (theme && theme.states) {
     for (const stateFiles of Object.values(theme.states)) {
-      if (!Array.isArray(stateFiles)) continue;
-      for (const file of stateFiles) addThemeAssetFile(files, file);
+      for (const file of getStateFiles(stateFiles)) addThemeAssetFile(files, file);
+    }
+  }
+  if (isPlainObject(theme && theme.emotions)) {
+    for (const stateMap of Object.values(theme.emotions)) {
+      if (!isPlainObject(stateMap)) continue;
+      for (const stateFiles of Object.values(stateMap)) {
+        if (!Array.isArray(stateFiles)) continue;
+        for (const file of stateFiles) addThemeAssetFile(files, file);
+      }
     }
   }
   if (theme && theme.miniMode && theme.miniMode.states) {
@@ -658,6 +691,19 @@ function mergeDefaults(raw, themeId, isBuiltin) {
       fallbackTo: entry.fallbackTo || null,
     };
   }
+  theme.emotions = {};
+  if (isPlainObject(raw.emotions)) {
+    for (const [emotion, stateMap] of Object.entries(raw.emotions)) {
+      if (!EMOTION_NAMES.has(emotion) || !isPlainObject(stateMap)) continue;
+      const normalizedMap = {};
+      for (const [stateKey, files] of Object.entries(stateMap)) {
+        if (!Array.isArray(files)) continue;
+        const safeFiles = files.filter((file) => typeof file === "string" && file).map(bn);
+        if (safeFiles.length) normalizedMap[stateKey] = safeFiles;
+      }
+      if (Object.keys(normalizedMap).length) theme.emotions[emotion] = normalizedMap;
+    }
+  }
   if (theme.miniMode && theme.miniMode.states) {
     for (const [s, files] of Object.entries(theme.miniMode.states)) {
       if (Array.isArray(files)) theme.miniMode.states[s] = files.map(bn);
@@ -710,6 +756,7 @@ module.exports = {
   FULL_SLEEP_REQUIRED_STATES,
   MINI_REQUIRED_STATES,
   VISUAL_FALLBACK_STATES,
+  EMOTION_NAMES,
   validateTheme,
   mergeDefaults,
   isPlainObject,

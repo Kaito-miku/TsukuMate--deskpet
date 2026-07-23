@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
   onViewportOffset: (cb) => ipcRenderer.on("viewport-offset", (_, offsetY) => cb(offsetY)),
   // State sync from main
   onStateChange: (callback) => ipcRenderer.on("state-change", (_, state, svg) => callback(state, svg)),
+  onChatEmotion: (callback) => ipcRenderer.on("chat-emotion", (_, emotion) => callback(emotion)),
   onKimiPermissionPulse: (callback) => ipcRenderer.on("kimi-permission-pulse", () => callback()),
   onEyeMove: (callback) => ipcRenderer.on("eye-move", (_, dx, dy) => callback(dx, dy)),
   onCloudlingPointer: (callback) => ipcRenderer.on("cloudling-pointer", (_, payload) => callback(payload)),
@@ -35,4 +36,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
   resumeFromReaction: () => ipcRenderer.send("resume-from-reaction"),
   setLowPowerIdlePaused: (paused) => ipcRenderer.send("low-power-idle-paused", !!paused),
   reportSystemWakeStatus: (payload) => ipcRenderer.send("system-wake-status", payload),
+  reportLive2dStatus: (payload) => ipcRenderer.send("live2d-status", payload || {}),
 });

@@ -209,6 +209,16 @@ const SCHEMA = {
   keepSizeAcrossDisplays: { type: "boolean", default: false },
   // Free roam: when enabled and the pet is idle, it will wander around the screen
   freeRoam: { type: "boolean", default: false },
+  live2d: {
+    type: "object",
+    defaultFactory: () => ({ modelId: "", scale: 1, offsetX: 0, offsetY: 0 }),
+    normalize: (value) => ({
+      modelId: typeof (value && value.modelId) === "string" ? value.modelId.slice(0, 512) : "",
+      scale: Number.isFinite(value && value.scale) ? Math.max(0.35, Math.min(2.5, value.scale)) : 1,
+      offsetX: Number.isFinite(value && value.offsetX) ? Math.max(-300, Math.min(300, value.offsetX)) : 0,
+      offsetY: Number.isFinite(value && value.offsetY) ? Math.max(-300, Math.min(300, value.offsetY)) : 0,
+    }),
+  },
   // #562: Windows-only. When ON, the pet floats ON TOP of a foreground
   // fullscreen app (e.g. a borderless game) and stays draggable, instead of
   // standing down below it (#538). Default ON — most users want to glance at

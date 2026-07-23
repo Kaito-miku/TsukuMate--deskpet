@@ -878,9 +878,9 @@ function createSettingsAnimationOverridesMain(options = {}) {
     for (const spec of REACTION_ORDER) {
       const reactionEntry = reactionsMap[spec.key];
       if (!isPlainObject(reactionEntry)) continue;
-      const currentFile = (Array.isArray(reactionEntry.files) && reactionEntry.files[0])
-        || reactionEntry.file
-        || null;
+      const currentFile = spec.key === "drag"
+        ? (reactionEntry.fileLeft || reactionEntry.file || null)
+        : ((Array.isArray(reactionEntry.files) && reactionEntry.files[0]) || reactionEntry.file || null);
       if (!currentFile) continue;
       const durationMs = spec.supportsDuration && Number.isFinite(reactionEntry.duration)
         ? reactionEntry.duration

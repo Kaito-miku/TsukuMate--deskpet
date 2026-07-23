@@ -28,6 +28,7 @@
     "prebuild:linux": "node scripts/verify-sidecar-binaries.js && node scripts/fetch-adapters.js && node scripts/verify-adapters.js",
     "prebuild:all": "node scripts/verify-sidecar-binaries.js && node scripts/fetch-adapters.js && node scripts/verify-adapters.js",
     "test": "node test/run-tests.js",
+    "build:live2d": "esbuild src/live2d-cubism5-renderer.ts --bundle --platform=browser --format=iife --target=chrome120 --alias:@framework=../CubismSdkForWeb-5-r.5/Framework/src --outfile=src/live2d-renderer.bundle.js",
     "create-theme": "node scripts/create-theme.js",
     "export-agent-icons": "node scripts/export-agent-icons.js",
     "install:claude-hooks": "node hooks/install.js",
@@ -216,14 +217,20 @@
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
     "electron": "^41.0.2",
-    "electron-builder": "^26.8.1"
+    "electron-builder": "^26.8.1",
+    "esbuild": "^0.25.12"
   },
   "dependencies": {
+    "@pixi/unsafe-eval": "^7.4.3",
+    "@soullink-emotion/engine": "^0.1.0-beta.1",
+    "@soullink-emotion/live2d-pixi": "^0.1.0-beta.1",
     "electron-updater": "^6.8.3",
-    "http-proxy-agent": "^7.0.2",
     "htmlparser2": "^12.0.0",
+    "http-proxy-agent": "^7.0.2",
     "https-proxy-agent": "^7.0.6",
     "koffi": "^2.15.2",
+    "pixi-live2d-display": "^0.5.0-beta",
+    "pixi.js": "^7.4.3",
     "socks-proxy-agent": "^8.0.5",
     "ws": "^8.21.0"
   }

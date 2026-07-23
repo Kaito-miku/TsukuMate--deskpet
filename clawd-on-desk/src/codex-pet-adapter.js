@@ -376,8 +376,8 @@ function buildThemeJson(packageInfo, themeId) {
         fileLeft: "codex-pet-running-left-loop.svg",
         fileRight: "codex-pet-running-right-loop.svg",
       },
-      clickLeft: { file: "codex-pet-jumping-once.svg", duration: 840 },
-      clickRight: { file: "codex-pet-jumping-once.svg", duration: 840 },
+      clickLeft: { file: "codex-pet-waving-once.svg", duration: 700 },
+      clickRight: { file: "codex-pet-waving-once.svg", duration: 700 },
       double: { files: ["codex-pet-waving-once.svg"], duration: 700 },
     },
     miniMode: {

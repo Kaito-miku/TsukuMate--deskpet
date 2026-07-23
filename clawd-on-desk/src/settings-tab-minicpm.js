@@ -1026,7 +1026,6 @@
     if (!window.minicpmSettings || !ctx) return;
     await probeHealth(ctx);
     syncStatusPill(ctx);
-    await renderInferenceSection(ctx.inferenceBox, ctx);
     await renderBehaviorSection(ctx.behaviorBox, ctx);
     const apiMode = ctx.healthSnapshot && ctx.healthSnapshot.st && ctx.healthSnapshot.st.remote;
     ctx.modelBox.style.display = apiMode ? "none" : "";
@@ -1111,7 +1110,23 @@
     }
 
     parent.appendChild(ctx.headerBox);
-    parent.appendChild(ctx.inferenceBox);
+    const localModeAction = el("div", { className: "row minicpm-local-mode-action" },
+      el("div", { className: "row-text" },
+        el("span", { className: "row-label" }, "本地模型"),
+        el("span", { className: "row-desc" }, "使用本机 MiniCPM 模型进行聊天。")
+      )
+    );
+    const localModeControls = el("div", { className: "row-control" });
+    const localModeButton = softBtn("切换到本地模型", async () => {
+      const result = await window.minicpmSettings.setInferenceConfig({ inference_mode: "local" });
+      if (ops && ops.showToast) {
+        ops.showToast(result && result.ok ? "已切换到本地模型。" : `切换失败：${(result && result.error) || ""}`, { error: !(result && result.ok) });
+      }
+      if (result && result.ok) void ctx.refreshAll();
+    }, { accent: true });
+    localModeControls.appendChild(localModeButton);
+    localModeAction.appendChild(localModeControls);
+    parent.appendChild(localModeAction);
     parent.appendChild(ctx.behaviorBox);
     parent.appendChild(ctx.modelBox);
     parent.appendChild(ctx.adapterBox);

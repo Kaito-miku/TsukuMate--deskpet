@@ -192,32 +192,24 @@ function handleClick(clientX) {
   const leftReact = _getReaction("clickLeft");
   const rightReact = _getReaction("clickRight");
 
-  if (clickCount >= 4 && doubleReact) {
+  if (clickCount >= 2 && doubleReact) {
     clickCount = 0;
     firstClickDir = null;
     if (!canPlayReactionNow()) return;
     const files = doubleReact.files || [doubleReact.file];
     const file = files[Math.floor(Math.random() * files.length)];
     playReaction(file, doubleReact.duration || 3500);
-  } else if (clickCount >= 2) {
+  } else {
     clickTimer = setTimeout(() => {
       clickTimer = null;
       clickCount = 0;
       const dir = firstClickDir;
       firstClickDir = null;
       if (!canPlayReactionNow()) return;
-      if (annoyedReact && Math.random() < 0.5) {
-        playReaction(annoyedReact.file, annoyedReact.duration || 3500);
-      } else if (leftReact && rightReact) {
+      if (leftReact && rightReact) {
         const react = dir === "left" ? leftReact : rightReact;
         playReaction(react.file, react.duration || 2500);
       }
-    }, CLICK_WINDOW_MS);
-  } else {
-    clickTimer = setTimeout(() => {
-      clickTimer = null;
-      clickCount = 0;
-      firstClickDir = null;
     }, CLICK_WINDOW_MS);
   }
 }

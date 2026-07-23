@@ -63,4 +63,22 @@ describe("OpenAI-compatible transport", () => {
       (err) => err.message === "invalid key" && !err.message.includes("never-leak"),
     );
   });
+
+  test("preserves standard OpenAI vision message content", () => {
+    const body = makeChatBody({
+      model: "vision-model",
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: "What is this?" },
+          { type: "image_url", image_url: { url: "data:image/jpeg;base64,preview" } },
+        ],
+      }],
+      stream: true,
+    });
+    assert.deepEqual(body.messages[0].content, [
+      { type: "text", text: "What is this?" },
+      { type: "image_url", image_url: { url: "data:image/jpeg;base64,preview" } },
+    ]);
+  });
 });

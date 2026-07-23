@@ -26,6 +26,10 @@ contextBridge.exposeInMainWorld("minicpm", {
   getTimeContext: () => ipcRenderer.invoke("minicpm:get-time-context"),
   getChatContext: () => ipcRenderer.invoke("minicpm:get-chat-context"),
   musicControl: (entry) => ipcRenderer.invoke("minicpm:music-control", entry || {}),
+  listScreenSources: () => ipcRenderer.invoke("minicpm:screen-capture-list"),
+  captureScreen: (sourceId) => ipcRenderer.invoke("minicpm:screen-capture-take", { sourceId }),
+  discardScreenCapture: (token) => ipcRenderer.invoke("minicpm:screen-capture-discard", { token }),
+  openScreenRecordingSettings: () => ipcRenderer.invoke("minicpm:screen-capture-open-settings"),
   remoteChat: async (payload, onEvent) => {
     const started = await ipcRenderer.invoke("minicpm:remote-chat-start", payload || {});
     if (!started || !started.ok) throw new Error((started && started.error) || "Could not start remote chat");

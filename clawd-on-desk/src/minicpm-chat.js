@@ -25,7 +25,7 @@
 // has no torch / transformers / peft dependency and ships as a single
 // binary per platform alongside llama-server.
 
-const { BrowserWindow, ipcMain, screen, shell, Menu, app, safeStorage } = require("electron");
+const { BrowserWindow, ipcMain, screen, shell, Menu, app, safeStorage, desktopCapturer, systemPreferences } = require("electron");
 const { spawn, execFile } = require("child_process");
 const { promisify } = require("util");
 const execFileAsync = promisify(execFile);
@@ -37,6 +37,7 @@ const { validateConfig: validateApiConfig, requestJson: requestOpenAi, makeChatB
 const { runAppleMusicCommand } = require("./apple-music-control");
 const { buildTimeContext } = require("./time-context");
 const { normalizeProfiles, selectActiveProfile } = require("./persona-profiles");
+const { createScreenCaptureService } = require("./screen-capture");
 
 const isMac = process.platform === "darwin";
 const isWin = process.platform === "win32";
@@ -50,7 +51,7 @@ const LINUX_WINDOW_TYPE = "splash";
 // to remember. Override via MINICPM_PORT env if you need something else.
 const DEFAULT_PORT = 18765;
 const DEFAULT_HOST = "127.0.0.1";
-const BUBBLE_GAP = 8;   // pixels between visible pet sprite and bubble
+const BUBBLE_GAP = 3;   // pixels between visible pet sprite and bubble
 const EDGE_MARGIN = 8;
 
 const ASK_WIDTH = 120;       // initial empty-input width — tiny pill
@@ -847,6 +848,7 @@ module.exports = function initMinicpmChat(ctx) {
   const port = Number(process.env.MINICPM_PORT || DEFAULT_PORT);
   const host = process.env.MINICPM_HOST || DEFAULT_HOST;
   const log = (msg) => { try { console.log(msg); } catch {} };
+  const screenCapture = createScreenCaptureService({ desktopCapturer, systemPreferences });
 
   // ── i18n bridge ──────────────────────────────────────────────────────
   // ctx.getLang() returns the *effective* UI language. Used to translate
@@ -935,6 +937,11 @@ module.exports = function initMinicpmChat(ctx) {
     try { return path.join(app.getPath("userData"), "minicpm-api-key.bin"); }
     catch { return path.join(os.tmpdir(), "minicpm-api-key.bin"); }
   })();
+  const apiKeyPathFor = (id) => {
+    const safeId = String(id || "default").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48) || "default";
+    try { return path.join(app.getPath("userData"), `minicpm-api-key-${safeId}.bin`); }
+    catch { return path.join(os.tmpdir(), `minicpm-api-key-${safeId}.bin`); }
+  };
 
   // ── Adapter (LoRA) path resolution ────────────────────────────────────
   // Same shape as the model paths: <userData>/adapters/ in packaged
@@ -1421,10 +1428,15 @@ module.exports = function initMinicpmChat(ctx) {
   const DEFAULT_INFERENCE_CONFIG = { inference_mode: "local", api_endpoint: "", api_model: "", api_persona: DEFAULT_API_PERSONA, diary_enabled: true, diary_time: "22:00", api_key_configured: false };
   function getInferenceConfig() {
     const raw = readMinicpmPrefsRaw();
+    const profiles = Array.isArray(raw.api_profiles) && raw.api_profiles.length ? raw.api_profiles : [{ id: "default", name: "默认 API", endpoint: raw.api_endpoint || "", model: raw.api_model || "", keyConfigured: !!raw.api_key_configured }];
+    const activeId = profiles.some((p) => p && p.id === raw.active_api_profile_id) ? raw.active_api_profile_id : profiles[0].id;
+    const active = profiles.find((p) => p && p.id === activeId) || profiles[0];
     return {
       inference_mode: raw.inference_mode === "api" ? "api" : "local",
-      api_endpoint: typeof raw.api_endpoint === "string" ? raw.api_endpoint : "",
-      api_model: typeof raw.api_model === "string" ? raw.api_model : "",
+      api_endpoint: typeof active.endpoint === "string" ? active.endpoint : "",
+      api_model: typeof active.model === "string" ? active.model : "",
+      api_profiles: profiles.map((p) => ({ id: p.id, name: p.name, endpoint: p.endpoint, model: p.model, keyConfigured: !!p.keyConfigured })),
+      active_api_profile_id: activeId,
       api_persona: typeof raw.api_persona === "string" && raw.api_persona.trim() ? raw.api_persona.trim() : DEFAULT_API_PERSONA,
       diary_enabled: raw.diary_enabled !== false,
       diary_time: /^([01]\d|2[0-3]):[0-5]\d$/.test(raw.diary_time || "") ? raw.diary_time : "22:00",
@@ -1432,23 +1444,44 @@ module.exports = function initMinicpmChat(ctx) {
     };
   }
   function isApiMode() { return getInferenceConfig().inference_mode === "api"; }
-  function readApiKey() {
+  function saveApiProfiles(input) {
+    const raw = readMinicpmPrefsRaw();
+    const source = Array.isArray(input && input.profiles) ? input.profiles : [];
+    const seen = new Set();
+    const profiles = source.slice(0, 12).map((item, index) => {
+      const id = String(item && item.id || `api-${index + 1}`).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 48);
+      if (!id || seen.has(id)) throw new Error("API profile id is invalid or duplicated");
+      seen.add(id);
+      const checked = validateApiConfig({ endpoint: item && item.endpoint, model: item && item.model });
+      const name = String(item && item.name || checked.model).trim().slice(0, 64) || checked.model;
+      if (typeof item.api_key === "string" && item.api_key.trim()) writeApiKey(item.api_key.trim(), id);
+      return { id, name, endpoint: checked.endpoint, model: checked.model, keyConfigured: !!(readApiKey(id) || (id === "default" && readApiKey())) };
+    });
+    if (!profiles.length) throw new Error("At least one API profile is required");
+    const activeId = profiles.some((p) => p.id === input.activeId) ? input.activeId : profiles[0].id;
+    const active = profiles.find((p) => p.id === activeId);
+    if (!active.keyConfigured) throw new Error("The active API profile needs an API key");
+    mergeMinicpmPrefs({ inference_mode: "api", api_profiles: profiles, active_api_profile_id: activeId, api_endpoint: active.endpoint, api_model: active.model, api_key_configured: active.keyConfigured });
+    return getInferenceConfig();
+  }
+  function readApiKey(id) {
     try {
-      if (!safeStorage || !safeStorage.isEncryptionAvailable() || !fs.existsSync(API_KEY_PATH)) return null;
-      const value = safeStorage.decryptString(fs.readFileSync(API_KEY_PATH));
+      const keyPath = id ? apiKeyPathFor(id) : API_KEY_PATH;
+      if (!safeStorage || !safeStorage.isEncryptionAvailable() || !fs.existsSync(keyPath)) return null;
+      const value = safeStorage.decryptString(fs.readFileSync(keyPath));
       return value || null;
     } catch { return null; }
   }
-  function writeApiKey(value) {
+  function writeApiKey(value, id) {
     if (!safeStorage || !safeStorage.isEncryptionAvailable()) {
       throw new Error("System encryption is unavailable; API key was not saved");
     }
-    fs.writeFileSync(API_KEY_PATH, safeStorage.encryptString(value));
+    fs.writeFileSync(id ? apiKeyPathFor(id) : API_KEY_PATH, safeStorage.encryptString(value));
   }
   function getRemoteRuntimeConfig() {
     const config = getInferenceConfig();
     const checked = validateApiConfig({ endpoint: config.api_endpoint, model: config.api_model });
-    const apiKey = readApiKey();
+    const apiKey = readApiKey(config.active_api_profile_id) || readApiKey();
     if (!apiKey) throw new Error("API key is not configured");
     return { ...checked, apiKey, api_persona: getActivePersona().prompt };
   }
@@ -1462,10 +1495,10 @@ module.exports = function initMinicpmChat(ctx) {
       const diaryTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(input && input.diary_time || "") ? input.diary_time : current.diary_time;
       next = { ...next, api_endpoint: checked.endpoint, api_model: checked.model, api_persona: persona.slice(0, 4000) || DEFAULT_API_PERSONA, diary_enabled: !(input && input.diary_enabled === false), diary_time: diaryTime };
       if (typeof input.api_key === "string" && input.api_key.trim()) {
-        writeApiKey(input.api_key.trim());
+        writeApiKey(input.api_key.trim(), current.active_api_profile_id);
         next.api_key_configured = true;
       }
-      if (!next.api_key_configured || !readApiKey()) throw new Error("API key is required");
+      if (!next.api_key_configured || !(readApiKey(current.active_api_profile_id) || readApiKey())) throw new Error("API key is required");
     }
     mergeMinicpmPrefs(next);
     if (mode === "api") await sidecar.stopAndWait().catch(() => {});
@@ -1511,6 +1544,79 @@ module.exports = function initMinicpmChat(ctx) {
   }
   const remoteRequests = new Map();
   let remoteRequestSeq = 0;
+  let emotionRequestSeq = 0;
+  let emotionController = null;
+  const screenCaptures = new Map();
+  let screenCaptureSeq = 0;
+
+  function isChatBubbleSender(sender) {
+    return !!(bubble && !bubble.isDestroyed() && sender === bubble.webContents);
+  }
+
+  function screenCaptureNeedsPermission(error) {
+    // `getMediaAccessStatus("screen")` can transiently report
+    // "not-determined" after a TCC change even when Electron has already
+    // been enabled in System Settings. Only the capture service's explicit
+    // denied/restricted result is authoritative here.
+    return !!(error && error.code === "SCREEN_CAPTURE_PERMISSION");
+  }
+
+  function screenCaptureErrorMessage(error) {
+    const permissionMissing = screenCaptureNeedsPermission(error);
+    if (permissionMissing) return tr("chatScreenPermissionRequired");
+    if (error && error.code === "SCREEN_CAPTURE_INVALID_SOURCE") return tr("chatScreenSourceUnavailable");
+    return tr("chatScreenCaptureFailed");
+  }
+
+  function discardScreenCapture(token, senderId) {
+    const item = screenCaptures.get(String(token || ""));
+    if (!item || (senderId != null && item.senderId !== senderId)) return false;
+    if (item.timer) clearTimeout(item.timer);
+    screenCaptures.delete(String(token));
+    return true;
+  }
+
+  function discardScreenCapturesForSender(senderId) {
+    for (const [token, item] of screenCaptures) {
+      if (item.senderId === senderId) discardScreenCapture(token, senderId);
+    }
+  }
+
+  function storeScreenCapture(senderId, capture) {
+    const token = `screen-${Date.now()}-${++screenCaptureSeq}`;
+    const item = { senderId, dataUrl: capture.dataUrl, timer: null };
+    // A selected image is short-lived even if the user leaves the chat open.
+    item.timer = setTimeout(() => discardScreenCapture(token, senderId), 5 * 60 * 1000);
+    screenCaptures.set(token, item);
+    return { token, previewDataUrl: capture.previewDataUrl };
+  }
+
+  function takeScreenCapture(token, senderId) {
+    const item = screenCaptures.get(String(token || ""));
+    if (!item || item.senderId !== senderId) return null;
+    const dataUrl = item.dataUrl;
+    discardScreenCapture(token, senderId);
+    return dataUrl;
+  }
+
+  function withScreenImage(messages, imageDataUrl) {
+    const normalized = Array.isArray(messages) ? messages.slice() : [];
+    if (!imageDataUrl) return normalized;
+    for (let index = normalized.length - 1; index >= 0; index -= 1) {
+      const message = normalized[index];
+      if (!message || message.role !== "user") continue;
+      const existing = Array.isArray(message.content)
+        ? message.content.slice()
+        : [{ type: "text", text: String(message.content || "") }];
+      normalized[index] = {
+        ...message,
+        content: [...existing, { type: "image_url", image_url: { url: imageDataUrl } }],
+      };
+      return normalized;
+    }
+    throw new Error("A screen capture must be attached to a user message");
+  }
+
   let diaryMemoryCache = { at: 0, text: "" };
   function getDiaryMemory() {
     if (Date.now() - diaryMemoryCache.at < 300000) return diaryMemoryCache.text;
@@ -1527,16 +1633,72 @@ module.exports = function initMinicpmChat(ctx) {
   }
   async function remoteCompletion(options, onEvent, signal) {
     const cfg = getRemoteRuntimeConfig();
+    const hasScreenImage = typeof options.screenImageDataUrl === "string" && options.screenImageDataUrl.startsWith("data:image/");
+    if (hasScreenImage) {
+      // Deliberately log only the presence and byte count — never the image
+      // data itself, user text, or API credentials.
+      log(`[screen-capture] attaching image to remote chat (${options.screenImageDataUrl.length} data-url chars)`);
+    }
     const body = makeChatBody({
       model: cfg.model,
-      messages: options.messages,
-      system: [cfg.api_persona, buildTimeContext(), options.includeMemory === false ? "" : (getDiaryMemory() ? `Recent diary memories (use only when relevant):\n${getDiaryMemory()}` : ""), options.system || ""].filter(Boolean).join("\n\n"),
+      messages: withScreenImage(options.messages, options.screenImageDataUrl),
+      system: [cfg.api_persona, buildTimeContext(), hasScreenImage ? "The latest user message includes a screen capture. Analyze the image when answering; do not say that you cannot see it unless the image itself is unavailable." : "", options.includeMemory === false ? "" : (getDiaryMemory() ? `Recent diary memories (use only when relevant):\n${getDiaryMemory()}` : ""), options.system || ""].filter(Boolean).join("\n\n"),
       stream: !!options.stream,
       maxTokens: options.max_tokens || options.max_new_tokens,
       temperature: options.temperature,
       topP: options.top_p,
     });
     return requestOpenAi({ endpoint: cfg.endpoint, apiKey: cfg.apiKey, body, signal, onEvent });
+  }
+
+  // This request is intentionally isolated from the conversational stream:
+  // it has no diary/history side effects, is never sent to the renderer, and
+  // cannot delay the actual reply.  Sequence checking prevents a late answer
+  // from an older prompt changing the pet after the user has moved on.
+  async function classifyChatEmotion(messages) {
+    if (!isApiMode()) {
+      try { ctx.setChatEmotion && ctx.setChatEmotion("calm"); } catch {}
+      return "calm";
+    }
+    const latest = [...(Array.isArray(messages) ? messages : [])].reverse()
+      .find((message) => message && message.role === "user");
+    const text = latest && typeof latest.content === "string" ? latest.content.trim().slice(0, 1600) : "";
+    if (!text) return "calm";
+    const requestId = ++emotionRequestSeq;
+    if (emotionController) emotionController.abort();
+    const controller = new AbortController();
+    emotionController = controller;
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    let emotion = "calm";
+    try {
+      const cfg = getRemoteRuntimeConfig();
+      const body = makeChatBody({
+        model: cfg.model,
+        stream: false,
+        temperature: 0,
+        topP: 1,
+        maxTokens: 24,
+        messages: [{ role: "user", content: text }],
+        system: "Classify the user's message into exactly one pet emotion. Reply with JSON only: {\"emotion\":\"calm|focused|happy|shy|surprised|sleepy|sad|annoyed\"}. No explanation.",
+      });
+      const result = await requestOpenAi({ endpoint: cfg.endpoint, apiKey: cfg.apiKey, body, signal: controller.signal });
+      const raw = String(result && result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content || "").trim();
+      const parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, ""));
+      if (parsed && ["calm", "focused", "happy", "shy", "surprised", "sleepy", "sad", "annoyed"].includes(parsed.emotion)) {
+        emotion = parsed.emotion;
+      }
+    } catch {
+      // Best-effort classifier: errors deliberately remain invisible and
+      // simply restore the neutral expression.
+      emotion = "calm";
+    } finally {
+      clearTimeout(timeout);
+      if (emotionController === controller) emotionController = null;
+    }
+    if (requestId === emotionRequestSeq) {
+      try { ctx.setChatEmotion && ctx.setChatEmotion(emotion); } catch {}
+    }
+    return emotion;
   }
   function localDay(now = new Date()) {
     return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
@@ -1957,7 +2119,10 @@ module.exports = function initMinicpmChat(ctx) {
         event.preventDefault();
       }
     });
-    bubble.on("closed", () => { bubble = null; });
+    bubble.on("closed", () => {
+      try { discardScreenCapturesForSender(bubble.webContents.id); } catch {}
+      bubble = null;
+    });
 
     return bubble;
   }
@@ -2030,6 +2195,8 @@ module.exports = function initMinicpmChat(ctx) {
 
   function shutdown() {
     if (diaryTimer) clearInterval(diaryTimer);
+    if (emotionController) emotionController.abort();
+    emotionController = null;
     sidecar.stop();
     if (bubble && !bubble.isDestroyed()) bubble.destroy();
     bubble = null;
@@ -2453,7 +2620,7 @@ module.exports = function initMinicpmChat(ctx) {
     "minicpm:status": async () => ({
       bridgeDir,
       url: sidecar.baseUrl(),
-      healthy: isApiMode() ? !!readApiKey() : await sidecar.isHealthy(getEffectiveModelDir()),
+      healthy: isApiMode() ? !!(readApiKey(getInferenceConfig().active_api_profile_id) || readApiKey()) : await sidecar.isHealthy(getEffectiveModelDir()),
       remote: isApiMode(),
     }),
     "minicpm:start": async (_evt, opts = {}) => {
@@ -2473,13 +2640,23 @@ module.exports = function initMinicpmChat(ctx) {
     },
     "minicpm:remote-chat-start": async (event, payload = {}) => {
       if (!isApiMode()) return { ok: false, error: "Remote API mode is not enabled" };
+      if (!isChatBubbleSender(event.sender)) return { ok: false, error: "Screen chat is only available from the chat window" };
+      const screenImageDataUrl = payload.screen_capture_token
+        ? takeScreenCapture(payload.screen_capture_token, event.sender.id)
+        : null;
+      if (payload.screen_capture_token && !screenImageDataUrl) {
+        return { ok: false, error: tr("chatScreenCaptureExpired") };
+      }
       const id = `remote-${Date.now()}-${++remoteRequestSeq}`;
       const controller = new AbortController();
       remoteRequests.set(id, controller);
       const sender = event.sender;
+      // Fire and forget: emotional feedback is auxiliary and never holds up
+      // the response stream or creates a chat/history entry.
+      void classifyChatEmotion(payload.messages).catch(() => {});
       setImmediate(async () => {
         try {
-          await remoteCompletion(payload, (frame) => {
+          await remoteCompletion({ ...payload, screenImageDataUrl }, (frame) => {
             if (!sender.isDestroyed()) sender.send("minicpm:remote-chat-event", { id, ...frame });
           }, controller.signal);
           if (!sender.isDestroyed()) sender.send("minicpm:remote-chat-event", { id, event: "end" });
@@ -2493,6 +2670,35 @@ module.exports = function initMinicpmChat(ctx) {
       const ctrl = remoteRequests.get(payload.id);
       if (ctrl) ctrl.abort();
       return { ok: true };
+    },
+    "minicpm:screen-capture-list": async (event) => {
+      if (!isApiMode()) return { ok: false, error: tr("chatScreenUnavailableLocal") };
+      if (!isChatBubbleSender(event.sender)) return { ok: false, error: "Screen chat is only available from the chat window" };
+      try {
+        return { ok: true, sources: await screenCapture.list() };
+      } catch (error) {
+        return { ok: false, error: screenCaptureErrorMessage(error), permissionRequired: screenCaptureNeedsPermission(error) };
+      }
+    },
+    "minicpm:screen-capture-take": async (event, payload = {}) => {
+      if (!isApiMode()) return { ok: false, error: tr("chatScreenUnavailableLocal") };
+      if (!isChatBubbleSender(event.sender)) return { ok: false, error: "Screen chat is only available from the chat window" };
+      try {
+        const capture = await screenCapture.capture(payload.sourceId);
+        return { ok: true, ...storeScreenCapture(event.sender.id, capture) };
+      } catch (error) {
+        return { ok: false, error: screenCaptureErrorMessage(error), permissionRequired: screenCaptureNeedsPermission(error) };
+      }
+    },
+    "minicpm:screen-capture-discard": async (event, payload = {}) => ({
+      ok: isChatBubbleSender(event.sender) && discardScreenCapture(payload.token, event.sender.id),
+    }),
+    "minicpm:screen-capture-open-settings": async () => {
+      if (!isMac) return { ok: false };
+      try {
+        await shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture");
+        return { ok: true };
+      } catch { return { ok: false }; }
     },
     "minicpm:save-chat-history": async (_event, entry) => appendChatHistory(entry),
     "minicpm:save-memory-note": async (_event, entry) => appendMemoryNote(entry && entry.content),
@@ -2597,7 +2803,7 @@ module.exports = function initMinicpmChat(ctx) {
       if (isApiMode()) {
         const config = getInferenceConfig();
         return {
-          remote: true, healthy: !!readApiKey(), sidecarReady: false, llamaReady: false,
+          remote: true, healthy: !!(readApiKey(config.active_api_profile_id) || readApiKey()), sidecarReady: false, llamaReady: false,
           narration: narrationEnabled, api: config,
         };
       }
@@ -2623,6 +2829,10 @@ module.exports = function initMinicpmChat(ctx) {
       };
     },
     "minicpm-settings:get-inference-config": async () => getInferenceConfig(),
+    "minicpm-settings:save-api-profiles": async (_evt, payload) => {
+      try { return { ok: true, config: saveApiProfiles(payload || {}) }; }
+      catch (err) { return { ok: false, error: localizeError(err) }; }
+    },
     "minicpm-settings:get-persona-profiles": async () => getPersonaProfiles(),
     "minicpm-settings:save-persona-profiles": async (_evt, payload) => {
       try { return { ok: true, ...savePersonaProfiles(payload || {}) }; }

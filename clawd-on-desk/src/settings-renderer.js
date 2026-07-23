@@ -4,10 +4,12 @@ const core = globalThis.ClawdSettingsCore;
 
 const SIDEBAR_TABS = [
   { id: "general", labelKey: "sidebarGeneral", available: true },
-  { id: "minicpm", labelKey: "sidebarMinicpm", available: true },
+  { id: "minicpm", label: "本地模型", available: true },
+  { id: "api", label: "API", available: true },
   { id: "personas", label: "人格", available: true },
   { id: "agents", labelKey: "sidebarAgents", available: true },
   { id: "theme", labelKey: "sidebarTheme", available: true },
+  { id: "live2d", label: "Live2D", available: true },
   { id: "animMap", labelKey: "sidebarAnimMap", available: true },
   { id: "animOverrides", labelKey: "sidebarAnimOverrides", available: true },
   { id: "shortcuts", labelKey: "sidebarShortcuts", available: true },
@@ -98,6 +100,7 @@ core.ops.installRenderHooks({
 globalThis.ClawdSettingsTabGeneral.init(core);
 globalThis.ClawdSettingsTabAgents.init(core);
 globalThis.ClawdSettingsTabTheme.init(core);
+if (globalThis.ClawdSettingsTabLive2d) globalThis.ClawdSettingsTabLive2d.init(core);
 globalThis.ClawdSettingsTabAnimMap.init(core);
 globalThis.ClawdSettingsTabAnimOverrides.init(core);
 globalThis.ClawdSettingsTabShortcuts.init(core);
@@ -106,6 +109,7 @@ globalThis.ClawdSettingsTabAbout.init(core);
 if (globalThis.ClawdSettingsTabRemoteSsh) globalThis.ClawdSettingsTabRemoteSsh.init(core);
 if (globalThis.ClawdSettingsTabMobile) globalThis.ClawdSettingsTabMobile.init(core);
 if (globalThis.ClawdSettingsTabMinicpm) globalThis.ClawdSettingsTabMinicpm.init(core);
+if (globalThis.ClawdSettingsTabApi) globalThis.ClawdSettingsTabApi.init(core);
 if (globalThis.ClawdSettingsTabPersonas) globalThis.ClawdSettingsTabPersonas.init(core);
 
 if (window.settingsAPI && typeof window.settingsAPI.onChanged === "function") {

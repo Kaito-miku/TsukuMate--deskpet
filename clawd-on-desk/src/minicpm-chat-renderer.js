@@ -46,6 +46,8 @@ function refreshStaticUi() {
   if (inputEl) {
     inputEl.placeholder = t("chatAskPlaceholder");
   }
+  const screenButton = document.getElementById("screen-read-button");
+  if (screenButton) screenButton.title = remoteMode ? t("chatScreenRead") : t("chatScreenUnavailableLocal");
 }
 
 // Event listener: open native context menu on right-click. Replaced the
@@ -58,6 +60,7 @@ document.body.addEventListener("contextmenu", (event) => {
 });
 
 const SIDECAR_URL = "http://127.0.0.1:18765";
+const FIXED_ASK_WIDTH = 340;
 
 // ── element refs ──
 const bubble = document.getElementById("bubble");
@@ -74,6 +77,9 @@ let history = [];            // multi-turn conversation; persists across opens
 let abortCtrl = null;
 let fadeTimer = null;
 let inputEl = null;          // <textarea> while in ask state
+let pendingScreenCapture = null;
+let screenPickerEl = null;
+let screenAttachmentEl = null;
 // Tracks the latest remote revision shown in the update pill so we can
 // re-render its label on a language change without losing the version.
 let updPillRevision = null;
@@ -91,6 +97,120 @@ function resolveThinking(chatParams) {
 function saveChatHistory(role, content) {
   if (!content || !window.minicpm || typeof window.minicpm.saveChatHistory !== "function") return;
   void window.minicpm.saveChatHistory({ role, content: String(content) }).catch(() => {});
+}
+
+function renderAskInput(placeholder) {
+  const disabled = remoteMode ? "" : " disabled";
+  const title = escapeHtml(remoteMode ? t("chatScreenRead") : t("chatScreenUnavailableLocal"));
+  return '<div class="ask-input-wrap"><div class="chat-input-row">' +
+    '<textarea id="ask-input" placeholder="' + placeholder + '" rows="1"></textarea>' +
+    '<button class="screen-read-button" id="screen-read-button" type="button" title="' + title + '" aria-label="' + title + '"' + disabled + '>⌗</button>' +
+    '</div></div>';
+}
+
+function getAskMount() { return document.querySelector(".ask-input-wrap") || inputEl; }
+function removeScreenPicker() { if (screenPickerEl) screenPickerEl.remove(); screenPickerEl = null; }
+function removeScreenAttachment() { if (screenAttachmentEl) screenAttachmentEl.remove(); screenAttachmentEl = null; }
+
+async function discardPendingScreenCapture() {
+  const pending = pendingScreenCapture;
+  pendingScreenCapture = null;
+  removeScreenAttachment();
+  if (pending && pending.token && window.minicpm && window.minicpm.discardScreenCapture) {
+    try { await window.minicpm.discardScreenCapture(pending.token); } catch {}
+  }
+  await measureAndShow({ animate: false });
+}
+
+function takePendingScreenCapture() {
+  const token = pendingScreenCapture && pendingScreenCapture.token;
+  pendingScreenCapture = null;
+  removeScreenAttachment();
+  return token || null;
+}
+
+function discardScreenCaptureToken(token) {
+  if (token && window.minicpm && window.minicpm.discardScreenCapture) {
+    void window.minicpm.discardScreenCapture(token).catch(() => {});
+  }
+}
+
+async function renderScreenAttachment() {
+  removeScreenAttachment();
+  if (!pendingScreenCapture || !pendingScreenCapture.previewDataUrl) return;
+  const mount = getAskMount();
+  if (!mount) return;
+  const el = document.createElement("div");
+  el.className = "screen-attachment";
+  el.innerHTML = '<img alt="" src="' + pendingScreenCapture.previewDataUrl + '"><span>' + escapeHtml(t("chatScreenAttachment")) + '</span>' +
+    '<button type="button" title="' + escapeHtml(t("chatScreenRemove")) + '" aria-label="' + escapeHtml(t("chatScreenRemove")) + '">×</button>';
+  el.querySelector("button").addEventListener("click", () => { void discardPendingScreenCapture(); });
+  mount.insertAdjacentElement("afterend", el);
+  screenAttachmentEl = el;
+  await measureAndShow({ animate: false });
+}
+
+async function showScreenCaptureFailure(result) {
+  removeScreenPicker();
+  const mount = getAskMount();
+  if (!mount) { await showToast((result && result.error) || t("chatScreenCaptureFailed")); return; }
+  const panel = document.createElement("div");
+  panel.className = "screen-picker screen-picker-error";
+  panel.innerHTML = '<div class="screen-picker-error-text">' + escapeHtml((result && result.error) || t("chatScreenCaptureFailed")) + '</div>' +
+    (result && result.permissionRequired ? '<button class="screen-picker-settings" type="button">' + escapeHtml(t("chatScreenPermissionOpen")) + '</button>' : "") +
+    '<button class="screen-picker-cancel" type="button">' + escapeHtml(t("chatScreenCancel")) + '</button>';
+  const settings = panel.querySelector(".screen-picker-settings");
+  if (settings) settings.addEventListener("click", () => { void window.minicpm.openScreenRecordingSettings(); });
+  panel.querySelector(".screen-picker-cancel").addEventListener("click", async () => {
+    removeScreenPicker(); await measureAndShow({ animate: false }); if (inputEl) inputEl.focus();
+  });
+  mount.insertAdjacentElement("afterend", panel);
+  screenPickerEl = panel;
+  await measureAndShow({ animate: false, width: FIXED_ASK_WIDTH });
+}
+
+async function selectScreenSource(sourceId) {
+  if (!window.minicpm || !window.minicpm.captureScreen) return;
+  if (screenPickerEl) screenPickerEl.classList.add("is-loading");
+  const result = await window.minicpm.captureScreen(sourceId);
+  if (!result || !result.ok) { await showScreenCaptureFailure(result); return; }
+  pendingScreenCapture = { token: result.token, previewDataUrl: result.previewDataUrl };
+  removeScreenPicker();
+  await renderScreenAttachment();
+  if (inputEl) inputEl.focus();
+}
+
+async function showScreenPicker() {
+  if (!remoteMode) { await showToast(t("chatScreenUnavailableLocal")); return; }
+  if (!window.minicpm || !window.minicpm.listScreenSources) return;
+  removeScreenPicker();
+  const result = await window.minicpm.listScreenSources();
+  if (!result || !result.ok) { await showScreenCaptureFailure(result); return; }
+  const mount = getAskMount();
+  if (!mount) return;
+  const panel = document.createElement("div");
+  panel.className = "screen-picker";
+  panel.innerHTML = '<div class="screen-picker-title">' + escapeHtml(t("chatScreenPickTitle")) + '</div><div class="screen-picker-hint">' + escapeHtml(t("chatScreenPickHint")) + '</div><div class="screen-source-list"></div><button class="screen-picker-cancel" type="button">' + escapeHtml(t("chatScreenCancel")) + '</button>';
+  const list = panel.querySelector(".screen-source-list");
+  for (const source of result.sources || []) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "screen-source";
+    button.innerHTML = '<img alt="" src="' + source.previewDataUrl + '"><span>' + escapeHtml(source.name) + '</span>';
+    button.addEventListener("click", () => { void selectScreenSource(source.id); });
+    list.appendChild(button);
+  }
+  panel.querySelector(".screen-picker-cancel").addEventListener("click", async () => {
+    removeScreenPicker(); await measureAndShow({ animate: false }); if (inputEl) inputEl.focus();
+  });
+  mount.insertAdjacentElement("afterend", panel);
+  screenPickerEl = panel;
+  await measureAndShow({ animate: false, width: FIXED_ASK_WIDTH });
+}
+
+function wireAskControls() {
+  const button = document.getElementById("screen-read-button");
+  if (button && !button.disabled) button.addEventListener("click", () => { void showScreenPicker(); });
 }
 
 // ── window helpers ──
@@ -197,13 +317,12 @@ async function showAsk(lastReply) {
     content.innerHTML =
       '<div class="chat-pane">' +
         '<div class="last-reply-region rendered" id="last-reply-region">' + renderMarkdown(lastReply) + '</div>' +
-        '<div class="ask-input-wrap">' +
-          '<textarea id="ask-input" placeholder="' + placeholder + '" rows="1"></textarea>' +
-        '</div>' +
+        renderAskInput(placeholder) +
       '</div>';
     inputEl = document.getElementById("ask-input");
     inputEl.addEventListener("input", () => autoresizeFixed(inputEl));
     inputEl.addEventListener("keydown", onAskKey);
+    wireAskControls();
     await measureAndShow();
     const lr = document.getElementById("last-reply-region");
     if (lr) lr.scrollTop = lr.scrollHeight;
@@ -222,12 +341,12 @@ async function showAsk(lastReply) {
     // First-open compact layout: bubble starts as a tiny pill that just
     // fits the placeholder text, expanding horizontally as user types.
     const placeholder = escapeHtml(t("chatAskPlaceholder"));
-    content.innerHTML =
-      '<textarea id="ask-input" placeholder="' + placeholder + '" rows="1"></textarea>';
+    content.innerHTML = renderAskInput(placeholder);
     inputEl = document.getElementById("ask-input");
     inputEl.addEventListener("input", () => autoresize(inputEl));
     inputEl.addEventListener("keydown", onAskKey);
-    await measureAndShow({ width: naturalAskWidth("") });
+    wireAskControls();
+    await measureAndShow({ width: naturalAskWidth("") + 28 });
   }
   if (window.minicpm && window.minicpm.focusWindow) {
     try { await window.minicpm.focusWindow(); } catch {}
@@ -248,13 +367,14 @@ function autoresizeFixed(ta) {
 function autoresize(ta) {
   ta.style.height = "auto";
   ta.style.height = Math.min(ta.scrollHeight, 96) + "px";
-  // Bubble width grows with text — empty = ~100px, full multi-line = 320px max.
-  const w = naturalAskWidth(ta.value);
+  // Keep a stable reading line once the user starts typing. This avoids the
+  // bubble (and an open screen picker) constantly changing width per letter.
+  const w = ta.value.trim() ? FIXED_ASK_WIDTH : naturalAskWidth("") + 28;
   measureAndShow({ animate: false, width: w });
 }
 
 async function onAskKey(e) {
-  if (e.key === "Enter" && !e.shiftKey) {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.altKey) {
     e.preventDefault();
     const text = inputEl.value.trim();
     if (!text) return;
@@ -838,6 +958,10 @@ async function runAdapterSwitchByKeyword(keyword, fullMessage, progress) {
 }
 
 async function submit(text) {
+  // The image itself never enters `history`: only its opaque main-process
+  // token travels with this one remote request.
+  const screenCaptureToken = takePendingScreenCapture();
+  if (screenCaptureToken && !remoteMode) discardScreenCaptureToken(screenCaptureToken);
   // Try command intents first. If matched, render the result as the
   // assistant turn and skip the model call entirely.
   try {
@@ -847,6 +971,7 @@ async function submit(text) {
       await showCommandProgress(progressText);
     });
     if (cmd) {
+      discardScreenCaptureToken(screenCaptureToken);
       if (cmd.resetHistory) {
         // Adapter / model swap: the chat "voice" just changed, so we wipe
         // the entire prior history AND we don't even keep this admin turn
@@ -938,6 +1063,7 @@ async function submit(text) {
           window.minicpm.remoteChat({
             messages: messagesToSend,
             stream: true,
+            screen_capture_token: screenCaptureToken || undefined,
             max_tokens: maxNewTokens,
             temperature: (typeof chatParams.temperature === "number") ? chatParams.temperature : 0.6,
             top_p: (typeof chatParams.top_p === "number") ? chatParams.top_p : 0.95,
@@ -1053,11 +1179,12 @@ async function submit(text) {
       fadeTimer = setTimeout(() => {
         fadeTimer = null;
         if (phase === "ask" && (!inputEl || !inputEl.value.trim())) {
-          hideBubble({ fade: true });
+          void discardPendingScreenCapture().then(() => hideBubble({ fade: true }));
         }
       }, 25000);
     }, readingMs);
   } catch (err) {
+    discardScreenCaptureToken(screenCaptureToken);
     if (typer) typer.stop();
     if (err.name === "AbortError") return;
     await showError(err.message || String(err));
@@ -1143,12 +1270,16 @@ async function cmdDismiss() {
     try { abortCtrl.abort(); } catch {}
     abortCtrl = null;
   }
+  removeScreenPicker();
+  await discardPendingScreenCapture();
   await hideBubble({ fade: true });
 }
 
 async function cmdReset() {
   history = [];
   thinkingOverride = null;
+  removeScreenPicker();
+  await discardPendingScreenCapture();
   if (phase === "ask" && inputEl) inputEl.value = "";
 }
 

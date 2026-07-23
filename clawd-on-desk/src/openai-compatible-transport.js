@@ -4,6 +4,7 @@
 // the renderer means API keys never enter Chromium or renderer DevTools.
 const http = require("http");
 const https = require("https");
+const { createProxyAgent } = require("./proxy-agent");
 
 function validateConfig(input) {
   const endpoint = String(input && input.endpoint || "").trim();
@@ -30,6 +31,11 @@ function responseError(status, raw) {
 function requestJson({ endpoint, apiKey, body, signal, timeoutMs = 30000, onEvent }) {
   const url = new URL(endpoint);
   const client = url.protocol === "https:" ? https : http;
+  // Match the rest of the app's network behavior: macOS system proxy and
+  // HTTPS_PROXY / ALL_PROXY are honored for remote model requests. Never
+  // proxy local test servers or sidecar traffic.
+  const isLoopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "::1";
+  const agent = isLoopback ? undefined : createProxyAgent(endpoint);
   const encoded = JSON.stringify(body);
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -44,6 +50,7 @@ function requestJson({ endpoint, apiKey, body, signal, timeoutMs = 30000, onEven
       port: url.port || undefined,
       path: `${url.pathname}${url.search}`,
       method: "POST",
+      agent,
       headers: {
         "Content-Type": "application/json",
         "Content-Length": Buffer.byteLength(encoded),

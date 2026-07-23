@@ -108,6 +108,46 @@
     display: block;
   }
   textarea::placeholder { color: var(--muted); }
+  .chat-input-row { display: flex; align-items: flex-end; gap: 5px; }
+  .chat-input-row textarea { width: auto; flex: 1 1 auto; min-width: 0; }
+  .screen-read-button {
+    flex: 0 0 24px; width: 24px; height: 24px; border: 0; border-radius: 5px;
+    background: transparent; color: var(--muted); font: 16px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+    cursor: pointer; -webkit-app-region: no-drag;
+  }
+  .screen-read-button:hover { color: var(--text); background: rgba(127, 127, 127, 0.14); }
+  .screen-read-button:disabled { cursor: not-allowed; opacity: 0.42; }
+  .screen-attachment {
+    display: flex; align-items: center; gap: 6px; margin-top: 5px; padding: 4px;
+    border: 1px solid var(--border); border-radius: 5px; color: var(--muted); font-size: 11px;
+  }
+  .screen-attachment img { width: 38px; height: 25px; object-fit: cover; border-radius: 3px; }
+  .screen-attachment span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .screen-attachment button, .screen-picker button {
+    border: 0; color: var(--muted); background: transparent; cursor: pointer; -webkit-app-region: no-drag;
+  }
+  .screen-attachment button { flex: 0 0 20px; font-size: 18px; line-height: 18px; }
+  .screen-attachment button:hover, .screen-picker button:hover { color: var(--text); }
+  .screen-picker {
+    min-width: 330px; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px;
+    -webkit-app-region: no-drag;
+  }
+  .screen-picker-title { color: var(--text); font-weight: 600; }
+  .screen-picker-hint, .screen-picker-error-text { color: var(--muted); margin-top: 2px; line-height: 1.35; }
+  .screen-source-list {
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px;
+    max-height: 156px; overflow-y: auto; margin: 8px 0;
+  }
+  .screen-source {
+    min-width: 0; padding: 5px; border: 1px solid var(--border) !important; border-radius: 6px !important;
+    display: flex; flex-direction: row; align-items: center; gap: 8px; text-align: left;
+  }
+  .screen-source:hover { border-color: rgba(106, 112, 229, 0.65) !important; background: rgba(106, 112, 229, 0.10) !important; }
+  .screen-source img { width: 112px; height: 63px; flex: 0 0 auto; object-fit: cover; border-radius: 3px; }
+  .screen-source span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+  .screen-picker-cancel, .screen-picker-settings { padding: 3px 0; font-size: 11px; }
+  .screen-picker-settings { color: var(--accent) !important; margin-right: 10px; }
+  .screen-picker.is-loading { opacity: 0.55; pointer-events: none; }
 
   /* — Continuous-chat layout (size follows content; bubble grows smoothly) — */
   .chat-pane {
@@ -120,7 +160,7 @@
     max-height: 120px;
     overflow-y: auto;
     font-size: 12.5px;
-    color: var(--muted);
+    color: var(--text);
     line-height: 1.45;
     white-space: pre-wrap;
     word-wrap: break-word;

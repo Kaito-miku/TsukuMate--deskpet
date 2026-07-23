@@ -123,6 +123,7 @@ const createFloatingWindowRuntime = require("./floating-window-runtime");
 const createPetWindowRuntime = require("./pet-window-runtime");
 const createMacHideController = require("./mac-hide");
 const { createHardwareBuddyAdapter } = require("./hardware-buddy-adapter");
+const { createLive2dAssetService } = require("./live2d-assets");
 const {
   getFocusableLocalHudSessionIds: selectFocusableLocalHudSessionIds,
   getSessionFocusTarget,
@@ -974,6 +975,28 @@ function bringPetToPrimaryDisplay() {
 function sendToRenderer(channel, ...args) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, ...args);
 }
+
+let live2dAssets = null;
+let live2dDebugLog = null;
+function getPetRendererConfig() {
+  const base = themeRuntime.getRendererConfig() || {};
+  const raw = _settingsController.get("live2d") || {};
+  return {
+    ...base,
+    live2d: {
+      ...(live2dAssets ? live2dAssets.getRendererConfig() : { enabled: false, models: [] }),
+      scale: Number.isFinite(raw.scale) ? raw.scale : 1,
+      offsetX: Number.isFinite(raw.offsetX) ? raw.offsetX : 0,
+      offsetY: Number.isFinite(raw.offsetY) ? raw.offsetY : 0,
+    },
+  };
+}
+
+ipcMain.on("live2d-status", (_event, payload = {}) => {
+  const text = `[${new Date().toISOString()}] ${String(payload.stage || "unknown")}: ${String(payload.message || "").slice(0, 1500)}\n`;
+  try { if (live2dDebugLog) fs.appendFileSync(live2dDebugLog, text, "utf8"); } catch {}
+  console.log(`[live2d] ${text.trim()}`);
+});
 function sendToHitWin(channel, ...args) {
   if (hitWin && !hitWin.isDestroyed()) hitWin.webContents.send(channel, ...args);
 }
@@ -1694,6 +1717,9 @@ _minicpmChat = require("./minicpm-chat")({
   },
   getNearestWorkArea,
   getLang: () => lang,
+  // The chat service never manipulates renderer state directly.  This narrow
+  // bridge lets its best-effort remote classifier update the pet runtime.
+  setChatEmotion: (emotion) => _state && _state.setChatEmotion(emotion),
 });
 
 function openMinicpmChat() {
@@ -3358,7 +3384,7 @@ function createWindow() {
     initialVirtualBounds,
     preloadPath: path.join(__dirname, "preload.js"),
     loadFilePath: path.join(__dirname, "index.html"),
-    themeConfig: themeRuntime.getRendererConfig(),
+    themeConfig: getPetRendererConfig(),
     setRenderWindow: (createdWindow) => { win = createdWindow; },
     isQuitting: () => isQuitting,
     applyDockVisibility,
@@ -3475,7 +3501,7 @@ function createWindow() {
     setLowPowerIdlePaused(false);
   });
   win.webContents.on("did-finish-load", () => {
-    sendToRenderer("theme-config", themeRuntime.getRendererConfig());
+    sendToRenderer("theme-config", getPetRendererConfig());
     sendToRenderer("viewport-offset", petWindowRuntime.getViewportOffsetY());
     if (themeRuntime.isReloadInProgress()) return;
     syncRendererStateAfterLoad();
@@ -3731,7 +3757,7 @@ if (!gotTheLock) {
     }
   }
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     // macOS: override the dock icon with a version padded to the macOS icon
     // grid (~80.5% of the canvas, ~100px transparent margin per side) so the
     // Dock tile matches neighbor apps. The build-time icon.png sits ~72.6%
@@ -3761,7 +3787,48 @@ if (!gotTheLock) {
     permDebugLog = path.join(app.getPath("userData"), "permission-debug.log");
     updateDebugLog = path.join(app.getPath("userData"), "update-debug.log");
     sessionDebugLog = path.join(app.getPath("userData"), "session-debug.log");
+    live2dDebugLog = path.join(app.getPath("userData"), "live2d-debug.log");
     focusDebugLog = path.join(app.getPath("userData"), "focus-debug.log");
+    // Models stay outside managed Codex Pet themes.  This keeps a user's
+    // Cubism assets intact when Codex Pet imports are refreshed.
+    live2dAssets = createLive2dAssetService({
+      preferredModel: ((_settingsController.get("live2d") || {}).modelId) || "",
+      modelRoots: [
+        path.join(__dirname, "..", "live2d"),
+        path.join(__dirname, "..", "..", "live2d"),
+        // Also accept a model folder placed directly at the shared project
+        // root (for example the official hiyori_zh-Hans sample directory).
+        path.join(__dirname, "..", ".."),
+        path.join(app.getPath("userData"), "live2d"),
+      ],
+      coreCandidates: [
+        path.join(__dirname, "..", "live2d", "live2dcubismcore.min.js"),
+        path.join(__dirname, "..", "..", "live2d", "live2dcubismcore.min.js"),
+        path.join(app.getPath("userData"), "live2d", "live2dcubismcore.min.js"),
+      ],
+    });
+    try { await live2dAssets.start(); }
+    catch (err) { console.warn("Clawd: Live2D asset service failed to start:", err && err.message); }
+    try { ipcMain.removeHandler("settings:live2d-get"); } catch {}
+    ipcMain.handle("settings:live2d-get", () => ({
+      settings: _settingsController.get("live2d"),
+      runtime: live2dAssets ? live2dAssets.getRendererConfig() : { enabled: false, models: [] },
+    }));
+    try { ipcMain.removeHandler("settings:live2d-set"); } catch {}
+    ipcMain.handle("settings:live2d-set", (_event, payload = {}) => {
+      const current = _settingsController.get("live2d") || {};
+      const next = {
+        modelId: typeof payload.modelId === "string" ? payload.modelId : current.modelId,
+        scale: Number.isFinite(payload.scale) ? payload.scale : current.scale,
+        offsetX: Number.isFinite(payload.offsetX) ? payload.offsetX : current.offsetX,
+        offsetY: Number.isFinite(payload.offsetY) ? payload.offsetY : current.offsetY,
+      };
+      const result = _settingsController.applyUpdate("live2d", next);
+      if (result && result.status === "error") return result;
+      if (live2dAssets) live2dAssets.selectModel(next.modelId);
+      sendToRenderer("theme-config", getPetRendererConfig());
+      return { status: "ok", settings: _settingsController.get("live2d"), runtime: live2dAssets.getRendererConfig() };
+    });
     initTelegramMigrationController().catch((err) => {
       console.warn("Clawd: migration controller init failed:", err && err.message);
     });
@@ -3879,6 +3946,7 @@ if (!gotTheLock) {
     themeRuntime.cleanup();
     _focus.cleanup();
     if (animationOverridesMain) animationOverridesMain.cleanup();
+    try { if (live2dAssets) live2dAssets.stop(); } catch {}
     try { _remoteSshIpc.dispose(); } catch {}
     try { _remoteSshRuntime.cleanup(); } catch {}
     try { if (_minicpmChat && typeof _minicpmChat.shutdown === "function") _minicpmChat.shutdown(); } catch {}
