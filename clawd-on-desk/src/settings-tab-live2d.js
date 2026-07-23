@@ -173,7 +173,7 @@
       parent.appendChild(motionSection);
     }
 
-    core.ops.registerTab("live2d", { render });
+    core.tabs.live2d = { render };
   }
 
   root.ClawdSettingsTabLive2d = { init };
