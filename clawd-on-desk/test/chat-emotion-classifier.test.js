@@ -23,3 +23,21 @@ test("multilingual heuristics distinguish representative user emotions", () => {
   assert.equal(inferEmotionFromText("Please carefully analyze and debug this code"), "focused");
   assert.equal(inferEmotionFromText("我没有生气，只是普通地问一下"), null);
 });
+
+test("weighted lexicon covers positive, negative, and neutral task language", () => {
+  assert.equal(inferEmotionFromText("你真的很棒，又专业又靠谱，谢谢你"), "happy");
+  assert.equal(inferEmotionFromText("我喜欢你……这样说有点不好意思"), "shy");
+  assert.equal(inferEmotionFromText("这个垃圾软件又卡顿又崩溃，太差劲了"), "annoyed");
+  assert.equal(inferEmotionFromText("怎么办？？我的账号被锁了，很紧急"), "surprised");
+  assert.equal(inferEmotionFromText("我真的很失望，算了吧，不想说了"), "sad");
+  assert.equal(inferEmotionFromText("今天太累了，我想睡觉"), "sleepy");
+  assert.equal(inferEmotionFromText("不对，请重新解释这个设置的更新步骤"), "focused");
+  assert.equal(inferEmotionFromText("请显示当前状态、版本和进度"), "focused");
+  assert.equal(inferEmotionFromText("今天是星期三"), null);
+});
+
+test("punctuation and emoji modify but do not overwhelm explicit emotion", () => {
+  assert.equal(inferEmotionFromText("太好了！！我们成功了🎉"), "happy");
+  assert.equal(inferEmotionFromText("怎么会这样？？？"), "surprised");
+  assert.equal(inferEmotionFromText("我没有生气，只是想问设置在哪里"), "focused");
+});
