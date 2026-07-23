@@ -48,6 +48,7 @@ function refreshStaticUi() {
   }
   const screenButton = document.getElementById("screen-read-button");
   if (screenButton) screenButton.title = remoteMode ? t("chatScreenRead") : t("chatScreenUnavailableLocal");
+  renderEmotionStatus(latestEmotionStatus);
 }
 
 // Event listener: open native context menu on right-click. Replaced the
@@ -66,6 +67,8 @@ const FIXED_ASK_WIDTH = 340;
 const bubble = document.getElementById("bubble");
 const content = document.getElementById("content");
 const updPill = document.getElementById("updPill");
+const emotionStatusEl = document.getElementById("emotionStatus");
+const emotionStatusText = document.getElementById("emotionStatusText");
 
 // ── module state ──
 let phase = "hidden";        // hidden | starting | ask | thinking | speak | error
@@ -83,6 +86,43 @@ let screenAttachmentEl = null;
 // Tracks the latest remote revision shown in the update pill so we can
 // re-render its label on a language change without losing the version.
 let updPillRevision = null;
+let latestEmotionStatus = { phase: "idle", emotion: "calm", updatedAt: null };
+
+const EMOTION_COPY = {
+  en: { prefix: "Emotion", idle: "not tested", classifying: "detecting…", fallback: "fallback", disabled: "API mode required", calm: "calm", focused: "focused", happy: "happy", shy: "shy", surprised: "surprised", sleepy: "sleepy", sad: "sad", annoyed: "annoyed" },
+  zh: { prefix: "最近情绪", idle: "尚未测试", classifying: "识别中…", fallback: "回退", disabled: "需要 API 模式", calm: "平静", focused: "专注", happy: "开心", shy: "害羞", surprised: "惊讶", sleepy: "困倦", sad: "难过", annoyed: "轻微不满" },
+  "zh-TW": { prefix: "最近情緒", idle: "尚未測試", classifying: "辨識中…", fallback: "回退", disabled: "需要 API 模式", calm: "平靜", focused: "專注", happy: "開心", shy: "害羞", surprised: "驚訝", sleepy: "睏倦", sad: "難過", annoyed: "輕微不滿" },
+  ja: { prefix: "最近の感情", idle: "未テスト", classifying: "判定中…", fallback: "フォールバック", disabled: "APIモードが必要", calm: "平静", focused: "集中", happy: "嬉しい", shy: "照れ", surprised: "驚き", sleepy: "眠い", sad: "悲しい", annoyed: "少し不満" },
+  ko: { prefix: "최근 감정", idle: "테스트 전", classifying: "판별 중…", fallback: "대체", disabled: "API 모드 필요", calm: "차분함", focused: "집중", happy: "기쁨", shy: "수줍음", surprised: "놀람", sleepy: "졸림", sad: "슬픔", annoyed: "약간 불만" },
+};
+
+function emotionDictionary() {
+  if (EMOTION_COPY[currentLang]) return EMOTION_COPY[currentLang];
+  if (/^zh[-_]?(TW|Hant)/i.test(currentLang)) return EMOTION_COPY["zh-TW"];
+  if (/^zh/i.test(currentLang)) return EMOTION_COPY.zh;
+  if (/^ja/i.test(currentLang)) return EMOTION_COPY.ja;
+  if (/^ko/i.test(currentLang)) return EMOTION_COPY.ko;
+  return EMOTION_COPY.en;
+}
+
+function renderEmotionStatus(payload) {
+  if (!emotionStatusEl || !emotionStatusText) return;
+  latestEmotionStatus = { ...latestEmotionStatus, ...(payload || {}) };
+  const copy = emotionDictionary();
+  const phase = ["idle", "classifying", "detected", "fallback", "disabled"].includes(latestEmotionStatus.phase)
+    ? latestEmotionStatus.phase : "idle";
+  const emotion = copy[latestEmotionStatus.emotion] || copy.calm;
+  let detail = emotion;
+  if (phase === "idle") detail = copy.idle;
+  else if (phase === "classifying") detail = copy.classifying;
+  else if (phase === "fallback") detail = `${emotion} · ${copy.fallback}`;
+  else if (phase === "disabled") detail = copy.disabled;
+  emotionStatusEl.dataset.phase = phase;
+  emotionStatusEl.dataset.emotion = latestEmotionStatus.emotion || "calm";
+  emotionStatusText.textContent = `${copy.prefix}：${detail}`;
+  emotionStatusEl.title = emotionStatusText.textContent;
+  emotionStatusEl.classList.add("visible");
+}
 
 // Persisted default lives in minicpm-prefs.json (Settings → 默认思考模式).
 // thinkingOverride is a per-session override from ⌘⇧T; null means follow
@@ -541,7 +581,10 @@ async function measureAndShow({ animate = true, width = null } = {}) {
   const cw = width !== null
     ? width
     : Math.max(220, bubble.offsetWidth || 280);
-  const ch = Math.max(28, content.offsetHeight + padY);
+  const statusHeight = emotionStatusEl && emotionStatusEl.classList.contains("visible")
+    ? emotionStatusEl.offsetHeight + 6
+    : 0;
+  const ch = Math.max(28, content.offsetHeight + statusHeight + padY);
   await setBubbleSize(cw, ch);
   if (animate) showBubble();
   else bubble.classList.add("show");
@@ -1362,6 +1405,12 @@ if (window.minicpm) {
       exitEditMode();
     }
   });
+  if (window.minicpm.onEmotionStatus) {
+    window.minicpm.onEmotionStatus(async (payload) => {
+      renderEmotionStatus(payload);
+      if (phase !== "hidden") await measureAndShow({ animate: false });
+    });
+  }
 }
 
 // ── Drag-to-position edit mode ─────────────────────────────────────────
@@ -1503,6 +1552,9 @@ async function bootstrapI18n() {
     window.minicpm.onLangChange((payload) => {
       if (payload && typeof payload.lang === "string") applyLang(payload.lang);
     });
+  }
+  if (window.minicpm && typeof window.minicpm.getEmotionStatus === "function") {
+    try { renderEmotionStatus(await window.minicpm.getEmotionStatus()); } catch {}
   }
 }
 

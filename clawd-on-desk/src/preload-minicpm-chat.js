@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld("minicpm", {
   saveMemoryNote: (entry) => ipcRenderer.invoke("minicpm:save-memory-note", entry || {}),
   getTimeContext: () => ipcRenderer.invoke("minicpm:get-time-context"),
   getChatContext: () => ipcRenderer.invoke("minicpm:get-chat-context"),
+  getEmotionStatus: () => ipcRenderer.invoke("minicpm:emotion-status"),
   musicControl: (entry) => ipcRenderer.invoke("minicpm:music-control", entry || {}),
   listScreenSources: () => ipcRenderer.invoke("minicpm:screen-capture-list"),
   captureScreen: (sourceId) => ipcRenderer.invoke("minicpm:screen-capture-take", { sourceId }),
@@ -66,4 +67,9 @@ contextBridge.exposeInMainWorld("minicpm", {
   onNarrate:        (cb) => ipcRenderer.on("minicpm:narrate",             (_e, p) => cb(p || {})),
   onCmdReply:       (cb) => ipcRenderer.on("minicpm:cmd-reply",           (_e, p) => cb(p || {})),
   onEditMode:       (cb) => ipcRenderer.on("minicpm:edit-mode",           (_e, p) => cb(p || {})),
+  onEmotionStatus:  (cb) => {
+    const listener = (_e, payload) => { try { cb(payload || {}); } catch {} };
+    ipcRenderer.on("minicpm:emotion-status", listener);
+    return () => ipcRenderer.removeListener("minicpm:emotion-status", listener);
+  },
 });

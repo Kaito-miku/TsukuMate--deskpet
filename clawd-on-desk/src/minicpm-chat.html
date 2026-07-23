@@ -319,6 +319,23 @@
     animation: thinkBlink 1.4s ease-in-out infinite;
   }
   .upd-pill:hover { background: rgba(155,140,255,0.18); }
+  .emotion-status {
+    display: none; width: fit-content; max-width: 100%; align-items: center; gap: 6px;
+    margin: 0 0 6px; padding: 3px 8px; border: 1px solid rgba(155,140,255,0.25);
+    border-radius: 999px; background: rgba(155,140,255,0.08); color: var(--muted);
+    font-size: 10.5px; line-height: 1.25; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; -webkit-app-region: no-drag;
+  }
+  .emotion-status.visible { display: flex; }
+  .emotion-status-dot {
+    width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 0 3px rgba(155,140,255,0.11);
+  }
+  .emotion-status[data-phase="classifying"] .emotion-status-dot { animation: emotionPulse .9s ease-in-out infinite; }
+  .emotion-status[data-phase="fallback"] { border-color: rgba(255,178,82,0.30); }
+  .emotion-status[data-phase="fallback"] .emotion-status-dot { background: #ffb252; box-shadow: 0 0 0 3px rgba(255,178,82,0.11); }
+  .emotion-status[data-phase="disabled"], .emotion-status[data-phase="idle"] { opacity: .78; }
+  @keyframes emotionPulse { 50% { opacity: .3; transform: scale(.76); } }
   /* Inline progress shown inside the bubble while updating. */
   .upd-progress {
     font-size: 12px;
@@ -358,6 +375,9 @@
   <div class="bubble" id="bubble" data-side="right">
     <div class="tail"></div>
     <div class="upd-pill" id="updPill"></div>
+    <div class="emotion-status" id="emotionStatus" data-phase="idle" data-emotion="calm">
+      <span class="emotion-status-dot"></span><span id="emotionStatusText"></span>
+    </div>
     <div id="content"></div>
   </div>
 </div>

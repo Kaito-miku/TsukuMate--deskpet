@@ -1546,11 +1546,26 @@ module.exports = function initMinicpmChat(ctx) {
   let remoteRequestSeq = 0;
   let emotionRequestSeq = 0;
   let emotionController = null;
+  let emotionStatus = { phase: "idle", emotion: "calm", updatedAt: null };
   const screenCaptures = new Map();
   let screenCaptureSeq = 0;
 
   function isChatBubbleSender(sender) {
     return !!(bubble && !bubble.isDestroyed() && sender === bubble.webContents);
+  }
+
+  function publishEmotionStatus(next) {
+    const phases = ["idle", "classifying", "detected", "fallback", "disabled"];
+    const emotions = ["calm", "focused", "happy", "shy", "surprised", "sleepy", "sad", "annoyed"];
+    emotionStatus = {
+      phase: phases.includes(next && next.phase) ? next.phase : "idle",
+      emotion: emotions.includes(next && next.emotion) ? next.emotion : "calm",
+      updatedAt: Number.isFinite(next && next.updatedAt) ? next.updatedAt : Date.now(),
+    };
+    if (bubble && !bubble.isDestroyed()) {
+      try { bubble.webContents.send("minicpm:emotion-status", emotionStatus); } catch {}
+    }
+    return { ...emotionStatus };
   }
 
   function screenCaptureNeedsPermission(error) {
@@ -1658,18 +1673,24 @@ module.exports = function initMinicpmChat(ctx) {
   async function classifyChatEmotion(messages) {
     if (!isApiMode()) {
       try { ctx.setChatEmotion && ctx.setChatEmotion("calm"); } catch {}
+      publishEmotionStatus({ phase: "disabled", emotion: "calm" });
       return "calm";
     }
     const latest = [...(Array.isArray(messages) ? messages : [])].reverse()
       .find((message) => message && message.role === "user");
     const text = latest && typeof latest.content === "string" ? latest.content.trim().slice(0, 1600) : "";
-    if (!text) return "calm";
+    if (!text) {
+      publishEmotionStatus({ phase: "fallback", emotion: "calm" });
+      return "calm";
+    }
     const requestId = ++emotionRequestSeq;
     if (emotionController) emotionController.abort();
     const controller = new AbortController();
     emotionController = controller;
+    publishEmotionStatus({ phase: "classifying", emotion: emotionStatus.emotion });
     const timeout = setTimeout(() => controller.abort(), 3500);
     let emotion = "calm";
+    let detected = false;
     try {
       const cfg = getRemoteRuntimeConfig();
       const body = makeChatBody({
@@ -1686,6 +1707,7 @@ module.exports = function initMinicpmChat(ctx) {
       const parsed = JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g, ""));
       if (parsed && ["calm", "focused", "happy", "shy", "surprised", "sleepy", "sad", "annoyed"].includes(parsed.emotion)) {
         emotion = parsed.emotion;
+        detected = true;
       }
     } catch {
       // Best-effort classifier: errors deliberately remain invisible and
@@ -1697,6 +1719,7 @@ module.exports = function initMinicpmChat(ctx) {
     }
     if (requestId === emotionRequestSeq) {
       try { ctx.setChatEmotion && ctx.setChatEmotion(emotion); } catch {}
+      publishEmotionStatus({ phase: detected ? "detected" : "fallback", emotion });
     }
     return emotion;
   }
@@ -2623,6 +2646,11 @@ module.exports = function initMinicpmChat(ctx) {
       healthy: isApiMode() ? !!(readApiKey(getInferenceConfig().active_api_profile_id) || readApiKey()) : await sidecar.isHealthy(getEffectiveModelDir()),
       remote: isApiMode(),
     }),
+    "minicpm:emotion-status": async (event) => {
+      if (!isChatBubbleSender(event.sender)) return { phase: "idle", emotion: "calm", updatedAt: null };
+      if (!isApiMode()) return { phase: "disabled", emotion: "calm", updatedAt: emotionStatus.updatedAt };
+      return { ...emotionStatus };
+    },
     "minicpm:start": async (_evt, opts = {}) => {
       try {
         if (isApiMode()) {
