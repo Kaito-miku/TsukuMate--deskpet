@@ -331,7 +331,8 @@
     width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--accent);
     box-shadow: 0 0 0 3px rgba(155,140,255,0.11);
   }
-  .emotion-status[data-phase="classifying"] .emotion-status-dot { animation: emotionPulse .9s ease-in-out infinite; }
+  .emotion-status[data-phase="classifying"] .emotion-status-dot,
+  .emotion-status[data-phase="provisional"] .emotion-status-dot { animation: emotionPulse .9s ease-in-out infinite; }
   .emotion-status[data-phase="fallback"] { border-color: rgba(255,178,82,0.30); }
   .emotion-status[data-phase="fallback"] .emotion-status-dot { background: #ffb252; box-shadow: 0 0 0 3px rgba(255,178,82,0.11); }
   .emotion-status[data-phase="heuristic"] { border-color: rgba(70,196,170,0.32); }

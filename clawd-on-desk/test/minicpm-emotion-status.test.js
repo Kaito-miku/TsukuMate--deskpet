@@ -10,7 +10,13 @@ const src = (name) => fs.readFileSync(path.join(__dirname, "..", "src", name), "
 test("chat emotion status uses a constrained main-to-renderer IPC surface", () => {
   const main = src("minicpm-chat.js");
   const preload = src("preload-minicpm-chat.js");
-  assert.match(main, /publishEmotionStatus\(\{ phase: "classifying"/);
+  assert.match(main, /publishEmotionStatus\(\{ phase: "provisional", emotion: provisional \}\)/);
+  const classifier = main.slice(main.indexOf("async function classifyChatEmotion"), main.indexOf("function localDay"));
+  assert.ok(
+    classifier.indexOf('publishEmotionStatus({ phase: "provisional", emotion: provisional })')
+      < classifier.indexOf("await requestOpenAi({"),
+    "the provisional reaction must be published before waiting for the classifier API",
+  );
   assert.match(main, /publishEmotionStatus\(\{ phase: source, emotion \}\)/);
   assert.match(main, /"minicpm:emotion-status": async \(event\)/);
   assert.match(preload, /getEmotionStatus: \(\) => ipcRenderer\.invoke\("minicpm:emotion-status"\)/);

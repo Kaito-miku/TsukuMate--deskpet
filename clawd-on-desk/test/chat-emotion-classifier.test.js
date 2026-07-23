@@ -18,6 +18,7 @@ test("multilingual heuristics distinguish representative user emotions", () => {
   assert.equal(inferEmotionFromText("你这样夸我，我都有点不好意思了"), "shy");
   assert.equal(inferEmotionFromText("刚才突然一声巨响，吓了我一跳"), "surprised");
   assert.equal(inferEmotionFromText("这个软件又崩溃了，真的烦死了"), "annoyed");
+  assert.equal(inferEmotionFromText("我的手机刚刚被抢走了"), "surprised");
   assert.equal(inferEmotionFromText("今日は悲しいし、寂しい"), "sad");
   assert.equal(inferEmotionFromText("Please carefully analyze and debug this code"), "focused");
   assert.equal(inferEmotionFromText("我没有生气，只是普通地问一下"), null);

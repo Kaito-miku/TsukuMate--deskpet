@@ -38,7 +38,7 @@ const { runAppleMusicCommand } = require("./apple-music-control");
 const { buildTimeContext } = require("./time-context");
 const { normalizeProfiles, selectActiveProfile } = require("./persona-profiles");
 const { createScreenCaptureService } = require("./screen-capture");
-const { EMOTIONS, parseEmotionResponse, extractAssistantText, inferEmotionFromText } = require("./chat-emotion-classifier");
+const { EMOTIONS, parseEmotionResponse, inferEmotionFromText } = require("./chat-emotion-classifier");
 
 const isMac = process.platform === "darwin";
 const isWin = process.platform === "win32";
@@ -1556,7 +1556,7 @@ module.exports = function initMinicpmChat(ctx) {
   }
 
   function publishEmotionStatus(next) {
-    const phases = ["idle", "classifying", "detected", "heuristic", "fallback", "disabled"];
+    const phases = ["idle", "classifying", "provisional", "detected", "heuristic", "fallback", "disabled"];
     emotionStatus = {
       phase: phases.includes(next && next.phase) ? next.phase : "idle",
       emotion: EMOTIONS.includes(next && next.emotion) ? next.emotion : "calm",
@@ -1687,36 +1687,51 @@ module.exports = function initMinicpmChat(ctx) {
     if (emotionController) emotionController.abort();
     const controller = new AbortController();
     emotionController = controller;
-    publishEmotionStatus({ phase: "classifying", emotion: emotionStatus.emotion });
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    let emotion = "calm";
-    let source = "fallback";
+    // React synchronously before either network request produces a token.
+    // The API classifier runs in parallel and corrects this provisional mood.
+    const provisional = inferEmotionFromText(text) || "calm";
+    try { ctx.setChatEmotion && ctx.setChatEmotion(provisional); } catch {}
+    publishEmotionStatus({ phase: "provisional", emotion: provisional });
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    let emotion = provisional;
+    let source = provisional === "calm" ? "fallback" : "heuristic";
+    let streamed = "";
+    let apiEmotion = null;
     try {
       const cfg = getRemoteRuntimeConfig();
       const body = makeChatBody({
         model: cfg.model,
-        stream: false,
+        stream: true,
         temperature: 0,
         topP: 1,
-        maxTokens: 256,
+        maxTokens: 96,
         messages: [{ role: "user", content: text }],
         system: "Classify the emotional response a gentle desktop pet should show to the user's message. Return exactly one label and nothing else: calm, focused, happy, shy, surprised, sleepy, sad, or annoyed. Do not explain your reasoning.",
       });
-      const result = await requestOpenAi({ endpoint: cfg.endpoint, apiKey: cfg.apiKey, body, signal: controller.signal });
-      const parsed = parseEmotionResponse(extractAssistantText(result));
-      if (parsed) { emotion = parsed; source = "detected"; }
+      await requestOpenAi({
+        endpoint: cfg.endpoint,
+        apiKey: cfg.apiKey,
+        body,
+        signal: controller.signal,
+        onEvent: (frame) => {
+          if (!frame || frame.event !== "delta" || !frame.content || apiEmotion) return;
+          streamed = `${streamed}${frame.content}`.slice(-512);
+          const parsed = parseEmotionResponse(streamed);
+          if (!parsed) return;
+          apiEmotion = parsed;
+          // We only need one label. Ending early makes the classifier cheap
+          // and lets the pet settle on the API result sooner.
+          controller.abort();
+        },
+      });
     } catch {
-      // The normal reply remains independent. A deterministic multilingual
-      // fallback below still gives the pet useful feedback when a provider
-      // rejects short classifier calls or a reasoning model times out.
+      // Expected when we abort immediately after receiving a valid label, and
+      // harmless when the provider times out: the provisional reaction stays.
     } finally {
       clearTimeout(timeout);
       if (emotionController === controller) emotionController = null;
     }
-    if (source === "fallback") {
-      const inferred = inferEmotionFromText(text);
-      if (inferred) { emotion = inferred; source = "heuristic"; }
-    }
+    if (apiEmotion) { emotion = apiEmotion; source = "detected"; }
     if (requestId === emotionRequestSeq) {
       try { ctx.setChatEmotion && ctx.setChatEmotion(emotion); } catch {}
       publishEmotionStatus({ phase: source, emotion });

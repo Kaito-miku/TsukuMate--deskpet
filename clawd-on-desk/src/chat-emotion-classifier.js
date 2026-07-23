@@ -54,7 +54,7 @@ function extractAssistantText(result) {
 
 const HEURISTICS = [
   ["shy", /害羞|不好意思|脸红|臉紅|羞涩|羞澀|暧昧|曖昧|照れ|恥ずかし|\bshy\b|embarrass|blush/gi],
-  ["surprised", /惊讶|驚訝|惊喜|驚喜|吓一跳|嚇一跳|没想到|沒想到|居然|突然|真的假的|びっくり|驚き|surpris|shock|unexpected|\bwow\b/gi],
+  ["surprised", /惊讶|驚訝|惊喜|驚喜|吓一跳|嚇一跳|没想到|沒想到|居然|突然|真的假的|被抢|被搶|抢走|搶走|失窃|失竊|出事|事故|受伤|受傷|危险|危險|びっくり|驚き|surpris|shock|unexpected|\bwow\b/gi],
   ["annoyed", /生气|生氣|烦|煩|讨厌|討厭|愤怒|憤怒|骂|罵|闭嘴|閉嘴|滚|滾|气死|氣死|不爽|むかつ|怒り|嫌い|annoy|angry|\bmad\b|\bhate\b|damn|fuck/gi],
   ["sad", /不开心|不開心|不高兴|不高興|难过|難過|伤心|傷心|委屈|哭|失望|孤独|孤獨|痛苦|悲し|寂し|\bsad\b|upset|cry|lonely|disappoint/gi],
   ["sleepy", /困倦|好困|想睡|晚安|睡觉|睡覺|疲惫|疲憊|累死|眠い|眠たい|sleepy|tired|exhaust/gi],
