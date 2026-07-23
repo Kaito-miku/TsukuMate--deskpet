@@ -165,6 +165,23 @@ const updateRegistry = {
   // ── Window state ──
   x: requireFiniteNumber("x"),
   y: requireFiniteNumber("y"),
+  live2d(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return { status: "error", message: "live2d must be an object" };
+    }
+    if (typeof value.modelId !== "string" || value.modelId.length > 512) {
+      return { status: "error", message: "live2d.modelId must be a string up to 512 characters" };
+    }
+    if (!Number.isFinite(value.scale) || value.scale < 0.35 || value.scale > 2.5) {
+      return { status: "error", message: "live2d.scale must be between 0.35 and 2.5" };
+    }
+    for (const key of ["offsetX", "offsetY"]) {
+      if (!Number.isFinite(value[key]) || value[key] < -300 || value[key] > 300) {
+        return { status: "error", message: `live2d.${key} must be between -300 and 300` };
+      }
+    }
+    return { status: "ok" };
+  },
   size(value) {
     if (typeof value !== "string") {
       return { status: "error", message: "size must be a string" };
