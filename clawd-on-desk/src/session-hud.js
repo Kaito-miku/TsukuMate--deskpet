@@ -232,10 +232,12 @@ function computeSessionHudBounds({ hitRect, anchorRect, workArea, width = HUD_WI
   const maxX = Math.round(workArea.x + workArea.width - dipWidth);
   const x = clampToWorkArea(followCx - Math.round(dipWidth / 2), minX, maxX);
 
-  const belowY = followBottom + petGap;
-  const belowMax = workArea.y + workArea.height - edgeMargin;
-  if (belowY + dipHeight <= belowMax) {
-    const contentBounds = { x, y: belowY, width: dipWidth, height: dipHeight };
+  // Prefer the space above the character so the task card reads like a
+  // floating status bubble instead of covering the pet's face or body.
+  const minY = Math.round(workArea.y + edgeMargin);
+  const aboveY = followTop - dipHeight - petGap;
+  if (aboveY >= minY) {
+    const contentBounds = { x, y: aboveY, width: dipWidth, height: dipHeight };
     return {
       bounds: {
         x: contentBounds.x - shell.left,
@@ -244,16 +246,17 @@ function computeSessionHudBounds({ hitRect, anchorRect, workArea, width = HUD_WI
         height: outerHeight,
       },
       contentBounds,
-      flippedAbove: false,
+      flippedAbove: true,
     };
   }
 
-  const minY = Math.round(workArea.y + edgeMargin);
+  // Near the top edge, fall back below the pet and clamp as a final guard for
+  // unusually small work areas or large text scaling.
   const maxY = Math.round(workArea.y + workArea.height - edgeMargin - dipHeight);
-  const aboveY = followTop - dipHeight - petGap;
+  const belowY = followBottom + petGap;
   const contentBounds = {
     x,
-    y: clampToWorkArea(aboveY, minY, maxY),
+    y: clampToWorkArea(belowY, minY, maxY),
     width: dipWidth,
     height: dipHeight,
   };
@@ -265,7 +268,7 @@ function computeSessionHudBounds({ hitRect, anchorRect, workArea, width = HUD_WI
       height: outerHeight,
     },
     contentBounds,
-    flippedAbove: true,
+    flippedAbove: false,
   };
 }
 

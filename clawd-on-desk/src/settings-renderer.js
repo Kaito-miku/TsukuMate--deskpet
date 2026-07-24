@@ -4,14 +4,10 @@ const core = globalThis.ClawdSettingsCore;
 
 const SIDEBAR_TABS = [
   { id: "general", labelKey: "sidebarGeneral", available: true },
-  { id: "minicpm", label: "本地模型", available: true },
-  { id: "api", label: "API", available: true },
+  { id: "modelGroup", label: "模型与 API", available: true },
   { id: "personas", label: "人格", available: true },
   { id: "agents", labelKey: "sidebarAgents", available: true },
-  { id: "theme", labelKey: "sidebarTheme", available: true },
-  { id: "live2d", label: "Live2D", available: true },
-  { id: "animMap", labelKey: "sidebarAnimMap", available: true },
-  { id: "animOverrides", labelKey: "sidebarAnimOverrides", available: true },
+  { id: "appearanceGroup", label: "外观与动画", available: true },
   { id: "shortcuts", labelKey: "sidebarShortcuts", available: true },
   { id: "remote-ssh", labelKey: "sidebarRemoteSsh", available: true },
   { id: "telegram-approval", labelKey: "sidebarTelegramApproval", available: true },
@@ -19,10 +15,33 @@ const SIDEBAR_TABS = [
   { id: "about", labelKey: "sidebarAbout", available: true },
 ];
 
+const SETTINGS_GROUPS = {
+  modelGroup: {
+    tabs: [
+      { id: "minicpm", label: "本地模型" },
+      { id: "api", label: "API" },
+    ],
+  },
+  appearanceGroup: {
+    tabs: [
+      { id: "theme", label: "主题" },
+      { id: "live2d", label: "Live2D" },
+      { id: "animMap", label: "动画映射" },
+      { id: "animOverrides", label: "动画覆盖" },
+    ],
+  },
+};
+
+const activeGroupTabs = { modelGroup: "minicpm", appearanceGroup: "theme" };
+
 function getTabIcon(tabId) {
   const icons = globalThis.ClawdSettingsIcons;
   if (icons && typeof icons.getIcon === "function") return icons.getIcon(tabId);
   return "";
+}
+
+function groupForTab(tabId) {
+  return Object.entries(SETTINGS_GROUPS).find(([, group]) => group.tabs.some((tab) => tab.id === tabId)) || null;
 }
 
 function renderSidebar() {
@@ -39,7 +58,9 @@ function renderSidebar() {
     const item = document.createElement("div");
     item.className = "sidebar-item";
     if (!tab.available) item.classList.add("disabled");
-    if (tab.id === core.state.activeTab) item.classList.add("active");
+    const groupActive = SETTINGS_GROUPS[tab.id]
+      && SETTINGS_GROUPS[tab.id].tabs.some((child) => child.id === core.state.activeTab);
+    if (tab.id === core.state.activeTab || groupActive) item.classList.add("active");
     const labelText = tab.label ? tab.label : core.helpers.t(tab.labelKey);
     item.innerHTML =
       `<span class="sidebar-item-icon">${getTabIcon(tab.id)}</span>` +
@@ -49,7 +70,7 @@ function renderSidebar() {
       item.setAttribute("role", "button");
       item.setAttribute("tabindex", "0");
       const select = () => {
-        core.ops.selectTab(tab.id);
+        core.ops.selectTab(SETTINGS_GROUPS[tab.id] ? activeGroupTabs[tab.id] : tab.id);
       };
       // Settings is a non-focusable floating window on macOS. Its first
       // click can be consumed while the window becomes key, so switch on
@@ -79,11 +100,48 @@ function renderPlaceholder(parent) {
   parent.appendChild(div);
 }
 
+function renderSettingsGroup(parent, groupId) {
+  const group = SETTINGS_GROUPS[groupId];
+  if (!group) return;
+  const currentIsChild = group.tabs.some((tab) => tab.id === core.state.activeTab);
+  const selectedId = currentIsChild ? core.state.activeTab : (activeGroupTabs[groupId] || group.tabs[0].id);
+  activeGroupTabs[groupId] = selectedId;
+  const switcher = document.createElement("div");
+  switcher.className = "settings-group-switcher";
+  switcher.setAttribute("role", "tablist");
+  for (const item of group.tabs) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `settings-group-tab${item.id === selectedId ? " active" : ""}`;
+    button.textContent = item.label;
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(item.id === selectedId));
+    button.addEventListener("click", () => {
+      if (activeGroupTabs[groupId] === item.id) return;
+      activeGroupTabs[groupId] = item.id;
+      core.ops.selectTab(item.id);
+    });
+    switcher.appendChild(button);
+  }
+  parent.appendChild(switcher);
+  const child = document.createElement("div");
+  child.className = "settings-group-content";
+  parent.appendChild(child);
+  const tab = core.tabs[selectedId];
+  if (tab && typeof tab.render === "function") tab.render(child, core);
+  else renderPlaceholder(child);
+}
+
 function renderContent() {
   const content = document.getElementById("content");
   if (!content) return;
   core.ops.clearMountedControls();
   content.innerHTML = "";
+  const activeGroup = groupForTab(core.state.activeTab);
+  if (activeGroup) {
+    renderSettingsGroup(content, activeGroup[0]);
+    return;
+  }
   const tab = core.tabs[core.state.activeTab];
   if (tab && typeof tab.render === "function") {
     tab.render(content, core);

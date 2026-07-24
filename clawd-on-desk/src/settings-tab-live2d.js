@@ -122,7 +122,7 @@
         select.addEventListener("change", () => {
           apply({ modelId: select.value }, true);
           core.ops.showToast("正在切换 Live2D 模型…", { error: false });
-          setTimeout(() => { if (core.state.activeTab === "live2d") core.ops.requestRender({ content: true }); }, 500);
+          setTimeout(() => { if (core.ops.isTabActive("live2d")) core.ops.requestRender({ content: true }); }, 500);
         });
       }
       modelControl.appendChild(select);
@@ -144,7 +144,7 @@
       reset.type = "button";
       reset.addEventListener("click", async () => {
         apply({ scale: 1, offsetX: 0, offsetY: 0 }, true);
-        setTimeout(() => { if (core.state.activeTab === "live2d") core.ops.requestRender({ content: true }); }, 180);
+        setTimeout(() => { if (core.ops.isTabActive("live2d")) core.ops.requestRender({ content: true }); }, 180);
       });
       resetControl.appendChild(reset);
       resetRow.appendChild(resetControl);

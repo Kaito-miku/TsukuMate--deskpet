@@ -8,12 +8,16 @@ const sprite = document.getElementById("clawd");
 const petContainer = document.getElementById("pet-container");
 let renderer = null;
 let runtime = null;
+let engineModule = null;
 let frame = null;
 let startedAt = 0;
 let previousAt = 0;
 let configuredModelUrl = null;
 let loadingModelUrl = null;
 let active = false;
+let latestChatBlend = { primary: "calm", primaryWeight: 1, secondaryWeight: 0, intensity: 0.2 };
+let latestChatLayer = "calm";
+let currentState = "idle";
 
 function report(stage, message = "") {
   try { window.electronAPI && window.electronAPI.reportLive2dStatus({ stage, message: String(message) }); } catch {}
@@ -74,6 +78,7 @@ async function enable(config) {
       import("../node_modules/@soullink-emotion/live2d-pixi/dist/index.js"),
       import("../node_modules/@soullink-emotion/engine/dist/index.js"),
     ]);
+    engineModule = engine;
     // PIXI measures its container in the constructor.  It must be visible
     // before construction or the initial model scale is calculated as zero.
     stage.style.display = "block";
@@ -137,16 +142,65 @@ function disable() {
   if (sprite) sprite.style.visibility = "";
 }
 
-function triggerEmotion(value) {
-  if (!active || !runtime) return;
-  const emotion = EMOTIONS.has(value) ? value : "calm";
-  const now = performance.now() / 1000 - startedAt;
-  // Soullink accepts arbitrary emotion names and derives a safe neutral/VAD
-  // fallback when a profile has no model-specific expression mapping.
-  runtime.triggerIntent({ emotion, naturalEmotion: emotion, intensity: emotion === "calm" ? 0.2 : 0.75, contextTags: ["desktop-pet"] }, now);
+function normalizeBlend(value) {
+  const primary = typeof value === "string" ? value : value && value.primary;
+  const safePrimary = EMOTIONS.has(primary) ? primary : "calm";
+  const secondary = value && typeof value === "object" && EMOTIONS.has(value.secondary) && value.secondary !== safePrimary && value.secondary !== "calm"
+    ? value.secondary : undefined;
+  let primaryWeight = Number(value && typeof value === "object" ? value.primaryWeight : 1);
+  let secondaryWeight = Number(value && typeof value === "object" ? value.secondaryWeight : 0);
+  if (!secondary) { primaryWeight = 1; secondaryWeight = 0; }
+  else {
+    if (!Number.isFinite(primaryWeight) || primaryWeight <= 0) primaryWeight = 0.7;
+    if (!Number.isFinite(secondaryWeight) || secondaryWeight <= 0) secondaryWeight = 0.3;
+    const total = primaryWeight + secondaryWeight;
+    primaryWeight /= total; secondaryWeight /= total;
+  }
+  const rawIntensity = Number(value && typeof value === "object" ? value.intensity : undefined);
+  const intensity = Number.isFinite(rawIntensity) ? Math.min(1, Math.max(0.2, rawIntensity)) : (safePrimary === "calm" ? 0.2 : 0.75);
+  return { primary: safePrimary, secondary, primaryWeight, secondaryWeight, intensity };
 }
 
-window.live2dPet = { configure: enable, setState: (state) => triggerEmotion(STATE_EMOTION[state] || "calm"), setEmotion: triggerEmotion, disable };
+const VAD_PRESET = { calm: "calm", focused: "curious", happy: "happy", shy: "shy", surprised: "surprised", sleepy: "tired", sad: "sad", annoyed: "anger" };
+
+function blendVAD(blend) {
+  const presets = engineModule && engineModule.emotionVADPresets;
+  if (!presets) return undefined;
+  const primary = presets[VAD_PRESET[blend.primary] || "calm"] || presets.calm;
+  if (!blend.secondary) return primary;
+  const secondary = presets[VAD_PRESET[blend.secondary] || "calm"] || presets.calm;
+  return {
+    valence: primary.valence * blend.primaryWeight + secondary.valence * blend.secondaryWeight,
+    arousal: primary.arousal * blend.primaryWeight + secondary.arousal * blend.secondaryWeight,
+    dominance: primary.dominance * blend.primaryWeight + secondary.dominance * blend.secondaryWeight,
+  };
+}
+
+function triggerEmotion(value) {
+  if (!active || !runtime) return;
+  const blend = normalizeBlend(value);
+  const emotion = blend.primary;
+  const now = performance.now() / 1000 - startedAt;
+  runtime.triggerIntent(
+    { emotion, naturalEmotion: emotion, intensity: blend.intensity, contextTags: ["desktop-pet"] },
+    now,
+    { vadTarget: blendVAD(blend) },
+  );
+}
+
+window.live2dPet = {
+  configure: enable,
+  setState: (state) => {
+    currentState = state || "idle";
+    triggerEmotion(STATE_EMOTION[currentState] || latestChatBlend);
+  },
+  setEmotion: (value) => {
+    latestChatLayer = value && typeof value === "object" && typeof value.activeLayer === "string" ? value.activeLayer : "reaction";
+    latestChatBlend = normalizeBlend(value && typeof value === "object" && value.display ? value.display : value);
+    if (!STATE_EMOTION[currentState]) triggerEmotion(latestChatBlend);
+  },
+  disable,
+};
 window.live2dPet.configure(window.themeConfig && window.themeConfig.live2d);
 
 window.electronAPI.onThemeConfig((config) => window.live2dPet.configure(config && config.live2d));

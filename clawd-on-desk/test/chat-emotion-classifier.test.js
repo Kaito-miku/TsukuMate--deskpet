@@ -2,7 +2,14 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { parseEmotionResponse, extractAssistantText, inferEmotionFromText } = require("../src/chat-emotion-classifier");
+const {
+  parseEmotionResponse,
+  parseEmotionBlendResponse,
+  extractAssistantText,
+  inferEmotionFromText,
+  inferEmotionBlendFromText,
+  normalizeEmotionBlend,
+} = require("../src/chat-emotion-classifier");
 
 test("parses strict, fenced, direct, localized, and reasoning emotion responses", () => {
   assert.equal(parseEmotionResponse('{"emotion":"happy"}'), "happy");
@@ -40,4 +47,46 @@ test("punctuation and emoji modify but do not overwhelm explicit emotion", () =>
   assert.equal(inferEmotionFromText("太好了！！我们成功了🎉"), "happy");
   assert.equal(inferEmotionFromText("怎么会这样？？？"), "surprised");
   assert.equal(inferEmotionFromText("我没有生气，只是想问设置在哪里"), "focused");
+});
+
+test("parses and normalizes compound API responses while preserving legacy labels", () => {
+  const blend = parseEmotionBlendResponse('```json\n{"primary":"happy","secondary":"shy","primaryWeight":7,"secondaryWeight":3,"intensity":0.8}\n```');
+  assert.equal(blend.primary, "happy");
+  assert.equal(blend.secondary, "shy");
+  assert.equal(blend.compoundName, "shy-joy");
+  assert.equal(blend.primaryWeight, 0.7);
+  assert.equal(blend.secondaryWeight, 0.3);
+  assert.equal(blend.source, "api");
+  assert.equal(parseEmotionBlendResponse('{"primary":"happy"'), null, "partial streamed JSON must not settle early");
+  assert.deepEqual(parseEmotionBlendResponse("sad"), normalizeEmotionBlend("sad", "api"));
+  assert.equal(normalizeEmotionBlend({ primary: "sad", secondary: "sad" }).secondary, undefined);
+});
+
+test("vector accumulation produces thresholded compound emotions and separate intensity", () => {
+  const tiredJoy = inferEmotionBlendFromText("终于修好了，但真的累死了");
+  assert.equal(tiredJoy.primary, "sleepy");
+  assert.equal(tiredJoy.secondary, "happy");
+  assert.ok(Math.abs(tiredJoy.primaryWeight + tiredJoy.secondaryWeight - 1) < 1e-9);
+
+  const bittersweet = inferEmotionBlendFromText("谢谢你陪我，可我还是很难过");
+  assert.equal(bittersweet.primary, "sad");
+  assert.equal(bittersweet.secondary, "happy");
+  assert.equal(bittersweet.compoundName, "bittersweet");
+
+  const shyJoy = inferEmotionBlendFromText("见到你真开心，可是有点害羞");
+  assert.equal(shyJoy.primary, "happy");
+  assert.equal(shyJoy.secondary, "shy");
+  assert.equal(shyJoy.compoundName, "shy-joy");
+
+  assert.ok(inferEmotionBlendFromText("非常难过").intensity > inferEmotionBlendFromText("有点难过").intensity);
+});
+
+test("longest phrases, negation, task suppression, and English boundaries avoid false blends", () => {
+  const notHappy = inferEmotionBlendFromText("不开心");
+  assert.equal(notHappy.primary, "sad");
+  assert.equal(notHappy.secondary, undefined);
+  assert.equal(inferEmotionBlendFromText("没有生气").primary, "calm");
+  assert.equal(inferEmotionBlendFromText("不对，请继续分析").primary, "focused");
+  assert.equal(inferEmotionBlendFromText("supervisor").primary, "calm");
+  assert.equal(inferEmotionBlendFromText("请修复这个垃圾 bug").secondary, undefined, "task words must not pollute an explicit affect");
 });

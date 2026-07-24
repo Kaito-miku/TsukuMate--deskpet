@@ -2,6 +2,7 @@
 
 (function initSettingsTabApi(root) {
   function init(core) {
+    const t = (key) => core.helpers.t(key);
     function el(tag, attrs, ...children) {
       const node = document.createElement(tag);
       for (const [key, value] of Object.entries(attrs || {})) {
@@ -138,14 +139,22 @@
       diaryEnabled.checked = config.diary_enabled !== false;
       const diaryTime = el("input", { type: "time", className: "minicpm-adapter-editor-input" });
       diaryTime.value = config.diary_time || "22:00";
+      const moodDuration = el("select", { className: "minicpm-adapter-editor-input" });
+      for (const minutes of [5, 15, 30, 60]) {
+        const option = el("option", { value: String(minutes) }, t("minicpmMoodDurationOption").replace("{minutes}", String(minutes)));
+        option.selected = Number(config.mood_duration_minutes || 15) === minutes;
+        moodDuration.appendChild(option);
+      }
       const saveDiary = el("button", { type: "button", className: "soft-btn accent" }, "保存日记时间");
       saveDiary.addEventListener("click", async () => {
+        const latestConfig = await window.minicpmSettings.getInferenceConfig();
         const result = await window.minicpmSettings.setInferenceConfig({
           inference_mode: "api",
-          api_endpoint: config.api_endpoint,
-          api_model: config.api_model,
+          api_endpoint: latestConfig.api_endpoint,
+          api_model: latestConfig.api_model,
           diary_enabled: diaryEnabled.checked,
           diary_time: diaryTime.value,
+          mood_duration_minutes: Number(moodDuration.value),
         });
         if (!result || !result.ok) {
           core.ops.showToast(`保存日记设置失败：${(result && result.error) || ""}`, { error: true });
@@ -158,6 +167,28 @@
       memoryRows.appendChild(el("div", { className: "row" },
         el("div", { className: "row-text" }, el("span", { className: "row-label" }, "每天生成日记"), el("span", { className: "row-desc" }, "在设定时间根据当天对话生成日记；电脑关闭期间会在下次启动后补写。")),
         diaryScheduleControl
+      ));
+      const saveMood = el("button", { type: "button", className: "soft-btn accent" }, t("minicpmMoodSave"));
+      saveMood.addEventListener("click", async () => {
+        const latestConfig = await window.minicpmSettings.getInferenceConfig();
+        const result = await window.minicpmSettings.setInferenceConfig({
+          inference_mode: "api",
+          api_endpoint: latestConfig.api_endpoint,
+          api_model: latestConfig.api_model,
+          diary_enabled: diaryEnabled.checked,
+          diary_time: diaryTime.value,
+          mood_duration_minutes: Number(moodDuration.value),
+        });
+        if (!result || !result.ok) {
+          core.ops.showToast(`${t("minicpmMoodSaveFailed")} ${(result && result.error) || ""}`, { error: true });
+          return;
+        }
+        config = result.config || config;
+        core.ops.showToast(t("minicpmMoodSaved"), { error: false });
+      });
+      memoryRows.appendChild(el("div", { className: "row" },
+        el("div", { className: "row-text" }, el("span", { className: "row-label" }, t("minicpmMoodDuration")), el("span", { className: "row-desc" }, t("minicpmMoodDurationDesc"))),
+        el("div", { className: "row-control minicpm-api-diary-schedule" }, moodDuration, saveMood)
       ));
 
       const addOpenRow = (label, description, actionLabel, action) => {

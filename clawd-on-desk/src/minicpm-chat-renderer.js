@@ -69,6 +69,7 @@ const content = document.getElementById("content");
 const updPill = document.getElementById("updPill");
 const emotionStatusEl = document.getElementById("emotionStatus");
 const emotionStatusText = document.getElementById("emotionStatusText");
+const emotionMoodStatusText = document.getElementById("emotionMoodStatusText");
 
 // ── module state ──
 let phase = "hidden";        // hidden | starting | ask | thinking | speak | error
@@ -86,14 +87,23 @@ let screenAttachmentEl = null;
 // Tracks the latest remote revision shown in the update pill so we can
 // re-render its label on a language change without losing the version.
 let updPillRevision = null;
-let latestEmotionStatus = { phase: "idle", emotion: "calm", updatedAt: null };
+let latestEmotionStatus = { phase: "idle", emotion: "calm", blend: null, updatedAt: null };
+let emotionEventSeq = 0;
 
 const EMOTION_COPY = {
-  en: { prefix: "Emotion", idle: "not tested", classifying: "detecting…", provisional: "AI checking…", heuristic: "instant", fallback: "no strong signal", disabled: "API mode required", calm: "calm", focused: "focused", happy: "happy", shy: "shy", surprised: "surprised", sleepy: "sleepy", sad: "sad", annoyed: "annoyed" },
-  zh: { prefix: "最近情绪", idle: "尚未测试", classifying: "识别中…", provisional: "AI 校正中…", heuristic: "即时判断", fallback: "无明显情绪", disabled: "需要 API 模式", calm: "平静", focused: "专注", happy: "开心", shy: "害羞", surprised: "惊讶", sleepy: "困倦", sad: "难过", annoyed: "轻微不满" },
-  "zh-TW": { prefix: "最近情緒", idle: "尚未測試", classifying: "辨識中…", provisional: "AI 校正中…", heuristic: "即時判斷", fallback: "無明顯情緒", disabled: "需要 API 模式", calm: "平靜", focused: "專注", happy: "開心", shy: "害羞", surprised: "驚訝", sleepy: "睏倦", sad: "難過", annoyed: "輕微不滿" },
-  ja: { prefix: "最近の感情", idle: "未テスト", classifying: "判定中…", provisional: "AIで確認中…", heuristic: "即時判定", fallback: "明確な感情なし", disabled: "APIモードが必要", calm: "平静", focused: "集中", happy: "嬉しい", shy: "照れ", surprised: "驚き", sleepy: "眠い", sad: "悲しい", annoyed: "少し不満" },
-  ko: { prefix: "최근 감정", idle: "테스트 전", classifying: "판별 중…", provisional: "AI 확인 중…", heuristic: "즉시 판단", fallback: "뚜렷한 감정 없음", disabled: "API 모드 필요", calm: "차분함", focused: "집중", happy: "기쁨", shy: "수줍음", surprised: "놀람", sleepy: "졸림", sad: "슬픔", annoyed: "약간 불만" },
+  en: { prefix: "Immediate", moodPrefix: "Mood", idle: "not tested", classifying: "detecting…", provisional: "AI checking…", detected: "API corrected", heuristic: "local instant", fallback: "no strong signal", disabled: "API mode required", calm: "calm", focused: "focused", happy: "happy", shy: "shy", surprised: "surprised", sleepy: "sleepy", sad: "sad", annoyed: "annoyed", mixed: "mixed feelings", preserving: "holding", established: "established", reinforced: "reinforced", easing: "easing", resolved: "comforted, back to calm", replaced: "shifted", remaining: "about {minutes} min left" },
+  zh: { prefix: "即时", moodPrefix: "持续", idle: "尚未测试", classifying: "识别中…", provisional: "AI 校正中…", detected: "API 校正", heuristic: "本地即时判断", fallback: "无明显情绪", disabled: "需要 API 模式", calm: "平静", focused: "专注", happy: "开心", shy: "害羞", surprised: "惊讶", sleepy: "困倦", sad: "难过", annoyed: "轻微不满", mixed: "复合情绪", preserving: "保持中", established: "已形成", reinforced: "已加强", easing: "逐渐缓解", resolved: "已被安抚，当前恢复平静", replaced: "心情已转变", remaining: "剩余约 {minutes} 分钟" },
+  "zh-TW": { prefix: "即時", moodPrefix: "持續", idle: "尚未測試", classifying: "辨識中…", provisional: "AI 校正中…", detected: "API 校正", heuristic: "本地即時判斷", fallback: "無明顯情緒", disabled: "需要 API 模式", calm: "平靜", focused: "專注", happy: "開心", shy: "害羞", surprised: "驚訝", sleepy: "睏倦", sad: "難過", annoyed: "輕微不滿", mixed: "複合情緒", preserving: "保持中", established: "已形成", reinforced: "已加強", easing: "逐漸緩解", resolved: "已被安撫，恢復平靜", replaced: "心情已轉變", remaining: "剩餘約 {minutes} 分鐘" },
+  ja: { prefix: "即時", moodPrefix: "持続", idle: "未テスト", classifying: "判定中…", provisional: "AIで確認中…", detected: "API補正", heuristic: "ローカル即時判定", fallback: "明確な感情なし", disabled: "APIモードが必要", calm: "平静", focused: "集中", happy: "嬉しい", shy: "照れ", surprised: "驚き", sleepy: "眠い", sad: "悲しい", annoyed: "少し不満", mixed: "複合感情", preserving: "維持中", established: "形成", reinforced: "強まった", easing: "和らいでいる", resolved: "安心して平静に戻った", replaced: "気分が変化", remaining: "残り約{minutes}分" },
+  ko: { prefix: "즉시", moodPrefix: "지속", idle: "테스트 전", classifying: "판별 중…", provisional: "AI 확인 중…", detected: "API 보정", heuristic: "로컬 즉시 판단", fallback: "뚜렷한 감정 없음", disabled: "API 모드 필요", calm: "차분함", focused: "집중", happy: "기쁨", shy: "수줍음", surprised: "놀람", sleepy: "졸림", sad: "슬픔", annoyed: "약간 불만", mixed: "복합 감정", preserving: "유지 중", established: "형성됨", reinforced: "강해짐", easing: "완화 중", resolved: "위로받아 차분해짐", replaced: "기분 전환", remaining: "약 {minutes}분 남음" },
+};
+
+const COMPOUND_COPY = {
+  en: { "shy-joy": "bashful joy", "pleasant-surprise": "pleasant surprise", bittersweet: "bittersweet", grievance: "hurt resentment", "stunned-sadness": "stunned sadness", "shocked-annoyance": "shocked annoyance", "weary-sadness": "weary sadness" },
+  zh: { "shy-joy": "羞喜", "pleasant-surprise": "惊喜", bittersweet: "苦中带甜", grievance: "委屈", "stunned-sadness": "错愕低落", "shocked-annoyance": "震惊不满", "weary-sadness": "疲惫低落" },
+  "zh-TW": { "shy-joy": "羞喜", "pleasant-surprise": "驚喜", bittersweet: "苦中帶甜", grievance: "委屈", "stunned-sadness": "錯愕低落", "shocked-annoyance": "震驚不滿", "weary-sadness": "疲憊低落" },
+  ja: { "shy-joy": "照れ喜び", "pleasant-surprise": "嬉しい驚き", bittersweet: "悲喜こもごも", grievance: "やるせなさ", "stunned-sadness": "驚きと悲しみ", "shocked-annoyance": "驚きと不満", "weary-sadness": "疲れと落ち込み" },
+  ko: { "shy-joy": "수줍은 기쁨", "pleasant-surprise": "기쁜 놀람", bittersweet: "기쁨과 슬픔", grievance: "서운함", "stunned-sadness": "놀람과 슬픔", "shocked-annoyance": "놀람과 불만", "weary-sadness": "피로와 침울함" },
 };
 
 function emotionDictionary() {
@@ -105,24 +115,62 @@ function emotionDictionary() {
   return EMOTION_COPY.en;
 }
 
+function compoundDictionary() {
+  if (COMPOUND_COPY[currentLang]) return COMPOUND_COPY[currentLang];
+  if (/^zh[-_]?(TW|Hant)/i.test(currentLang)) return COMPOUND_COPY["zh-TW"];
+  if (/^zh/i.test(currentLang)) return COMPOUND_COPY.zh;
+  if (/^ja/i.test(currentLang)) return COMPOUND_COPY.ja;
+  if (/^ko/i.test(currentLang)) return COMPOUND_COPY.ko;
+  return COMPOUND_COPY.en;
+}
+
+function formatEmotionBlend(status, copy) {
+  const blend = status && status.blend && typeof status.blend === "object"
+    ? status.blend
+    : { primary: status && status.emotion || "calm", primaryWeight: 1 };
+  const primary = copy[blend.primary] || copy.calm;
+  const rawPrimaryWeight = Number(blend.primaryWeight);
+  const primaryWeight = Number.isFinite(rawPrimaryWeight) ? Math.max(0, Math.min(1, rawPrimaryWeight)) : 1;
+  const primaryPercent = Math.round(primaryWeight * 100);
+  if (!blend.secondary || blend.secondary === blend.primary) return `${primary} ${primaryPercent}%`;
+  const secondary = copy[blend.secondary] || copy.calm;
+  const secondaryPercent = 100 - primaryPercent;
+  const compound = compoundDictionary()[blend.compoundName] || copy.mixed;
+  return `${compound}（${primary} ${primaryPercent}%＋${secondary} ${secondaryPercent}%）`;
+}
+
 function renderEmotionStatus(payload) {
-  if (!emotionStatusEl || !emotionStatusText) return;
+  if (!emotionStatusEl || !emotionStatusText || !emotionMoodStatusText) return;
   latestEmotionStatus = { ...latestEmotionStatus, ...(payload || {}) };
   const copy = emotionDictionary();
   const phase = ["idle", "classifying", "provisional", "detected", "heuristic", "fallback", "disabled"].includes(latestEmotionStatus.phase)
     ? latestEmotionStatus.phase : "idle";
-  const emotion = copy[latestEmotionStatus.emotion] || copy.calm;
+  const emotion = formatEmotionBlend(latestEmotionStatus, copy);
   let detail = emotion;
   if (phase === "idle") detail = copy.idle;
   else if (phase === "classifying") detail = copy.classifying;
   else if (phase === "provisional") detail = `${emotion} · ${copy.provisional}`;
+  else if (phase === "detected") detail = `${emotion} · ${copy.detected}`;
   else if (phase === "heuristic") detail = `${emotion} · ${copy.heuristic}`;
   else if (phase === "fallback") detail = `${emotion} · ${copy.fallback}`;
   else if (phase === "disabled") detail = copy.disabled;
   emotionStatusEl.dataset.phase = phase;
   emotionStatusEl.dataset.emotion = latestEmotionStatus.emotion || "calm";
   emotionStatusText.textContent = `${copy.prefix}：${detail}`;
-  emotionStatusEl.title = emotionStatusText.textContent;
+  const mood = latestEmotionStatus.mood && latestEmotionStatus.mood.blend ? latestEmotionStatus.mood : null;
+  const moodAction = latestEmotionStatus.moodAction || (mood && mood.action) || "preserve";
+  let moodDetail;
+  if (!mood || mood.blend.primary === "calm" || !mood.expiresAt) {
+    moodDetail = moodAction === "resolve" ? copy.resolved : `${copy.calm} 100%`;
+  } else {
+    const moodBlend = formatEmotionBlend({ blend: mood.blend }, copy);
+    const actionCopy = { preserve: copy.preserving, establish: copy.established, reinforce: copy.reinforced, ease: copy.easing, replace: copy.replaced }[moodAction] || copy.preserving;
+    const remainingMs = Number(latestEmotionStatus.remainingMoodMs);
+    const minutes = Math.max(1, Math.ceil((Number.isFinite(remainingMs) ? remainingMs : Math.max(0, mood.expiresAt - Date.now())) / 60000));
+    moodDetail = `${moodBlend} · ${actionCopy} · ${copy.remaining.replace("{minutes}", String(minutes))}`;
+  }
+  emotionMoodStatusText.textContent = `${copy.moodPrefix}：${moodDetail}`;
+  emotionStatusEl.title = `${emotionStatusText.textContent}\n${emotionMoodStatusText.textContent}`;
   emotionStatusEl.classList.add("visible");
 }
 
@@ -1007,6 +1055,12 @@ async function submit(text) {
   // token travels with this one remote request.
   const screenCaptureToken = takePendingScreenCapture();
   if (screenCaptureToken && !remoteMode) discardScreenCaptureToken(screenCaptureToken);
+  // Always react locally before command dispatch, sidecar work, or a remote
+  // classifier can delay the visible emotion. API mode may correct it later.
+  const emotionEventId = `chat-${Date.now()}-${++emotionEventSeq}`;
+  if (window.minicpm && typeof window.minicpm.classifyEmotion === "function") {
+    void window.minicpm.classifyEmotion(text, emotionEventId).catch(() => {});
+  }
   // Try command intents first. If matched, render the result as the
   // assistant turn and skip the model call entirely.
   try {
@@ -1112,6 +1166,7 @@ async function submit(text) {
             max_tokens: maxNewTokens,
             temperature: (typeof chatParams.temperature === "number") ? chatParams.temperature : 0.6,
             top_p: (typeof chatParams.top_p === "number") ? chatParams.top_p : 0.95,
+            emotion_event_id: emotionEventId,
           }, (frame) => {
             if (frame.event === "end") { controller.close(); return; }
             if (frame.event === "error") {

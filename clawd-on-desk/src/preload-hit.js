@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld("hitAPI", {
   dragMove: () => ipcRenderer.send("drag-move"),
   dragEnd: () => ipcRenderer.send("drag-end"),
   showContextMenu: () => ipcRenderer.send("show-context-menu"),
+  toggleQuickLauncher: () => ipcRenderer.send("toggle-quick-launcher"),
   focusTerminal: () => ipcRenderer.send("focus-terminal"),
   // OS file drop (#459). File → absolute path must resolve here in the
   // preload: Electron ≥32 removed File.path from the renderer, and

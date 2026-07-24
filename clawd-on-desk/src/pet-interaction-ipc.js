@@ -10,6 +10,7 @@ function requiredDependency(value, name) {
 function registerPetInteractionIpc(options = {}) {
   const ipcMain = requiredDependency(options.ipcMain, "ipcMain");
   const showContextMenu = requiredDependency(options.showContextMenu, "showContextMenu");
+  const toggleQuickLauncher = requiredDependency(options.toggleQuickLauncher, "toggleQuickLauncher");
   const moveWindowForDrag = requiredDependency(options.moveWindowForDrag, "moveWindowForDrag");
   const setIdlePaused = requiredDependency(options.setIdlePaused, "setIdlePaused");
   const isMiniTransitioning = requiredDependency(options.isMiniTransitioning, "isMiniTransitioning");
@@ -69,6 +70,7 @@ function registerPetInteractionIpc(options = {}) {
   }
 
   on("show-context-menu", showContextMenu);
+  on("toggle-quick-launcher", () => toggleQuickLauncher());
   on("drag-move", () => moveWindowForDrag());
 
   on("pause-cursor-polling", () => {

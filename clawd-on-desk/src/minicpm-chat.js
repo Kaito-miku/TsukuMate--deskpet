@@ -38,7 +38,14 @@ const { runAppleMusicCommand } = require("./apple-music-control");
 const { buildTimeContext } = require("./time-context");
 const { normalizeProfiles, selectActiveProfile } = require("./persona-profiles");
 const { createScreenCaptureService } = require("./screen-capture");
-const { EMOTIONS, parseEmotionResponse, inferEmotionFromText } = require("./chat-emotion-classifier");
+const {
+  EMOTIONS,
+  normalizeEmotionBlend,
+  parseEmotionDecisionResponse,
+  inferEmotionBlendFromText,
+  inferMoodActionFromText,
+} = require("./chat-emotion-classifier");
+const { normalizeMoodDurationMinutes } = require("./chat-emotion-runtime");
 
 const isMac = process.platform === "darwin";
 const isWin = process.platform === "win32";
@@ -1426,7 +1433,7 @@ module.exports = function initMinicpmChat(ctx) {
   // Remote API settings intentionally keep the secret out of JSON prefs.
   // The renderer only ever receives `apiKeyConfigured`, never the key itself.
   const DEFAULT_API_PERSONA = "You are a friendly desktop pet and companion. Speak naturally and helpfully. Do not claim to be Codex, OpenAI, or any other product or model unless the user explicitly asks which API is configured.";
-  const DEFAULT_INFERENCE_CONFIG = { inference_mode: "local", api_endpoint: "", api_model: "", api_persona: DEFAULT_API_PERSONA, diary_enabled: true, diary_time: "22:00", api_key_configured: false };
+  const DEFAULT_INFERENCE_CONFIG = { inference_mode: "local", api_endpoint: "", api_model: "", api_persona: DEFAULT_API_PERSONA, diary_enabled: true, diary_time: "22:00", mood_duration_minutes: 15, api_key_configured: false };
   function getInferenceConfig() {
     const raw = readMinicpmPrefsRaw();
     const profiles = Array.isArray(raw.api_profiles) && raw.api_profiles.length ? raw.api_profiles : [{ id: "default", name: "默认 API", endpoint: raw.api_endpoint || "", model: raw.api_model || "", keyConfigured: !!raw.api_key_configured }];
@@ -1441,6 +1448,7 @@ module.exports = function initMinicpmChat(ctx) {
       api_persona: typeof raw.api_persona === "string" && raw.api_persona.trim() ? raw.api_persona.trim() : DEFAULT_API_PERSONA,
       diary_enabled: raw.diary_enabled !== false,
       diary_time: /^([01]\d|2[0-3]):[0-5]\d$/.test(raw.diary_time || "") ? raw.diary_time : "22:00",
+      mood_duration_minutes: normalizeMoodDurationMinutes(raw.mood_duration_minutes),
       api_key_configured: !!raw.api_key_configured,
     };
   }
@@ -1489,12 +1497,13 @@ module.exports = function initMinicpmChat(ctx) {
   async function setInferenceConfig(input) {
     const current = getInferenceConfig();
     const mode = input && input.inference_mode === "api" ? "api" : "local";
-    let next = { ...current, inference_mode: mode };
+    const moodDurationMinutes = normalizeMoodDurationMinutes(input && input.mood_duration_minutes != null ? input.mood_duration_minutes : current.mood_duration_minutes);
+    let next = { ...current, inference_mode: mode, mood_duration_minutes: moodDurationMinutes };
     if (mode === "api") {
       const checked = validateApiConfig({ endpoint: input && input.api_endpoint, model: input && input.api_model });
       const persona = typeof input.api_persona === "string" ? input.api_persona.trim() : current.api_persona;
       const diaryTime = /^([01]\d|2[0-3]):[0-5]\d$/.test(input && input.diary_time || "") ? input.diary_time : current.diary_time;
-      next = { ...next, api_endpoint: checked.endpoint, api_model: checked.model, api_persona: persona.slice(0, 4000) || DEFAULT_API_PERSONA, diary_enabled: !(input && input.diary_enabled === false), diary_time: diaryTime };
+      next = { ...next, api_endpoint: checked.endpoint, api_model: checked.model, api_persona: persona.slice(0, 4000) || DEFAULT_API_PERSONA, diary_enabled: !(input && input.diary_enabled === false), diary_time: diaryTime, mood_duration_minutes: moodDurationMinutes };
       if (typeof input.api_key === "string" && input.api_key.trim()) {
         writeApiKey(input.api_key.trim(), current.active_api_profile_id);
         next.api_key_configured = true;
@@ -1502,6 +1511,7 @@ module.exports = function initMinicpmChat(ctx) {
       if (!next.api_key_configured || !(readApiKey(current.active_api_profile_id) || readApiKey())) throw new Error("API key is required");
     }
     mergeMinicpmPrefs(next);
+    try { ctx.setChatEmotion && ctx.setChatEmotion({ durationOnly: true, moodDurationMinutes }); } catch {}
     if (mode === "api") await sidecar.stopAndWait().catch(() => {});
     return getInferenceConfig();
   }
@@ -1546,8 +1556,18 @@ module.exports = function initMinicpmChat(ctx) {
   const remoteRequests = new Map();
   let remoteRequestSeq = 0;
   let emotionRequestSeq = 0;
+  let activeEmotionEventId = "";
   let emotionController = null;
-  let emotionStatus = { phase: "idle", emotion: "calm", updatedAt: null };
+  let emotionStatusRefreshTimer = null;
+  let emotionStatus = {
+    phase: "idle",
+    emotion: "calm",
+    blend: normalizeEmotionBlend("calm", "fallback"),
+    moodAction: "preserve",
+    reaction: null,
+    mood: null,
+    updatedAt: null,
+  };
   const screenCaptures = new Map();
   let screenCaptureSeq = 0;
 
@@ -1557,13 +1577,35 @@ module.exports = function initMinicpmChat(ctx) {
 
   function publishEmotionStatus(next) {
     const phases = ["idle", "classifying", "provisional", "detected", "heuristic", "fallback", "disabled"];
+    const blend = normalizeEmotionBlend(next && (next.blend || next.emotion), next && next.phase === "detected" ? "api" : "fallback");
+    let runtime = null;
+    try { runtime = ctx.getChatEmotion && ctx.getChatEmotion(); } catch {}
     emotionStatus = {
       phase: phases.includes(next && next.phase) ? next.phase : "idle",
-      emotion: EMOTIONS.includes(next && next.emotion) ? next.emotion : "calm",
+      // Keep the legacy field for old renderers and tests while the complete
+      // blend travels beside it.
+      emotion: EMOTIONS.includes(blend.primary) ? blend.primary : "calm",
+      blend,
+      moodAction: next && next.moodAction || emotionStatus.moodAction || "preserve",
+      reaction: runtime && runtime.reaction || null,
+      mood: runtime && runtime.mood || null,
+      activeLayer: runtime && runtime.activeLayer || "calm",
+      remainingMoodMs: runtime && Number.isFinite(runtime.remainingMoodMs) ? runtime.remainingMoodMs : 0,
       updatedAt: Number.isFinite(next && next.updatedAt) ? next.updatedAt : Date.now(),
     };
     if (bubble && !bubble.isDestroyed()) {
       try { bubble.webContents.send("minicpm:emotion-status", emotionStatus); } catch {}
+    }
+    if (emotionStatusRefreshTimer) clearTimeout(emotionStatusRefreshTimer);
+    emotionStatusRefreshTimer = null;
+    const reactionRemaining = runtime && runtime.reaction ? runtime.reaction.expiresAt - Date.now() : 0;
+    const moodRemaining = runtime && runtime.mood && runtime.mood.expiresAt ? runtime.mood.expiresAt - Date.now() : 0;
+    const refreshIn = reactionRemaining > 0 ? reactionRemaining + 25 : (moodRemaining > 0 ? Math.min(60_000, moodRemaining + 25) : 0);
+    if (refreshIn > 0) {
+      emotionStatusRefreshTimer = setTimeout(() => {
+        emotionStatusRefreshTimer = null;
+        publishEmotionStatus({ ...emotionStatus, updatedAt: Date.now() });
+      }, refreshIn);
     }
     return { ...emotionStatus };
   }
@@ -1670,33 +1712,53 @@ module.exports = function initMinicpmChat(ctx) {
   // it has no diary/history side effects, is never sent to the renderer, and
   // cannot delay the actual reply.  Sequence checking prevents a late answer
   // from an older prompt changing the pet after the user has moved on.
-  async function classifyChatEmotion(messages) {
-    if (!isApiMode()) {
-      try { ctx.setChatEmotion && ctx.setChatEmotion("calm"); } catch {}
-      publishEmotionStatus({ phase: "disabled", emotion: "calm" });
-      return "calm";
-    }
+  async function classifyChatEmotion(messages, suppliedEventId) {
     const latest = [...(Array.isArray(messages) ? messages : [])].reverse()
       .find((message) => message && message.role === "user");
     const text = latest && typeof latest.content === "string" ? latest.content.trim().slice(0, 1600) : "";
     if (!text) {
-      publishEmotionStatus({ phase: "fallback", emotion: "calm" });
-      return "calm";
+      const calm = normalizeEmotionBlend("calm", "fallback");
+      publishEmotionStatus({ phase: "fallback", blend: calm });
+      return calm;
     }
     const requestId = ++emotionRequestSeq;
+    const eventId = String(suppliedEventId || `emotion-${Date.now()}-${requestId}`).replace(/[^a-zA-Z0-9_.:-]/g, "").slice(0, 96);
+    activeEmotionEventId = eventId;
     if (emotionController) emotionController.abort();
     const controller = new AbortController();
     emotionController = controller;
+    // Capture the old lasting mood before the local provisional event is
+    // applied. Otherwise an explicit local resolve would erase the context
+    // the API needs to confirm that the user was actually comforted.
+    let priorMoodSummary = { primary: "calm" };
+    try {
+      const value = ctx.getChatEmotion && ctx.getChatEmotion();
+      const mood = value && value.mood;
+      if (mood && mood.blend && mood.blend.primary !== "calm") {
+        priorMoodSummary = {
+          primary: mood.blend.primary,
+          secondary: mood.blend.secondary,
+          intensity: mood.blend.intensity,
+          remainingMinutes: Math.max(0, Math.ceil((mood.expiresAt - Date.now()) / 60000)),
+        };
+      }
+    } catch {}
     // React synchronously before either network request produces a token.
     // The API classifier runs in parallel and corrects this provisional mood.
-    const provisional = inferEmotionFromText(text) || "calm";
-    try { ctx.setChatEmotion && ctx.setChatEmotion(provisional); } catch {}
-    publishEmotionStatus({ phase: "provisional", emotion: provisional });
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    let emotion = provisional;
-    let source = provisional === "calm" ? "fallback" : "heuristic";
+    const provisional = inferEmotionBlendFromText(text);
+    const provisionalMoodAction = inferMoodActionFromText(text, provisional);
+    const moodDurationMinutes = getInferenceConfig().mood_duration_minutes;
+    try { ctx.setChatEmotion && ctx.setChatEmotion({ eventId, blend: provisional, moodAction: provisionalMoodAction, moodDurationMinutes }); } catch {}
+    if (!isApiMode()) {
+      publishEmotionStatus({ phase: provisional.primary === "calm" ? "fallback" : "heuristic", blend: provisional, moodAction: provisionalMoodAction });
+      return provisional;
+    }
+    publishEmotionStatus({ phase: "provisional", blend: provisional, moodAction: provisionalMoodAction });
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    let blend = provisional;
+    let source = provisional.primary === "calm" ? "fallback" : "heuristic";
     let streamed = "";
-    let apiEmotion = null;
+    let apiDecision = null;
     try {
       const cfg = getRemoteRuntimeConfig();
       const body = makeChatBody({
@@ -1704,9 +1766,17 @@ module.exports = function initMinicpmChat(ctx) {
         stream: true,
         temperature: 0,
         topP: 1,
-        maxTokens: 96,
+        maxTokens: 128,
         messages: [{ role: "user", content: text }],
-        system: "Classify the emotional response a gentle desktop pet should show to the user's message. Return exactly one label and nothing else: calm, focused, happy, shy, surprised, sleepy, sad, or annoyed. Do not explain your reasoning.",
+        system: [
+          "Classify the immediate emotional response a gentle desktop pet should show to the user's latest message.",
+          "Return one compact JSON object and nothing else.",
+          'Schema: {"primary":"calm|focused|happy|shy|surprised|sleepy|sad|annoyed","secondary":"optional different non-calm label","primaryWeight":0.0,"secondaryWeight":0.0,"intensity":0.2,"moodAction":"preserve|establish|reinforce|ease|resolve|replace"}.',
+          "Use at most two emotions. Weights must sum to 1. Use secondary only when it is materially present. Intensity must be from 0.2 to 1.",
+          `Current lasting mood summary before this message: ${JSON.stringify(priorMoodSummary)}.`,
+          "Mood action defaults to preserve. Preserve an existing mood unless the message clearly strengthens it, eases it, resolves it, or changes it. Establish only when calm and the message has a strong lasting feeling. Resolve only when the user clearly says they recovered, feel better, or were successfully comforted.",
+          "Task words alone mean focused; explicit feelings override task words. Mixed positive and negative feelings are allowed. Do not explain your reasoning.",
+        ].join(" "),
       });
       await requestOpenAi({
         endpoint: cfg.endpoint,
@@ -1714,13 +1784,12 @@ module.exports = function initMinicpmChat(ctx) {
         body,
         signal: controller.signal,
         onEvent: (frame) => {
-          if (!frame || frame.event !== "delta" || !frame.content || apiEmotion) return;
+          if (!frame || frame.event !== "delta" || !frame.content || apiDecision) return;
           streamed = `${streamed}${frame.content}`.slice(-512);
-          const parsed = parseEmotionResponse(streamed);
+          const parsed = parseEmotionDecisionResponse(streamed);
           if (!parsed) return;
-          apiEmotion = parsed;
-          // We only need one label. Ending early makes the classifier cheap
-          // and lets the pet settle on the API result sooner.
+          apiDecision = parsed;
+          // The complete compact JSON has arrived; stop any provider tail.
           controller.abort();
         },
       });
@@ -1731,12 +1800,13 @@ module.exports = function initMinicpmChat(ctx) {
       clearTimeout(timeout);
       if (emotionController === controller) emotionController = null;
     }
-    if (apiEmotion) { emotion = apiEmotion; source = "detected"; }
+    let moodAction = provisionalMoodAction;
+    if (apiDecision) { blend = apiDecision.blend; moodAction = apiDecision.moodAction; source = "detected"; }
     if (requestId === emotionRequestSeq) {
-      try { ctx.setChatEmotion && ctx.setChatEmotion(emotion); } catch {}
-      publishEmotionStatus({ phase: source, emotion });
+      try { ctx.setChatEmotion && ctx.setChatEmotion({ eventId, blend, moodAction, moodDurationMinutes }); } catch {}
+      publishEmotionStatus({ phase: source, blend, moodAction });
     }
-    return emotion;
+    return blend;
   }
   function localDay(now = new Date()) {
     return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
@@ -2235,6 +2305,8 @@ module.exports = function initMinicpmChat(ctx) {
     if (diaryTimer) clearInterval(diaryTimer);
     if (emotionController) emotionController.abort();
     emotionController = null;
+    if (emotionStatusRefreshTimer) clearTimeout(emotionStatusRefreshTimer);
+    emotionStatusRefreshTimer = null;
     sidecar.stop();
     if (bubble && !bubble.isDestroyed()) bubble.destroy();
     bubble = null;
@@ -2662,9 +2734,24 @@ module.exports = function initMinicpmChat(ctx) {
       remote: isApiMode(),
     }),
     "minicpm:emotion-status": async (event) => {
-      if (!isChatBubbleSender(event.sender)) return { phase: "idle", emotion: "calm", updatedAt: null };
-      if (!isApiMode()) return { phase: "disabled", emotion: "calm", updatedAt: emotionStatus.updatedAt };
+      if (!isChatBubbleSender(event.sender)) return { phase: "idle", emotion: "calm", blend: normalizeEmotionBlend("calm"), updatedAt: null };
       return { ...emotionStatus };
+    },
+    "minicpm:emotion-classify-local": async (event, payload = {}) => {
+      if (!isChatBubbleSender(event.sender)) return { ok: false, error: "Emotion classification is only available from the chat window" };
+      const text = typeof payload.text === "string" ? payload.text.trim().slice(0, 1600) : "";
+      const blend = inferEmotionBlendFromText(text);
+      const moodAction = inferMoodActionFromText(text, blend);
+      const eventId = String(payload.event_id || `emotion-${Date.now()}-${++emotionRequestSeq}`).replace(/[^a-zA-Z0-9_.:-]/g, "").slice(0, 96);
+      if (eventId !== activeEmotionEventId) {
+        activeEmotionEventId = eventId;
+        emotionRequestSeq += 1;
+        if (emotionController) emotionController.abort();
+        emotionController = null;
+      }
+      try { ctx.setChatEmotion && ctx.setChatEmotion({ eventId, blend, moodAction, moodDurationMinutes: getInferenceConfig().mood_duration_minutes }); } catch {}
+      publishEmotionStatus({ phase: blend.primary === "calm" ? "fallback" : (isApiMode() ? "provisional" : "heuristic"), blend, moodAction });
+      return { ok: true, eventId, blend, moodAction };
     },
     "minicpm:start": async (_evt, opts = {}) => {
       try {
@@ -2696,7 +2783,7 @@ module.exports = function initMinicpmChat(ctx) {
       const sender = event.sender;
       // Fire and forget: emotional feedback is auxiliary and never holds up
       // the response stream or creates a chat/history entry.
-      void classifyChatEmotion(payload.messages).catch(() => {});
+      void classifyChatEmotion(payload.messages, payload.emotion_event_id).catch(() => {});
       setImmediate(async () => {
         try {
           await remoteCompletion({ ...payload, screenImageDataUrl }, (frame) => {

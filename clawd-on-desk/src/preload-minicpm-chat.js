@@ -26,6 +26,10 @@ contextBridge.exposeInMainWorld("minicpm", {
   getTimeContext: () => ipcRenderer.invoke("minicpm:get-time-context"),
   getChatContext: () => ipcRenderer.invoke("minicpm:get-chat-context"),
   getEmotionStatus: () => ipcRenderer.invoke("minicpm:emotion-status"),
+  classifyEmotion: (text, eventId) => ipcRenderer.invoke("minicpm:emotion-classify-local", {
+    text: typeof text === "string" ? text.slice(0, 1600) : "",
+    event_id: typeof eventId === "string" ? eventId.slice(0, 96) : "",
+  }),
   musicControl: (entry) => ipcRenderer.invoke("minicpm:music-control", entry || {}),
   listScreenSources: () => ipcRenderer.invoke("minicpm:screen-capture-list"),
   captureScreen: (sourceId) => ipcRenderer.invoke("minicpm:screen-capture-take", { sourceId }),

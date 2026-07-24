@@ -12,6 +12,10 @@
 //  - Each icon is small (~200-500 bytes); the whole file weighs <5 KB.
 
 const ICONS = {
+  modelGroup:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M4 7h16M7 3v8M4 17h16M17 13v8"/></svg>',
+  appearanceGroup:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%"><path d="M12 3a9 9 0 1 0 9 9c0-2-1.5-3-3-3h-2a2 2 0 0 1-2-2V5c0-1.1-.9-2-2-2Z"/><circle cx="7.5" cy="11" r=".7" fill="currentColor"/><circle cx="10" cy="7" r=".7" fill="currentColor"/><path d="m16 14 1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2Z"/></svg>',
   // ⚙ — gear
   general:
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="100%" height="100%">' +

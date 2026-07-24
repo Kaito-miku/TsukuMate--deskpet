@@ -23400,6 +23400,9 @@
       var previousAt = 0;
       var currentConfig = null;
       var emotion = "calm";
+      var latestChatBlend = { primary: "calm", primaryWeight: 1, secondaryWeight: 0, intensity: 0.2 };
+      var latestChatLayer = "calm";
+      var currentState = "idle";
       var pendingMotion = null;
       var pendingMotionTimer = 0;
       var pendingMotionRetries = 0;
@@ -23569,7 +23572,7 @@
             if (token !== generation) return;
             if (model && model.getModel && model.getModel()) {
               report("cubism5-ready", config.modelName || config.modelUrl);
-              setEmotion(emotion);
+              setEmotion(stateEmotion[currentState] || latestChatBlend, !!stateEmotion[currentState] || latestChatLayer === "reaction");
             } else if (Date.now() < deadline) setTimeout(readyCheck, 100);
             else {
               report("cubism5-error", "Model setup timed out");
@@ -23582,13 +23585,58 @@
           stop();
         }
       }
-      function setEmotion(next) {
-        emotion = next || "calm";
+      function normalizeBlend(next) {
+        const primary = typeof next === "string" ? next : next && next.primary;
+        const safePrimary = typeof primary === "string" && primary ? primary : "calm";
+        const secondary = next && typeof next === "object" && typeof next.secondary === "string" && next.secondary !== safePrimary ? next.secondary : void 0;
+        let primaryWeight = Number(next && typeof next === "object" ? next.primaryWeight : 1);
+        let secondaryWeight = Number(next && typeof next === "object" ? next.secondaryWeight : 0);
+        if (!secondary) {
+          primaryWeight = 1;
+          secondaryWeight = 0;
+        } else {
+          if (!Number.isFinite(primaryWeight) || primaryWeight <= 0) primaryWeight = 0.7;
+          if (!Number.isFinite(secondaryWeight) || secondaryWeight <= 0) secondaryWeight = 0.3;
+          const total = primaryWeight + secondaryWeight;
+          primaryWeight /= total;
+          secondaryWeight /= total;
+        }
+        const rawIntensity = Number(next && typeof next === "object" ? next.intensity : void 0);
+        const intensity = Number.isFinite(rawIntensity) ? Math.min(1, Math.max(0.2, rawIntensity)) : safePrimary === "calm" ? 0.2 : 0.75;
+        return { primary: safePrimary, secondary, primaryWeight, secondaryWeight, intensity };
+      }
+      var vadPresetByEmotion = {
+        calm: "calm",
+        focused: "curious",
+        happy: "happy",
+        shy: "shy",
+        surprised: "surprised",
+        sleepy: "tired",
+        sad: "sad",
+        annoyed: "anger"
+      };
+      function blendedVAD(blend) {
+        const primary = emotionVADPresets[vadPresetByEmotion[blend.primary] || "calm"] || emotionVADPresets.calm;
+        if (!blend.secondary) return primary;
+        const secondary = emotionVADPresets[vadPresetByEmotion[blend.secondary] || "calm"] || emotionVADPresets.calm;
+        return {
+          valence: primary.valence * blend.primaryWeight + secondary.valence * blend.secondaryWeight,
+          arousal: primary.arousal * blend.primaryWeight + secondary.arousal * blend.secondaryWeight,
+          dominance: primary.dominance * blend.primaryWeight + secondary.dominance * blend.secondaryWeight
+        };
+      }
+      function setEmotion(next, playNativeMotion = true) {
+        const blend = normalizeBlend(next);
+        emotion = blend.primary;
         if (!runtime) return;
         const now = performance.now() / 1e3 - startedAt;
-        runtime.triggerIntent({ emotion, naturalEmotion: emotion, intensity: emotion === "calm" ? 0.25 : 0.75, contextTags: ["desktop-pet"] }, now);
+        runtime.triggerIntent(
+          { emotion, naturalEmotion: emotion, intensity: blend.intensity, contextTags: ["desktop-pet"] },
+          now,
+          { vadTarget: blendedVAD(blend) }
+        );
         const motionByEmotion = { happy: "Tap", shy: "Tap@Body", surprised: "Flick", sad: "FlickDown", annoyed: "Flick@Body", focused: "Flick@Body" };
-        if (motionByEmotion[emotion]) playMotion(motionByEmotion[emotion]);
+        if (playNativeMotion && motionByEmotion[emotion]) playMotion(motionByEmotion[emotion]);
       }
       function playMotion(group) {
         if (!model || typeof model.startRandomMotion !== "function") return;
@@ -23632,8 +23680,15 @@
       var stateEmotion = { thinking: "focused", working: "focused", attention: "happy", error: "sad", sleeping: "sleepy", notification: "surprised" };
       var api = window.electronAPI;
       api.onThemeConfig((cfg) => configure(cfg && cfg.live2d));
-      api.onStateChange((state) => setEmotion(stateEmotion[state] || "calm"));
-      api.onChatEmotion((next) => setEmotion(next));
+      api.onStateChange((state) => {
+        currentState = state || "idle";
+        setEmotion(stateEmotion[currentState] || latestChatBlend, !!stateEmotion[currentState] || latestChatLayer === "reaction");
+      });
+      api.onChatEmotion((next) => {
+        latestChatLayer = next && typeof next === "object" && typeof next.activeLayer === "string" ? next.activeLayer : "reaction";
+        latestChatBlend = normalizeBlend(next && typeof next === "object" && next.display ? next.display : next);
+        if (!stateEmotion[currentState]) setEmotion(latestChatBlend, latestChatLayer === "reaction");
+      });
       api.onPlayClickReaction(() => playMotion("Tap"));
       api.onStartDragReaction((direction) => {
         playMotion(direction === "left" || direction === "right" ? "Flick@Body" : "Flick");

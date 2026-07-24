@@ -121,6 +121,7 @@ const createThemeRuntime = require("./theme-runtime");
 const createAgentRuntimeMain = require("./agent-runtime-main");
 const createFloatingWindowRuntime = require("./floating-window-runtime");
 const createPetWindowRuntime = require("./pet-window-runtime");
+const { createQuickLauncher } = require("./quick-launcher");
 const createMacHideController = require("./mac-hide");
 const { createHardwareBuddyAdapter } = require("./hardware-buddy-adapter");
 const { createLive2dAssetService } = require("./live2d-assets");
@@ -305,6 +306,7 @@ let themeRuntime = null;
 let agentRuntime = null;
 let systemWakeRecovery = null;
 let floatingWindowRuntime = null;
+let quickLauncher = null;
 let codexPetMain = null;
 let telegramApprovalSidecar = null;
 let telegramApprovalSyncPromise = Promise.resolve();
@@ -701,7 +703,10 @@ const petWindowRuntime = createPetWindowRuntime({
   repositionAnchoredSurfaces: () => repositionAnchoredFloatingSurfaces(),
   repositionFloatingBubbles: () => repositionFloatingBubbles(),
   showFloatingSurfacesForPet: () => floatingWindowRuntime.showFloatingSurfacesForPet(),
-  hideFloatingSurfacesForPet: () => floatingWindowRuntime.hideFloatingSurfacesForPet(),
+  hideFloatingSurfacesForPet: () => {
+    floatingWindowRuntime.hideFloatingSurfacesForPet();
+    if (quickLauncher) quickLauncher.hide();
+  },
   syncSessionHudVisibilityAndBubbles: () => syncSessionHudVisibilityAndBubbles(),
   syncPermissionShortcuts: () => syncPermissionShortcuts(),
   buildTrayMenu: () => buildTrayMenu(),
@@ -1026,6 +1031,7 @@ function syncHitStateAfterLoad() {
     currentState: _state.getCurrentState(),
     miniMode: _mini.getMiniMode(),
     dndEnabled: doNotDisturb,
+    live2dEnabled: !!(live2dAssets && live2dAssets.getRendererConfig().enabled),
   });
 }
 
@@ -1720,6 +1726,7 @@ _minicpmChat = require("./minicpm-chat")({
   // The chat service never manipulates renderer state directly.  This narrow
   // bridge lets its best-effort remote classifier update the pet runtime.
   setChatEmotion: (emotion) => _state && _state.setChatEmotion(emotion),
+  getChatEmotion: () => _state && _state.getChatEmotion(),
 });
 
 function openMinicpmChat() {
@@ -3012,6 +3019,22 @@ const { t, buildContextMenu, buildTrayMenu, rebuildAllMenus, createTray,
         destroyTray, showPetContextMenu, ensureContextMenuOwner,
         requestAppQuit, applyDockVisibility } = _menu;
 
+quickLauncher = createQuickLauncher({
+  BrowserWindow,
+  ipcMain,
+  getPetWindowBounds,
+  getNearestWorkArea,
+  getDoNotDisturb: () => doNotDisturb,
+  getLang: () => lang,
+  isLive2dEnabled: () => !!(live2dAssets && live2dAssets.getRendererConfig().enabled),
+  isPetHidden: () => petWindowRuntime.isPetHidden(),
+  isMiniMode: () => _mini.getMiniMode(),
+  openChat: () => openMinicpmChat(),
+  openSettings: () => settingsWindowRuntime.open(),
+  enableDoNotDisturb: () => enableDoNotDisturb(),
+  disableDoNotDisturb: () => disableDoNotDisturb(),
+});
+
 // ── Settings effect router ──
 const SETTINGS_MIRROR_SETTERS = {
   lang: (v) => { storedLang = v; lang = resolveEffectiveLang(v, () => app.getLocale()); }, size: (v) => { currentSize = v; resetKeepSizeFrozen(); }, showTray: (v) => { showTray = v; },
@@ -3430,6 +3453,7 @@ function createWindow() {
   registerPetInteractionIpc({
     ipcMain,
     showContextMenu: (event) => showPetContextMenu(event),
+    toggleQuickLauncher: () => quickLauncher && quickLauncher.toggle(),
     moveWindowForDrag: () => moveWindowForDrag(),
     setIdlePaused: (value) => { idlePaused = !!value; },
     setLowPowerIdlePaused,
@@ -3439,6 +3463,7 @@ function createWindow() {
     sendToRenderer,
     setDragLocked: (value) => {
       petWindowRuntime.setDragLocked(value);
+      if (value && quickLauncher) quickLauncher.hide();
       try {
         if (_minicpmChat && typeof _minicpmChat.setPetDragging === "function") {
           _minicpmChat.setPetDragging(!!value);
@@ -3809,6 +3834,7 @@ if (!gotTheLock) {
     });
     try { await live2dAssets.start(); }
     catch (err) { console.warn("Clawd: Live2D asset service failed to start:", err && err.message); }
+    syncHitStateAfterLoad();
     try { ipcMain.removeHandler("settings:live2d-get"); } catch {}
     ipcMain.handle("settings:live2d-get", () => ({
       settings: _settingsController.get("live2d"),
@@ -3826,6 +3852,7 @@ if (!gotTheLock) {
       const result = _settingsController.applyUpdate("live2d", next);
       if (result && result.status === "error") return result;
       if (live2dAssets) live2dAssets.selectModel(next.modelId);
+      syncHitStateAfterLoad();
       sendToRenderer("theme-config", getPetRendererConfig());
       return { status: "ok", settings: _settingsController.get("live2d"), runtime: live2dAssets.getRendererConfig() };
     });
@@ -3947,6 +3974,7 @@ if (!gotTheLock) {
     _focus.cleanup();
     if (animationOverridesMain) animationOverridesMain.cleanup();
     try { if (live2dAssets) live2dAssets.stop(); } catch {}
+    try { if (quickLauncher) quickLauncher.destroy(); } catch {}
     try { _remoteSshIpc.dispose(); } catch {}
     try { _remoteSshRuntime.cleanup(); } catch {}
     try { if (_minicpmChat && typeof _minicpmChat.shutdown === "function") _minicpmChat.shutdown(); } catch {}

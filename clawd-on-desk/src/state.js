@@ -36,6 +36,8 @@ const {
 } = require("./state-session-snapshot");
 const { getAgentIconUrl } = require("./state-agent-icons");
 const { normalizeTranscriptPath } = require("./transcript-path");
+const { normalizeEmotionBlend } = require("./chat-emotion-classifier");
+const { createEmotionRuntime } = require("./chat-emotion-runtime");
 const {
   readTranscriptTailEntries: readClaudeTranscriptTailEntries,
   extractLastAssistantTextFromEntries: extractLastClaudeAssistantTextFromEntries,
@@ -79,9 +81,14 @@ const { SLEEP_SEQUENCE, STATE_PRIORITY, ONESHOT_STATES } = createStatePriorityCo
 // Session display hints — validated against theme.displayHintMap keys
 let DISPLAY_HINT_MAP = {};
 const CHAT_EMOTIONS = new Set(["calm", "focused", "happy", "shy", "surprised", "sleepy", "sad", "annoyed"]);
-const CHAT_EMOTION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
-let chatEmotion = "calm";
-let chatEmotionTimer = null;
+const chatEmotionRuntime = createEmotionRuntime({
+  onChange: (snapshot) => {
+    try { ctx.sendToRenderer("chat-emotion", snapshot); } catch {}
+    // Sprite themes resolve their conversational visual through the same
+    // idle binding. Real work/sleep/click states remain authoritative.
+    if (currentState === "idle") applyState("idle", undefined, { force: true });
+  },
+});
 
 // ── Session tracking ──
 const sessions = new Map();
@@ -495,30 +502,20 @@ function resolveVisualBinding(state) {
   // System states and hit reactions call this same resolver but don't expose
   // mood assets: only idle represents the latest conversational emotion.
   return resolveVisualBindingWithBindings(state, STATE_BINDINGS, {
-    emotion: state === "idle" ? chatEmotion : null,
+    emotion: state === "idle" ? chatEmotionRuntime.snapshot().display.primary : null,
     emotions: theme && theme.emotions,
   });
 }
 
-function getChatEmotion() { return chatEmotion; }
+function getChatEmotion() { return chatEmotionRuntime.snapshot(); }
 
 function setChatEmotion(nextEmotion) {
-  const next = CHAT_EMOTIONS.has(nextEmotion) ? nextEmotion : "calm";
-  chatEmotion = next;
-  try { ctx.sendToRenderer("chat-emotion", chatEmotion); } catch {}
-  if (chatEmotionTimer) clearTimeout(chatEmotionTimer);
-  chatEmotionTimer = null;
-  if (next !== "calm") {
-    chatEmotionTimer = setTimeout(() => {
-      chatEmotionTimer = null;
-      chatEmotion = "calm";
-      if (currentState === "idle") applyState("idle", undefined, { force: true });
-    }, CHAT_EMOTION_IDLE_TIMEOUT_MS);
-  }
-  // Do not interrupt real work / sleep / click reactions.  The next return
-  // to idle resolves the current emotion automatically.
-  if (currentState === "idle") applyState("idle", undefined, { force: true });
-  return chatEmotion;
+  const value = nextEmotion && typeof nextEmotion === "object" ? nextEmotion : { blend: nextEmotion };
+  if (value.durationOnly) return chatEmotionRuntime.setMoodDurationMinutes(value.moodDurationMinutes);
+  const blend = normalizeEmotionBlend(value.blend || value.emotion || value, value.source || "fallback");
+  if (!CHAT_EMOTIONS.has(blend.primary)) blend.primary = "calm";
+  if (value.moodDurationMinutes != null) chatEmotionRuntime.setMoodDurationMinutes(value.moodDurationMinutes);
+  return chatEmotionRuntime.apply({ ...value, blend });
 }
 
 function applyResolvedDisplayState() {
@@ -2180,8 +2177,7 @@ function cleanup() {
   clearAllClaudeTranscriptCompletionProbes();
   if (eyeResendTimer) clearTimeout(eyeResendTimer);
   if (startupRecoveryTimer) clearTimeout(startupRecoveryTimer);
-  if (chatEmotionTimer) clearTimeout(chatEmotionTimer);
-  chatEmotionTimer = null;
+  chatEmotionRuntime.cleanup();
   stopWakePoll();
   for (const { timer } of kimiPermissionHolds.values()) {
     if (timer) clearTimeout(timer);

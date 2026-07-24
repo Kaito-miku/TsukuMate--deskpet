@@ -1051,7 +1051,7 @@
     }
     const tick = async () => {
       healthTimer = null;
-      if (!mounted || document.hidden || core.state.activeTab !== "minicpm") return;
+      if (!mounted || document.hidden || !core.ops.isTabActive("minicpm")) return;
       const wasHealthy = ctx.everHealthy;
       await probeHealth(ctx);
       syncStatusPill(ctx);
@@ -1110,6 +1110,8 @@
     }
 
     parent.appendChild(ctx.headerBox);
+    let inferenceConfig = { mood_duration_minutes: 15 };
+    try { inferenceConfig = await window.minicpmSettings.getInferenceConfig() || inferenceConfig; } catch {}
     const localModeAction = el("div", { className: "row minicpm-local-mode-action" },
       el("div", { className: "row-text" },
         el("span", { className: "row-label" }, "本地模型"),
@@ -1127,6 +1129,20 @@
     localModeControls.appendChild(localModeButton);
     localModeAction.appendChild(localModeControls);
     parent.appendChild(localModeAction);
+    const moodDuration = el("select", { className: "minicpm-adapter-editor-input" });
+    for (const minutes of [5, 15, 30, 60]) {
+      const option = el("option", { value: String(minutes) }, t("minicpmMoodDurationOption").replace("{minutes}", String(minutes)));
+      option.selected = Number(inferenceConfig.mood_duration_minutes || 15) === minutes;
+      moodDuration.appendChild(option);
+    }
+    const moodSave = softBtn(t("minicpmMoodSave"), async () => {
+      const result = await window.minicpmSettings.setInferenceConfig({ inference_mode: "local", mood_duration_minutes: Number(moodDuration.value) });
+      if (ops && ops.showToast) ops.showToast(result && result.ok ? t("minicpmMoodSaved") : `${t("minicpmMoodSaveFailed")} ${(result && result.error) || ""}`, { error: !(result && result.ok) });
+    }, { accent: true });
+    parent.appendChild(el("div", { className: "row" },
+      el("div", { className: "row-text" }, el("span", { className: "row-label" }, t("minicpmMoodDuration")), el("span", { className: "row-desc" }, t("minicpmMoodDurationDesc"))),
+      el("div", { className: "row-control" }, moodDuration, moodSave)
+    ));
     parent.appendChild(ctx.behaviorBox);
     parent.appendChild(ctx.modelBox);
     parent.appendChild(ctx.adapterBox);
@@ -1134,7 +1150,7 @@
 
     mounted = true;
     visibilityHandler = () => {
-      if (document.hidden || core.state.activeTab !== "minicpm") {
+      if (document.hidden || !core.ops.isTabActive("minicpm")) {
         if (healthTimer) {
           clearTimeout(healthTimer);
           healthTimer = null;

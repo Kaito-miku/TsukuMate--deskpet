@@ -867,6 +867,10 @@
     if (modal && typeof renderHooks.modal === "function") renderHooks.modal();
   }
 
+  function isTabActive(tabId) {
+    return state.activeTab === tabId;
+  }
+
   function selectTab(nextTab) {
     const prevTabId = state.activeTab;
     if (prevTabId === nextTab) return;
@@ -1007,7 +1011,7 @@
     });
     if (!result || !result.valid || !result.applied) return;
     requestAnimationPosterRender({
-      content: state.activeTab === "animOverrides" && runtime.animOverridesSubtab === "animations",
+      content: isTabActive("animOverrides") && runtime.animOverridesSubtab === "animations",
       modal: !!runtime.assetPicker.state,
     });
   }
@@ -1194,7 +1198,7 @@
     }
     const shouldPreserveAnimOverridesData = !!(
       needsAnimOverridesRefresh
-      && (state.activeTab === "animOverrides" || runtime.assetPicker.state)
+      && (isTabActive("animOverrides") || runtime.assetPicker.state)
     );
     if (needsAnimOverridesRefresh && !shouldPreserveAnimOverridesData) {
       runtime.animationOverridesData = null;
@@ -1207,13 +1211,13 @@
     }
 
     if (changes && "themeOverrides" in changes) {
-      if (state.activeTab === "theme") {
+      if (isTabActive("theme")) {
         fetchThemes().then(() => {
           requestRender({ sidebar: true, content: true });
         });
         return;
       }
-      if (state.activeTab === "animOverrides" || runtime.assetPicker.state) {
+      if (isTabActive("animOverrides") || runtime.assetPicker.state) {
         fetchAnimationOverridesData().then(() => {
           normalizeAssetPickerSelection();
           requestRender({ sidebar: true, content: true, modal: true });
@@ -1226,7 +1230,7 @@
       }
     }
 
-    if (needsAnimOverridesRefresh && (state.activeTab === "animOverrides" || runtime.assetPicker.state)) {
+    if (needsAnimOverridesRefresh && (isTabActive("animOverrides") || runtime.assetPicker.state)) {
       fetchAnimationOverridesData().then(() => {
         normalizeAssetPickerSelection();
         requestRender({ sidebar: true, content: true, modal: true });
@@ -1365,6 +1369,7 @@
   core.ops = {
     installRenderHooks,
     requestRender,
+    isTabActive,
     selectTab,
     applyBootstrap,
     applyAgentMetadata,

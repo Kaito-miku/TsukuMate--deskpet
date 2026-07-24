@@ -63,6 +63,7 @@ function createHarness({ isMac = false, sendState = {} } = {}) {
         exitMiniMode: () => apiCalls.push(["exitMiniMode"]),
         showDashboard: () => apiCalls.push(["showDashboard"]),
         revealSessionHud: () => apiCalls.push(["revealSessionHud"]),
+        toggleQuickLauncher: () => apiCalls.push(["toggleQuickLauncher"]),
         startDragReaction: (direction) => apiCalls.push(["startDragReaction", direction]),
         endDragReaction: () => apiCalls.push(["endDragReaction"]),
         playClickReaction: (svg, d) => apiCalls.push(["playClickReaction", svg, d]),
@@ -123,12 +124,22 @@ function createHarness({ isMac = false, sendState = {} } = {}) {
 }
 
 describe("hit-renderer input layer", () => {
-  it("plain single click reveals HUD, does NOT call focusTerminal", () => {
+  it("plain sprite click reveals HUD, opens launcher, and waves", () => {
     const h = createHarness();
     h.pointerup({});
     const names = h.apiCalls.map((c) => c[0]);
     assert.ok(names.includes("revealSessionHud"), "should call revealSessionHud");
+    assert.ok(names.includes("toggleQuickLauncher"), "should open quick launcher");
+    assert.ok(names.includes("playClickReaction"), "sprite theme should wave immediately");
     assert.ok(!names.includes("focusTerminal"), "must not call focusTerminal");
+  });
+
+  it("Live2D click opens launcher without forcing a sprite reaction", () => {
+    const h = createHarness({ sendState: { currentState: "idle", live2dEnabled: true } });
+    h.pointerup({});
+    const names = h.apiCalls.map((c) => c[0]);
+    assert.ok(names.includes("toggleQuickLauncher"));
+    assert.ok(!names.includes("playClickReaction"));
   });
 
   it("Ctrl+click on non-mac opens Dashboard, does NOT call reveal", () => {
@@ -183,40 +194,29 @@ describe("hit-renderer input layer", () => {
     assert.ok(!names.includes("focusTerminal"));
   });
 
-  it("DND + double click does NOT play reaction (canPlayReactionNow fresh-read)", () => {
+  it("DND click opens launcher but does not play a reaction", () => {
     const h = createHarness();
     h.apiHandlers.stateSync({ dndEnabled: true });
     h.pointerup({});
-    h.pointerup({});
-    // Fire the reaction timer
-    h.fireTimer((t) => t.ms === 400);
     const names = h.apiCalls.map((c) => c[0]);
+    assert.ok(names.includes("toggleQuickLauncher"));
     assert.ok(!names.includes("playClickReaction"), "DND must gate reaction playback");
   });
 
-  it("Ctrl+click resets click accumulator (no stale double-click)", () => {
+  it("Ctrl+click opens Dashboard without toggling the launcher", () => {
     const h = createHarness({ isMac: false });
-    h.pointerup({});            // plain click 1 — accumulates
-    h.pointerup({ ctrlKey: true }); // Ctrl+click should reset
-    h.pointerup({});            // plain click 2 — must be a fresh first click
-    // Fire the reset timer (single-click path schedules 400ms reset)
-    h.fireTimer((t) => t.ms === 400);
+    h.pointerup({ ctrlKey: true });
     const names = h.apiCalls.map((c) => c[0]);
-    // No double-click reaction should fire from "1 + reset + 1"
-    assert.ok(!names.includes("playClickReaction"),
-      "Ctrl+click between plain clicks should not produce a double-click reaction");
+    assert.ok(names.includes("showDashboard"));
+    assert.ok(!names.includes("toggleQuickLauncher"));
   });
 
-  it("cancel-reaction clears reactionTimer + accumulator", () => {
+  it("cancel-reaction clears the active sprite reaction gate", () => {
     const h = createHarness();
     h.pointerup({});
-    h.pointerup({});  // clickCount=2, sets reactionTimer
     h.apiHandlers.cancelReaction();
-    // Subsequent timer fire should be no-op (cleared)
-    const before = h.apiCalls.length;
-    h.fireTimer((t) => t.ms === 400);
-    assert.strictEqual(h.apiCalls.length, before,
-      "after cancelReaction, no new reaction should fire");
+    h.pointerup({});
+    assert.ok(h.apiCalls.filter((call) => call[0] === "playClickReaction").length >= 2);
   });
 
   it("updates the drag reaction when horizontal direction changes", () => {

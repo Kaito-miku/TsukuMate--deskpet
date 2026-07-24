@@ -24,6 +24,7 @@ let currentSvg = null;
 let currentState = null;
 let miniMode = false;
 let dndEnabled = false;
+let live2dEnabled = false;
 
 window.hitAPI.onStateSync((data) => {
   if (data.currentSvg !== undefined) currentSvg = data.currentSvg;
@@ -33,6 +34,7 @@ window.hitAPI.onStateSync((data) => {
     area.style.cursor = miniMode ? "default" : "";
   }
   if (data.dndEnabled !== undefined) dndEnabled = data.dndEnabled;
+  if (data.live2dEnabled !== undefined) live2dEnabled = data.live2dEnabled;
 });
 
 // --- Drag state ---
@@ -176,42 +178,18 @@ function handleClick(clientX) {
     return;
   }
   if (isDragReacting) return;
+  resetClickAccumulator();
+  window.hitAPI.revealSessionHud();
+  window.hitAPI.toggleQuickLauncher();
 
-  clickCount++;
-  if (clickCount === 1) {
-    firstClickDir = clientX < area.offsetWidth / 2 ? "left" : "right";
-    // First click reveals the session HUD. Lightweight side effect — NOT
-    // gated by isReacting (HUD reveal is independent of pet animation).
-    window.hitAPI.revealSessionHud();
-  }
-
-  if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
-
-  const doubleReact = _getReaction("double");
-  const annoyedReact = _getReaction("annoyed");
+  // Sprite themes keep their friendly wave while the launcher opens. Live2D
+  // opens immediately without forcing a motion over the current AI emotion.
   const leftReact = _getReaction("clickLeft");
   const rightReact = _getReaction("clickRight");
-
-  if (clickCount >= 2 && doubleReact) {
-    clickCount = 0;
-    firstClickDir = null;
-    if (!canPlayReactionNow()) return;
-    const files = doubleReact.files || [doubleReact.file];
-    const file = files[Math.floor(Math.random() * files.length)];
-    playReaction(file, doubleReact.duration || 3500);
-  } else {
-    clickTimer = setTimeout(() => {
-      clickTimer = null;
-      clickCount = 0;
-      const dir = firstClickDir;
-      firstClickDir = null;
-      if (!canPlayReactionNow()) return;
-      if (leftReact && rightReact) {
-        const react = dir === "left" ? leftReact : rightReact;
-        playReaction(react.file, react.duration || 2500);
-      }
-    }, CLICK_WINDOW_MS);
-  }
+  if (live2dEnabled || !canPlayReactionNow()) return;
+  const dir = clientX < area.offsetWidth / 2 ? "left" : "right";
+  const react = dir === "left" ? (leftReact || rightReact) : (rightReact || leftReact);
+  if (react) playReaction(react.file, react.duration || 2500);
 }
 
 function playReaction(svg, duration) {

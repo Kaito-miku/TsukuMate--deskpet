@@ -61,7 +61,7 @@ describe("session HUD geometry", () => {
     );
   });
 
-  it("positions the visible HUD card below the pet hitbox with a fixed gap", () => {
+  it("positions the visible HUD card above the pet hitbox with a fixed gap", () => {
     const result = computeSessionHudBounds({
       hitRect: { left: 10, top: 80, right: 90, bottom: 160 },
       workArea: { x: 0, y: 0, width: 800, height: 600 },
@@ -69,20 +69,20 @@ describe("session HUD geometry", () => {
 
     assert.deepStrictEqual(result.contentBounds, {
       x: 0,
-      y: 160 + constants.HUD_PET_GAP,
+      y: 80 - constants.HUD_HEIGHT - constants.HUD_PET_GAP,
       width: constants.HUD_WIDTH,
       height: constants.HUD_HEIGHT,
     });
     assert.deepStrictEqual(result.bounds, {
       x: -constants.HUD_WINDOW_SHELL.left,
-      y: 160 + constants.HUD_PET_GAP - constants.HUD_WINDOW_SHELL.top,
+      y: 80 - constants.HUD_HEIGHT - constants.HUD_PET_GAP - constants.HUD_WINDOW_SHELL.top,
       width: constants.HUD_WIDTH + constants.HUD_WINDOW_SHELL.left + constants.HUD_WINDOW_SHELL.right,
       height: constants.HUD_HEIGHT + constants.HUD_WINDOW_SHELL.top + constants.HUD_WINDOW_SHELL.bottom,
     });
-    assert.strictEqual(result.flippedAbove, false);
+    assert.strictEqual(result.flippedAbove, true);
   });
 
-  it("keeps the visible HUD card above the pet hitbox with a fixed gap when flipped", () => {
+  it("keeps the visible HUD card above the pet hitbox with a fixed gap near the bottom edge", () => {
     const result = computeSessionHudBounds({
       hitRect: { left: 320, top: 520, right: 400, bottom: 590 },
       workArea: { x: 0, y: 0, width: 800, height: 620 },
@@ -112,7 +112,7 @@ describe("session HUD geometry", () => {
 
     assert.deepStrictEqual(result.contentBounds, {
       x: 150 - Math.round(constants.HUD_WIDTH / 2),
-      y: 160 + constants.HUD_PET_GAP,
+      y: 80 - constants.HUD_HEIGHT - constants.HUD_PET_GAP,
       width: constants.HUD_WIDTH,
       height: constants.HUD_HEIGHT,
     });
