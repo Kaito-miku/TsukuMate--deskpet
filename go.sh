@@ -26,7 +26,7 @@
 set -e
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SIDECAR_DIR="$HERE/minicpm-sidecar"
-APP_DIR="$HERE/clawd-on-desk"
+APP_DIR="$HERE/tsukumate"
 MODELS_DIR="$HERE/models"
 
 cyan()   { printf "\033[36m%s\033[0m\n" "$*"; }
@@ -133,7 +133,7 @@ check_environment() {
     red "找不到 $APP_DIR/package.json"
     exit 1
   fi
-  green "    ✓ clawd-on-desk/"
+  green "    ✓ tsukumate/"
 }
 
 ensure_llama_server() {
@@ -258,7 +258,7 @@ case "$cmd" in
     ;;
   build)
     # 一站式：下载官方 llama-server + PyInstaller 编 gateway →
-    # electron-builder 出 dmg。输出位于 clawd-on-desk/dist/*.dmg。
+    # electron-builder 出 dmg。输出位于 tsukumate/dist/*.dmg。
     check_environment
     ensure_llama_server
     install_python_deps

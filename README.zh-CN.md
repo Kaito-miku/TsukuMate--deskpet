@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/readme%20logo.png" alt="MiniCPM Desk Pet" width="760">
+  <img src="assets/readme%20logo.png" alt="TsukuMate" width="760">
 </p>
 
 <p align="center">
@@ -46,8 +46,8 @@
 
 **macOS**
 
-1. 前往 [Releases](https://github.com/OpenBMB/MiniCPM-Desk-Pet/releases) 下载最新 `MiniCPM Desk Pet-*-arm64.dmg`。
-2. 打开 DMG，将 **MiniCPM Desk Pet** 拖入 `Applications`。
+1. 前往 [Releases](https://github.com/Kaito-miku/TsukuMate--deskpet/releases) 下载最新 `TsukuMate-*-arm64.dmg`。
+2. 打开 DMG，将 **TsukuMate** 拖入 `Applications`。
 3. 启动应用，按引导完成设置。
 
 如果 macOS 阻止首次打开，可以右键应用选择 **打开**。必要时也可以移除隔离标记：
@@ -58,13 +58,13 @@ xattr -cr /Applications/MiniCPM\ Desk\ Pet.app
 
 **Windows**
 
-1. 前往 [Releases](https://github.com/OpenBMB/MiniCPM-Desk-Pet/releases) 下载最新 `.exe` 安装程序。
+1. 前往 [Releases](https://github.com/Kaito-miku/TsukuMate--deskpet/releases) 下载最新 `.exe` 安装程序。
 2. 运行安装向导，按提示完成安装。
 3. 启动应用，按引导完成设置。
 
 ### 首次启动
 
-MiniCPM Desk Pet 内置完整首次启动流程：
+TsukuMate 内置完整首次启动流程：
 
 **环境检查** -> **模型下载** -> **模型预热** -> **开始使用**
 
@@ -128,4 +128,4 @@ MiniCPM 设置页支持：
 
 本仓库使用 [GNU AGPL-3.0-only](./LICENSE) 分发。
 
-MiniCPM 模型权重会单独下载，受 [OpenBMB MiniCPM Model License](https://github.com/OpenBMB/MiniCPM/blob/main/MiniCPM%20Model%20License.md) 约束。美术素材、第三方代码和数据集保留各自声明；详见 [`NOTICE.md`](./NOTICE.md) 和 [`clawd-on-desk/NOTICE.md`](clawd-on-desk/NOTICE.md)。
+MiniCPM 模型权重会单独下载，受 [OpenBMB MiniCPM Model License](https://github.com/OpenBMB/MiniCPM/blob/main/MiniCPM%20Model%20License.md) 约束。美术素材、第三方代码和数据集保留各自声明；详见 [`NOTICE.md`](./NOTICE.md) 和 [`tsukumate/NOTICE.md`](tsukumate/NOTICE.md)。

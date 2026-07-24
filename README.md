@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/readme%20logo.png" alt="MiniCPM Desk Pet" width="760">
+  <img src="assets/readme%20logo.png" alt="TsukuMate" width="760">
 </p>
 
 <p align="center">
@@ -46,8 +46,8 @@
 
 **macOS**
 
-1. Go to [Releases](https://github.com/OpenBMB/MiniCPM-Desk-Pet/releases) and download the latest `MiniCPM Desk Pet-*-arm64.dmg`.
-2. Open the DMG and drag **MiniCPM Desk Pet** into `Applications`.
+1. Go to [Releases](https://github.com/Kaito-miku/TsukuMate--deskpet/releases) and download the latest `TsukuMate-*-arm64.dmg`.
+2. Open the DMG and drag **TsukuMate** into `Applications`.
 3. Launch the app and follow the setup guide.
 
 If macOS blocks the first launch, right-click the app and choose **Open**. If needed, remove the quarantine flag:
@@ -58,13 +58,13 @@ xattr -cr /Applications/MiniCPM\ Desk\ Pet.app
 
 **Windows**
 
-1. Go to [Releases](https://github.com/OpenBMB/MiniCPM-Desk-Pet/releases) and download the latest `.exe` installer.
+1. Go to [Releases](https://github.com/Kaito-miku/TsukuMate--deskpet/releases) and download the latest `.exe` installer.
 2. Run the installer and complete the wizard.
 3. Launch the app and follow the setup guide.
 
 ### First Launch
 
-MiniCPM Desk Pet includes a complete first-launch guide:
+TsukuMate includes a complete first-launch guide:
 
 **Environment Check** -> **Model Download** -> **Model Warm-up** -> **Ready to Use**
 
@@ -84,7 +84,7 @@ Useful shortcuts (macOS uses `Cmd`, Windows uses `Ctrl`):
 
 ### Reactions While You Work
 
-MiniCPM Desk Pet can stay beside your workspace and react to coding-agent activity: thinking, working, finishing tasks, waiting for attention, or going idle.
+TsukuMate can stay beside your workspace and react to coding-agent activity: thinking, working, finishing tasks, waiting for attention, or going idle.
 
 ### Model Management
 
@@ -128,4 +128,4 @@ For development setup, packaging, and repository layout, see [`docs/development.
 
 This repository is distributed under [GNU AGPL-3.0-only](./LICENSE).
 
-MiniCPM model weights are downloaded separately and governed by the [OpenBMB MiniCPM Model License](https://github.com/OpenBMB/MiniCPM/blob/main/MiniCPM%20Model%20License.md). Artwork, third-party code, and datasets keep their own notices; see [`NOTICE.md`](./NOTICE.md) and [`clawd-on-desk/NOTICE.md`](clawd-on-desk/NOTICE.md).
+MiniCPM model weights are downloaded separately and governed by the [OpenBMB MiniCPM Model License](https://github.com/OpenBMB/MiniCPM/blob/main/MiniCPM%20Model%20License.md). Artwork, third-party code, and datasets keep their own notices; see [`NOTICE.md`](./NOTICE.md) and [`tsukumate/NOTICE.md`](tsukumate/NOTICE.md).

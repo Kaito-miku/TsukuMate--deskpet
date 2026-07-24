@@ -1,26 +1,26 @@
-# Contributing to MiniCPM Desk Pet
+# Contributing to TsukuMate
 
 Thanks for your interest in this project. This file is the operational
 entry point for developers; deeper background lives in
 [docs/development.md](docs/development.md) and
-[clawd-on-desk/AGENTS.md](clawd-on-desk/AGENTS.md).
+[tsukumate/AGENTS.md](tsukumate/AGENTS.md).
 
-> The Electron desktop pet layer (`clawd-on-desk/`) is a vendored fork of
+> The Electron desktop pet layer (`tsukumate/`) is a vendored fork of
 > [rullerzhou-afk/clawd-on-desk](https://github.com/rullerzhou-afk/clawd-on-desk)
 > and is governed by the same AGPL-3.0-only license. When touching code
-> under `clawd-on-desk/`, please keep the upstream coding conventions and
+> under `tsukumate/`, please keep the upstream coding conventions and
 > avoid unnecessary divergence — see [`NOTICE.md`](./NOTICE.md) for the
 > exact upstream commit we forked from.
 
 > Looking to just use the app? Grab a prebuilt installer from
-> [Releases](https://github.com/OpenBMB/MiniCPM-Desk-Pet/releases). This
+> [Releases](https://github.com/Kaito-miku/TsukuMate--deskpet/releases). This
 > document is only relevant if you plan to modify the code.
 
 ## Quickstart (dev mode)
 
 ```bash
-git clone git@github.com:OpenBMB/MiniCPM-Desk-Pet.git
-cd MiniCPM-Desk-Pet
+git clone git@github.com:OpenBMB/TsukuMate--deskpet.git
+cd TsukuMate--deskpet
 
 ./go.sh doctor    # check that node 18+, uv, cmake are present
 ./go.sh setup     # install deps + first-time build of llama-server (~5–10 min)
@@ -37,8 +37,8 @@ before starting `./go.sh`.
 ## Repository layout
 
 ```
-MiniCPM-Desk-Pet/
-├── clawd-on-desk/      Electron desktop pet (vendored fork)
+TsukuMate--deskpet/
+├── tsukumate/      Electron desktop pet (vendored fork)
 ├── minicpm-sidecar/    llama.cpp + FastAPI gateway (inference service)
 ├── adapters/           LoRA persona adapters (.gguf + safetensors source)
 ├── docs/               Developer docs + archived v0.7 design notes
@@ -53,7 +53,7 @@ Before opening a PR, please make sure both test suites pass:
 
 ```bash
 # Electron host (Node built-in test runner)
-cd clawd-on-desk && npm test
+cd tsukumate && npm test
 
 # Python gateway
 cd minicpm-sidecar && uv run pytest -q
@@ -102,5 +102,5 @@ By contributing, you agree that your contributions will be licensed
 under the [AGPL-3.0-only](LICENSE) license that covers the project.
 This matches the license of our upstream
 [rullerzhou-afk/clawd-on-desk](https://github.com/rullerzhou-afk/clawd-on-desk),
-so contributions touching `clawd-on-desk/` remain compatible with
+so contributions touching `tsukumate/` remain compatible with
 upstream contribution flows.
