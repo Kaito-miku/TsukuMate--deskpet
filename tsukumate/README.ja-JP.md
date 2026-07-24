@@ -66,7 +66,7 @@ npm install
 npm start
 ```
 
-アプリフォルダ名は、上流 Electron 構造と既存 hook パスとの互換性のため `clawd-on-desk` のままです。
+アプリフォルダ名は `tsukumate` です。旧 Electron 構造と hook パスには移行互換性があります。
 
 ## 開発メモ
 

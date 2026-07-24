@@ -128,4 +128,6 @@ MiniCPM 设置页支持：
 
 本仓库使用 [GNU AGPL-3.0-only](./LICENSE) 分发。
 
+TsukuMate 是基于 [OpenBMB/MiniCPM-Desk-Pet](https://github.com/OpenBMB/MiniCPM-Desk-Pet) 与 [rullerzhou-afk/clawd-on-desk](https://github.com/rullerzhou-afk/clawd-on-desk) 的二次开发版本，由 Kaito-miku 及贡献者修改和维护。本版本的完整源码位于 [Kaito-miku/TsukuMate--deskpet](https://github.com/Kaito-miku/TsukuMate--deskpet)，上游版权与署名信息保留在 [`NOTICE.md`](./NOTICE.md) 中。
+
 MiniCPM 模型权重会单独下载，受 [OpenBMB MiniCPM Model License](https://github.com/OpenBMB/MiniCPM/blob/main/MiniCPM%20Model%20License.md) 约束。美术素材、第三方代码和数据集保留各自声明；详见 [`NOTICE.md`](./NOTICE.md) 和 [`tsukumate/NOTICE.md`](tsukumate/NOTICE.md)。

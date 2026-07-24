@@ -66,7 +66,7 @@ npm install
 npm start
 ```
 
-앱 폴더 이름은 upstream Electron 구조와 기존 hook 경로 호환성을 위해 `clawd-on-desk`로 유지합니다.
+앱 폴더 이름은 `tsukumate`입니다. 이전 Electron 구조와 hook 경로는 마이그레이션 호환성을 유지합니다.
 
 ## 개발 메모
 

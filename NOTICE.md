@@ -1,12 +1,23 @@
 # Notices
 
-## MiniCPM Desk Pet
+## TsukuMate derivative work
+
+TsukuMate is modified and maintained by Kaito-miku and contributors.
+The complete corresponding source for the maintained version is available at:
+https://github.com/Kaito-miku/TsukuMate--deskpet
+
+TsukuMate is a derivative work of MiniCPM Desk Pet and the desktop-pet UI
+foundation described below. Copyright notices, authorship, and license terms
+from the upstream projects are preserved. Modifications are distributed under
+GNU Affero General Public License v3.0 only (AGPL-3.0-only).
+
+## MiniCPM Desk Pet upstream
 
 Copyright © 2026 OpenBMB.
 
 This repository combines a local MiniCPM5-0.9B inference sidecar (via
 [llama.cpp](https://github.com/ggml-org/llama.cpp)) with an Electron
-desktop pet UI. The Electron application (`clawd-on-desk/`) is a fork
+desktop pet UI. The Electron application (now maintained in `tsukumate/`) is a fork
 of [rullerzhou-afk/clawd-on-desk](https://github.com/rullerzhou-afk/clawd-on-desk)
 at commit `5b1f003`, modified to add local MiniCPM5-0.9B inference, a
 5-step onboarding wizard, LoRA persona switching, and desktop-pet
@@ -14,7 +25,7 @@ narration for coding agents.
 
 This project and its upstream are licensed under the GNU Affero General
 Public License v3.0 (AGPL-3.0-only); see [LICENSE](./LICENSE) for the
-full text. Source code is available at
+full text. The upstream source is available at
 https://github.com/OpenBMB/MiniCPM-Desk-Pet.
 
 ---
@@ -50,11 +61,11 @@ was fine-tuned using the **neko30k** dataset
 a Hugging Face text dataset with 30,834 cat-girl QA samples. The Hugging
 Face dataset card lists the dataset license as Apache-2.0.
 
-### clawd-on-desk subproject
+### Desktop application subproject
 
-`clawd-on-desk/` is a vendored fork that ships its own
-[LICENSE](clawd-on-desk/LICENSE) (AGPL-3.0-only) and
-[NOTICE.md](clawd-on-desk/NOTICE.md). The latter enumerates additional
+`tsukumate/` is the maintained application fork. It ships its own
+[LICENSE](tsukumate/LICENSE) (AGPL-3.0-only) and
+[NOTICE.md](tsukumate/NOTICE.md). The latter enumerates additional
 third-party attributions (OpenClaw pixel-lobster icon under MIT,
 artwork credits, etc.) — refer to that file for the authoritative list.
 

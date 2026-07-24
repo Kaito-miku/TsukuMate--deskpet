@@ -20,7 +20,7 @@
 
 TsukuMate is a local-first desktop pet powered by MiniCPM. It brings a lightweight desktop companion, a local MiniCPM chat bubble, first-launch model onboarding, and coding-agent state reactions into one app.
 
-This fork keeps the MiniCPM product identity, default themes, model onboarding, packaged sidecar resources, and adapter paths. The v0.8 to v0.10 upstream feature migration is integrated around the Electron app, settings, hooks, state management, packaging, and tests; inframodel inference code is intentionally left untouched.
+This derivative keeps compatible MiniCPM model onboarding, packaged sidecar resources, and adapter paths while using the TsukuMate product identity. It is modified and maintained by Kaito-miku and contributors. The complete source is published at [Kaito-miku/TsukuMate--deskpet](https://github.com/Kaito-miku/TsukuMate--deskpet) under AGPL-3.0-only; upstream attribution is preserved in [NOTICE.md](NOTICE.md).
 
 ## Highlights
 

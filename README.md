@@ -128,4 +128,6 @@ For development setup, packaging, and repository layout, see [`docs/development.
 
 This repository is distributed under [GNU AGPL-3.0-only](./LICENSE).
 
+TsukuMate is a derivative work based on [OpenBMB/MiniCPM-Desk-Pet](https://github.com/OpenBMB/MiniCPM-Desk-Pet) and [rullerzhou-afk/clawd-on-desk](https://github.com/rullerzhou-afk/clawd-on-desk), modified and maintained by Kaito-miku and contributors. The complete source code for this maintained version is available at [Kaito-miku/TsukuMate--deskpet](https://github.com/Kaito-miku/TsukuMate--deskpet). Upstream copyright notices and attribution are preserved in [`NOTICE.md`](./NOTICE.md).
+
 MiniCPM model weights are downloaded separately and governed by the [OpenBMB MiniCPM Model License](https://github.com/OpenBMB/MiniCPM/blob/main/MiniCPM%20Model%20License.md). Artwork, third-party code, and datasets keep their own notices; see [`NOTICE.md`](./NOTICE.md) and [`tsukumate/NOTICE.md`](tsukumate/NOTICE.md).
