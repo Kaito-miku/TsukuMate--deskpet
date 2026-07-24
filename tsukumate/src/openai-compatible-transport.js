@@ -44,6 +44,14 @@ function requestJson({ endpoint, apiKey, body, signal, timeoutMs = 30000, onEven
       settled = true;
       fn(value);
     };
+    const headers = {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(encoded),
+      "Accept": body.stream ? "text/event-stream" : "application/json",
+    };
+    if (typeof apiKey === "string" && apiKey.trim()) {
+      headers.Authorization = `Bearer ${apiKey.trim()}`;
+    }
     const req = client.request({
       protocol: url.protocol,
       hostname: url.hostname,
@@ -51,12 +59,7 @@ function requestJson({ endpoint, apiKey, body, signal, timeoutMs = 30000, onEven
       path: `${url.pathname}${url.search}`,
       method: "POST",
       agent,
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(encoded),
-        "Authorization": `Bearer ${apiKey}`,
-        "Accept": body.stream ? "text/event-stream" : "application/json",
-      },
+      headers,
     }, (res) => {
       let raw = "";
       if ((res.statusCode || 0) < 200 || (res.statusCode || 0) >= 300) {

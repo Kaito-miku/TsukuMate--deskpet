@@ -64,6 +64,25 @@ describe("OpenAI-compatible transport", () => {
     );
   });
 
+  test("supports local compatible services without an API key", async () => {
+    let authorization = "not-observed";
+    const endpoint = await listen((req, res) => {
+      authorization = req.headers.authorization;
+      req.resume();
+      req.on("end", () => {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end('{"choices":[{"message":{"content":"ok"}}]}');
+      });
+    });
+    const result = await requestJson({
+      endpoint,
+      apiKey: "",
+      body: makeChatBody({ model: "local-model", messages: [], stream: false }),
+    });
+    assert.equal(authorization, undefined);
+    assert.equal(result.choices[0].message.content, "ok");
+  });
+
   test("preserves standard OpenAI vision message content", () => {
     const body = makeChatBody({
       model: "vision-model",

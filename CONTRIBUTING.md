@@ -19,44 +19,36 @@ entry point for developers; deeper background lives in
 ## Quickstart (dev mode)
 
 ```bash
-git clone git@github.com:OpenBMB/TsukuMate--deskpet.git
+git clone git@github.com:Kaito-miku/TsukuMate--deskpet.git
 cd TsukuMate--deskpet
 
-./go.sh doctor    # check that node 18+, uv, cmake are present
-./go.sh setup     # install deps + first-time build of llama-server (~5–10 min)
-./go.sh           # run sidecar + Electron pet in foreground
+./go.sh start     # install Node dependencies when needed, then launch Electron
+./go.sh test      # run the Node test suite
 
 # Or out a packaged installer (mac arm64 dmg):
 ./go.sh build
 ```
 
-The first launch will offer to download a GGUF model from Hugging Face
-via the onboarding wizard. Alternatively drop a `.gguf` into `models/`
-before starting `./go.sh`.
+Configure a complete OpenAI Chat Completions-compatible URL and model name in
+the app. Localhost services may omit the API Key. The project does not manage
+model files or launch an inference process.
 
 ## Repository layout
 
 ```
 TsukuMate--deskpet/
-├── tsukumate/      Electron desktop pet (vendored fork)
-├── minicpm-sidecar/    llama.cpp + FastAPI gateway (inference service)
-├── adapters/           LoRA persona adapters (.gguf + safetensors source)
-├── docs/               Developer docs + archived v0.7 design notes
-├── skills/             Cursor Agent Skills (dev deployment helper)
-├── models/             GGUF model files (gitignored)
+├── tsukumate/          Electron desktop client
+├── docs/               Developer and release documentation
+├── skills/             Optional integration skills
 └── go.sh               One-shot dev launcher + build entry point
 ```
 
 ## Tests
 
-Before opening a PR, please make sure both test suites pass:
+Before opening a PR, run the test suite:
 
 ```bash
-# Electron host (Node built-in test runner)
 cd tsukumate && npm test
-
-# Python gateway
-cd minicpm-sidecar && uv run pytest -q
 ```
 
 If you change CI workflows under `.github/workflows/`, run them via
@@ -72,16 +64,16 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore: ...` — tooling, dependencies, build, docs
 - `docs: ...` — documentation only
 
-Scope optional, e.g. `feat(sidecar): add /api/load-adapter endpoint`.
+Scope is optional, e.g. `feat(models): add connection validation`.
 
 ## Pull request checklist
 
-- [ ] Branch is rebased on the latest `minicpm-pet` (or target branch)
-- [ ] `npm test` and `uv run pytest -q` pass locally
-- [ ] If you touch onboarding, sidecar lifecycle, or packaging, please
+- [ ] Branch is based on the latest target branch
+- [ ] `npm test` passes locally
+- [ ] If you touch model connections or packaging, please
       include a short test plan (commands run, platform verified) in
       the PR description
-- [ ] No model weights, `.venv`, `node_modules`, or `dist/` artifacts
+- [ ] No model weights, credentials, `node_modules`, or `dist/` artifacts
       committed
 
 ## Issue templates

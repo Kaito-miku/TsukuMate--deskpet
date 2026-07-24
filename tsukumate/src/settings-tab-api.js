@@ -37,8 +37,8 @@
 
       parent.appendChild(el("div", { className: "page-header" },
         el("div", { className: "page-header-copy" },
-          el("h1", { className: "page-title" }, "API 配置"),
-          el("p", { className: "page-subtitle" }, "可保存多个 OpenAI 兼容 API，但一次只使用一个活动配置。")
+          el("h1", { className: "page-title" }, "模型连接"),
+          el("p", { className: "page-subtitle" }, "连接你自己的本地或远程 OpenAI 兼容服务；一次只使用一个活动配置。")
         )
       ));
 
@@ -49,10 +49,10 @@
       const save = async () => {
         const result = await window.minicpmSettings.saveApiProfiles({ profiles, activeId });
         if (!result || !result.ok) {
-          core.ops.showToast(`保存 API 配置失败：${(result && result.error) || ""}`, { error: true });
+          core.ops.showToast(`保存模型连接失败：${(result && result.error) || ""}`, { error: true });
           return false;
         }
-        core.ops.showToast("API 配置已保存并启用。", { error: false });
+        core.ops.showToast("模型连接已保存并启用。", { error: false });
         return true;
       };
 
@@ -63,7 +63,7 @@
           className: profile.id === selectedId ? "minicpm-api-profile-item active" : "minicpm-api-profile-item",
         });
         item.dataset.profileId = profile.id;
-        item.appendChild(el("span", { className: "minicpm-api-profile-name" }, profile.name || "未命名 API"));
+        item.appendChild(el("span", { className: "minicpm-api-profile-name" }, profile.name || "未命名服务"));
         item.appendChild(el("span", { className: "minicpm-api-profile-model" }, profile.model || "未配置模型"));
         if (profile.id === activeId) item.appendChild(el("span", { className: "minicpm-api-profile-active" }, "使用中"));
         item.addEventListener("click", () => {
@@ -76,16 +76,16 @@
       if (profile) {
         const row = el("div", { className: "minicpm-api-editor" });
         const header = el("div", { className: "minicpm-api-editor-header" },
-          el("div", {}, el("span", { className: "minicpm-api-editor-title" }, "编辑 API 档案"), el("span", { className: "minicpm-api-editor-hint" }, "保存后才会应用修改。"))
+          el("div", {}, el("span", { className: "minicpm-api-editor-title" }, "编辑模型服务"), el("span", { className: "minicpm-api-editor-hint" }, "本地服务可使用 localhost；保存后才会应用修改。"))
         );
         const radio = el("input", { type: "radio", name: "active-api-profile" });
         radio.checked = profile.id === activeId;
         radio.addEventListener("change", () => { activeId = profile.id; });
-        header.appendChild(el("label", { className: "minicpm-api-active-control" }, radio, "设为活动 API"));
+        header.appendChild(el("label", { className: "minicpm-api-active-control" }, radio, "设为活动服务"));
         row.appendChild(header);
         const text = el("div", { className: "minicpm-api-editor-fields" });
         const fields = [
-          ["name", "名称", "text", "例如：OpenAI"],
+          ["name", "名称", "text", "例如：本地 Ollama"],
           ["endpoint", "完整 Chat Completions 地址", "url", "https://api.example.com/v1/chat/completions"],
           ["model", "模型名", "text", "gpt-4o-mini"],
         ];
@@ -95,7 +95,7 @@
           input.addEventListener("input", () => { profile[key] = input.value; });
           text.appendChild(el("label", { className: "minicpm-api-input-field" }, el("span", {}, label), input));
         }
-        const key = el("input", { type: "password", className: "minicpm-adapter-editor-input", placeholder: profile.keyConfigured ? "Key 已保存，留空保持原 Key" : "API Key" });
+        const key = el("input", { type: "password", className: "minicpm-adapter-editor-input", placeholder: profile.keyConfigured ? "Key 已保存，留空保持原 Key" : "API Key（本地服务可留空）" });
         key.addEventListener("input", () => { profile.api_key = key.value; });
         text.appendChild(el("label", { className: "minicpm-api-input-field" }, el("span", {}, "API Key"), key));
         row.appendChild(text);
@@ -117,9 +117,9 @@
 
       const actions = el("div", { className: "row" }, el("div", { className: "row-text" }), el("div", { className: "row-control" }));
       const controls = actions.querySelector(".row-control");
-      const add = el("button", { type: "button", className: "soft-btn" }, "新增 API");
+      const add = el("button", { type: "button", className: "soft-btn" }, "新增服务");
       add.addEventListener("click", () => {
-        profiles.push({ id: createProfileId(profiles), name: "新 API", endpoint: "", model: "", keyConfigured: false });
+        profiles.push({ id: createProfileId(profiles), name: "新模型服务", endpoint: "", model: "", keyConfigured: false });
         activeId = profiles[profiles.length - 1].id;
         void render(parent, { profiles, activeId, selectedId: profiles[profiles.length - 1].id });
       });

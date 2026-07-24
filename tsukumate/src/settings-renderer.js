@@ -4,7 +4,7 @@ const core = globalThis.ClawdSettingsCore;
 
 const SIDEBAR_TABS = [
   { id: "general", labelKey: "sidebarGeneral", available: true },
-  { id: "modelGroup", label: "模型与 API", available: true },
+  { id: "modelGroup", label: "模型连接", available: true },
   { id: "personas", label: "人格", available: true },
   { id: "agents", labelKey: "sidebarAgents", available: true },
   { id: "appearanceGroup", label: "外观与动画", available: true },
@@ -17,10 +17,7 @@ const SIDEBAR_TABS = [
 
 const SETTINGS_GROUPS = {
   modelGroup: {
-    tabs: [
-      { id: "minicpm", label: "本地模型" },
-      { id: "api", label: "API" },
-    ],
+    tabs: [{ id: "api", label: "兼容服务" }],
   },
   appearanceGroup: {
     tabs: [
@@ -32,7 +29,7 @@ const SETTINGS_GROUPS = {
   },
 };
 
-const activeGroupTabs = { modelGroup: "minicpm", appearanceGroup: "theme" };
+const activeGroupTabs = { modelGroup: "api", appearanceGroup: "theme" };
 
 function getTabIcon(tabId) {
   const icons = globalThis.ClawdSettingsIcons;

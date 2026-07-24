@@ -150,11 +150,6 @@ contextBridge.exposeInMainWorld("settingsAPI", {
 
 // ── MiniCPM settings tab API ──
 contextBridge.exposeInMainWorld("minicpmSettings", {
-  getStatus: () => ipcRenderer.invoke("minicpm-settings:get-status"),
-  listAdapters: () => ipcRenderer.invoke("minicpm-settings:list-adapters"),
-  loadAdapter: (path) => ipcRenderer.invoke("minicpm-settings:load-adapter", { path }),
-  checkUpdate: () => ipcRenderer.invoke("minicpm-settings:check-update"),
-  applyUpdate: () => ipcRenderer.invoke("minicpm-settings:apply-update"),
   setNarration: (enabled) => ipcRenderer.invoke("minicpm-settings:set-narration", { enabled }),
   getChatParams: () => ipcRenderer.invoke("minicpm-settings:get-chat-params"),
   getInferenceConfig: () => ipcRenderer.invoke("minicpm-settings:get-inference-config"),
@@ -174,14 +169,6 @@ contextBridge.exposeInMainWorld("minicpmSettings", {
   enterBubbleEdit: () => ipcRenderer.invoke("minicpm-settings:enter-bubble-edit"),
   exitBubbleEdit: (save) => ipcRenderer.invoke("minicpm-settings:exit-bubble-edit", { save: !!save }),
   getBackendMode: () => process.env.MINICPM_BACKEND || null,
-  listDevices: () => ipcRenderer.invoke("minicpm-settings:list-devices"),
-  setDevice: (device) => ipcRenderer.invoke("minicpm-settings:set-device", { device }),
-  setDeviceAndRestart: (device) => ipcRenderer.invoke("minicpm-settings:set-device-and-restart", { device }),
-  restartSidecar: () => ipcRenderer.invoke("minicpm-settings:restart-sidecar"),
-  getModelDir: () => ipcRenderer.invoke("minicpm-settings:get-model-dir"),
-  pickModelDir: () => ipcRenderer.invoke("minicpm-settings:pick-model-dir"),
-  resetModelDir: () => ipcRenderer.invoke("minicpm-settings:reset-model-dir"),
-  rerunOnboarding: () => ipcRenderer.invoke("minicpm-settings:rerun-onboarding"),
   relaunchApp: () => ipcRenderer.invoke("minicpm-settings:relaunch-app"),
   getLogsInfo: () => ipcRenderer.invoke("minicpm-settings:get-logs-info"),
   openLogsDir: () => ipcRenderer.invoke("minicpm-settings:open-logs-dir"),
@@ -189,13 +176,6 @@ contextBridge.exposeInMainWorld("minicpmSettings", {
   openDiaryDir: () => ipcRenderer.invoke("minicpm-settings:open-diary-dir"),
   generateDiary: () => ipcRenderer.invoke("minicpm-settings:generate-diary"),
   getResources: () => ipcRenderer.invoke("minicpm-settings:get-resources"),
-  openModelDir: () => ipcRenderer.invoke("minicpm-settings:open-model-dir"),
-  getAdapterDir: () => ipcRenderer.invoke("minicpm-settings:get-adapter-dir"),
-  openAdapterDir: () => ipcRenderer.invoke("minicpm-settings:open-adapter-dir"),
-  getAdapterManifest: () => ipcRenderer.invoke("minicpm-settings:get-adapter-manifest"),
-  uploadAdapter: (payload) => ipcRenderer.invoke("minicpm-settings:upload-adapter", payload || {}),
-  renameAdapter: (payload) => ipcRenderer.invoke("minicpm-settings:rename-adapter", payload || {}),
-  removeAdapter: (payload) => ipcRenderer.invoke("minicpm-settings:remove-adapter", payload || {}),
 });
 
 contextBridge.exposeInMainWorld("doctor", {

@@ -1755,30 +1755,9 @@ function openMinicpmChat() {
   }
 }
 
-_minicpmOnboarding = require("./minicpm-onboarding")({
-  getSidecarUrl: () => _minicpmChat.getSidecarUrl(),
-  getChat: () => _minicpmChat,
-  getLang: () => lang,
-  ensureSidecarRunning: async () => {
-    try {
-      const r = await _minicpmChat.ensureSidecarReady();
-      return { ok: true, status: r && r.status };
-    } catch (err) {
-      return { ok: false, error: String((err && err.message) || err) };
-    }
-  },
-  onComplete: () => {
-    try { createWindow(); } catch (err) { console.error("createWindow after onboarding:", err); }
-    setTimeout(() => {
-      if (_minicpmChat && typeof _minicpmChat.warmup === "function") {
-        _minicpmChat.warmup();
-      }
-    }, 500);
-  },
-  onCancel: () => {
-    app.quit();
-  },
-});
+// Model runtimes are user-managed. TsukuMate never downloads a model or
+// starts an inference sidecar, so there is no model onboarding lifecycle.
+_minicpmOnboarding = null;
 
 const _sessionHud = require("./session-hud")({
   get win() { return win; },

@@ -1433,14 +1433,16 @@ module.exports = function initMinicpmChat(ctx) {
   // Remote API settings intentionally keep the secret out of JSON prefs.
   // The renderer only ever receives `apiKeyConfigured`, never the key itself.
   const DEFAULT_API_PERSONA = "You are a friendly desktop pet and companion. Speak naturally and helpfully. Do not claim to be Codex, OpenAI, or any other product or model unless the user explicitly asks which API is configured.";
-  const DEFAULT_INFERENCE_CONFIG = { inference_mode: "local", api_endpoint: "", api_model: "", api_persona: DEFAULT_API_PERSONA, diary_enabled: true, diary_time: "22:00", mood_duration_minutes: 15, api_key_configured: false };
+  const DEFAULT_INFERENCE_CONFIG = { inference_mode: "api", api_endpoint: "", api_model: "", api_persona: DEFAULT_API_PERSONA, diary_enabled: true, diary_time: "22:00", mood_duration_minutes: 15, api_key_configured: false };
   function getInferenceConfig() {
     const raw = readMinicpmPrefsRaw();
-    const profiles = Array.isArray(raw.api_profiles) && raw.api_profiles.length ? raw.api_profiles : [{ id: "default", name: "默认 API", endpoint: raw.api_endpoint || "", model: raw.api_model || "", keyConfigured: !!raw.api_key_configured }];
+    const profiles = Array.isArray(raw.api_profiles) && raw.api_profiles.length ? raw.api_profiles : [{ id: "default", name: "默认模型服务", endpoint: raw.api_endpoint || "", model: raw.api_model || "", keyConfigured: !!raw.api_key_configured }];
     const activeId = profiles.some((p) => p && p.id === raw.active_api_profile_id) ? raw.active_api_profile_id : profiles[0].id;
     const active = profiles.find((p) => p && p.id === activeId) || profiles[0];
     return {
-      inference_mode: raw.inference_mode === "api" ? "api" : "local",
+      // TsukuMate no longer owns or launches a model runtime. Both localhost
+      // and remote endpoints use the same OpenAI-compatible transport.
+      inference_mode: "api",
       api_endpoint: typeof active.endpoint === "string" ? active.endpoint : "",
       api_model: typeof active.model === "string" ? active.model : "",
       api_profiles: profiles.map((p) => ({ id: p.id, name: p.name, endpoint: p.endpoint, model: p.model, keyConfigured: !!p.keyConfigured })),
@@ -1449,10 +1451,10 @@ module.exports = function initMinicpmChat(ctx) {
       diary_enabled: raw.diary_enabled !== false,
       diary_time: /^([01]\d|2[0-3]):[0-5]\d$/.test(raw.diary_time || "") ? raw.diary_time : "22:00",
       mood_duration_minutes: normalizeMoodDurationMinutes(raw.mood_duration_minutes),
-      api_key_configured: !!raw.api_key_configured,
+      api_key_configured: !!active.keyConfigured,
     };
   }
-  function isApiMode() { return getInferenceConfig().inference_mode === "api"; }
+  function isApiMode() { return true; }
   function saveApiProfiles(input) {
     const raw = readMinicpmPrefsRaw();
     const source = Array.isArray(input && input.profiles) ? input.profiles : [];
@@ -1469,7 +1471,7 @@ module.exports = function initMinicpmChat(ctx) {
     if (!profiles.length) throw new Error("At least one API profile is required");
     const activeId = profiles.some((p) => p.id === input.activeId) ? input.activeId : profiles[0].id;
     const active = profiles.find((p) => p.id === activeId);
-    if (!active.keyConfigured) throw new Error("The active API profile needs an API key");
+    // Local compatible services commonly do not require authentication.
     mergeMinicpmPrefs({ inference_mode: "api", api_profiles: profiles, active_api_profile_id: activeId, api_endpoint: active.endpoint, api_model: active.model, api_key_configured: active.keyConfigured });
     return getInferenceConfig();
   }
@@ -1490,13 +1492,12 @@ module.exports = function initMinicpmChat(ctx) {
   function getRemoteRuntimeConfig() {
     const config = getInferenceConfig();
     const checked = validateApiConfig({ endpoint: config.api_endpoint, model: config.api_model });
-    const apiKey = readApiKey(config.active_api_profile_id) || readApiKey();
-    if (!apiKey) throw new Error("API key is not configured");
+    const apiKey = readApiKey(config.active_api_profile_id) || readApiKey() || "";
     return { ...checked, apiKey, api_persona: getActivePersona().prompt };
   }
   async function setInferenceConfig(input) {
     const current = getInferenceConfig();
-    const mode = input && input.inference_mode === "api" ? "api" : "local";
+    const mode = "api";
     const moodDurationMinutes = normalizeMoodDurationMinutes(input && input.mood_duration_minutes != null ? input.mood_duration_minutes : current.mood_duration_minutes);
     let next = { ...current, inference_mode: mode, mood_duration_minutes: moodDurationMinutes };
     if (mode === "api") {
@@ -1508,11 +1509,9 @@ module.exports = function initMinicpmChat(ctx) {
         writeApiKey(input.api_key.trim(), current.active_api_profile_id);
         next.api_key_configured = true;
       }
-      if (!next.api_key_configured || !(readApiKey(current.active_api_profile_id) || readApiKey())) throw new Error("API key is required");
     }
     mergeMinicpmPrefs(next);
     try { ctx.setChatEmotion && ctx.setChatEmotion({ durationOnly: true, moodDurationMinutes }); } catch {}
-    if (mode === "api") await sidecar.stopAndWait().catch(() => {});
     return getInferenceConfig();
   }
   function clearApiKey() {
@@ -2727,12 +2726,15 @@ module.exports = function initMinicpmChat(ctx) {
   // ── IPC ───────────────────────────────────────────────────────────────
 
   const handlers = {
-    "minicpm:status": async () => ({
-      bridgeDir,
-      url: sidecar.baseUrl(),
-      healthy: isApiMode() ? !!(readApiKey(getInferenceConfig().active_api_profile_id) || readApiKey()) : await sidecar.isHealthy(getEffectiveModelDir()),
-      remote: isApiMode(),
-    }),
+    "minicpm:status": async () => {
+      const config = getInferenceConfig();
+      return {
+        bridgeDir,
+        url: config.api_endpoint,
+        healthy: !!(config.api_endpoint && config.api_model),
+        remote: true,
+      };
+    },
     "minicpm:emotion-status": async (event) => {
       if (!isChatBubbleSender(event.sender)) return { phase: "idle", emotion: "calm", blend: normalizeEmotionBlend("calm"), updatedAt: null };
       return { ...emotionStatus };
@@ -2755,15 +2757,8 @@ module.exports = function initMinicpmChat(ctx) {
     },
     "minicpm:start": async (_evt, opts = {}) => {
       try {
-        if (isApiMode()) {
-          getRemoteRuntimeConfig();
-          await sidecar.stopAndWait().catch(() => {});
-          return { ok: true, status: "remote-ready", remote: true };
-        }
-        // Default to the user-effective dir; opts.modelDir still wins
-        // when callers want a one-off override.
-        const r = await sidecar.ensureRunning(opts.modelDir || getEffectiveModelDir());
-        return { ok: true, status: r.status, url: sidecar.baseUrl() };
+        getRemoteRuntimeConfig();
+        return { ok: true, status: "service-ready", remote: true };
       } catch (err) {
         return { ok: false, error: localizeError(err) };
       }
@@ -2933,7 +2928,7 @@ module.exports = function initMinicpmChat(ctx) {
       if (isApiMode()) {
         const config = getInferenceConfig();
         return {
-          remote: true, healthy: !!(readApiKey(config.active_api_profile_id) || readApiKey()), sidecarReady: false, llamaReady: false,
+          remote: true, healthy: !!(config.api_endpoint && config.api_model), sidecarReady: false, llamaReady: false,
           narration: narrationEnabled, api: config,
         };
       }
@@ -3629,27 +3624,6 @@ module.exports = function initMinicpmChat(ctx) {
   scheduleDailyDiary();
   setTimeout(() => { void catchUpDailyDiary().catch((err) => log(`[diary] catch-up failed: ${err && err.message || err}`)); }, 2000);
 
-  // Stop the running sidecar (if any) and immediately restart it. Used
-  // after settings changes that the engine reads at construction time
-  // only — accelerator (MINICPM_DEVICE) and the active model directory.
-  async function restartSidecar() {
-    if (isApiMode()) return { status: "remote-ready" };
-    await sidecar.stopAndWait();
-    return sidecar.ensureRunning(getEffectiveModelDir());
-  }
-
-  // Boot or attach to the sidecar and wait until /api/health returns
-  // ok. Unlike `warmup()`, this surface bubbles failures upwards — the
-  // Onboarding wizard needs to *know* if spawn failed so it can show a
-  // proper error message instead of hitting ECONNREFUSED later on.
-  async function ensureSidecarReady() {
-    if (isApiMode()) {
-      getRemoteRuntimeConfig();
-      return { status: "remote-ready" };
-    }
-    return sidecar.ensureRunning(getEffectiveModelDir());
-  }
-
   function sendI18n() {
     if (!bubble || bubble.isDestroyed()) return;
     try {
@@ -3673,19 +3647,9 @@ module.exports = function initMinicpmChat(ctx) {
     isOpen: () => bubbleShown && !!(bubble && !bubble.isDestroyed()),
     reposition,
     shutdown,
-    restartSidecar,
-    ensureSidecarReady,
     sendI18n,
-    getSidecarUrl: () => sidecar.baseUrl(),
     getBridgeDir: () => bridgeDir,
-    getSidecarBinary: () => sidecarBin,
     getLogsDir: () => logsDir,
-    getSidecarLogPath: () => sidecarLogPath,
     isApiMode,
-    // Model directory introspection — consumed by Onboarding + Settings.
-    getModelDir: () => getEffectiveModelDir(),
-    getDefaultModelDir,
-    setModelDir: (dir) => setEffectiveModelDir(dir),
-    isModelPresent: () => isModelPresent(),
   };
 };

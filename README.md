@@ -60,11 +60,10 @@ xattr -cr /Applications/TsukuMate.app
 
 ### First Launch
 
-TsukuMate includes a complete first-launch guide:
-
-**Environment Check** -> **Model Download** -> **Model Warm-up** -> **Ready to Use**
-
-Connect a local model service that you operate yourself, or configure an OpenAI Chat Completions-compatible endpoint and model name in Settings.
+Open **Settings → Model Connections**, then add a local service that you
+operate yourself or a remote OpenAI Chat Completions-compatible endpoint.
+Enter its complete Chat Completions URL and model name. API Key is optional
+for services that do not require authentication.
 
 ## Features
 
@@ -91,7 +90,7 @@ The model and API settings let you:
 - configure the endpoint, model name, and encrypted API key
 - test the active connection
 
-### Persona Adapters
+### Personas
 
 Create and switch between persona prompts from the dedicated Persona settings page.
 
@@ -99,14 +98,14 @@ Create and switch between persona prompts from the dedicated Persona settings pa
 
 - Broader Linux validation.
 - More persona presets.
-- Clearer model download diagnostics and retry guidance.
+- Clearer model connection diagnostics and compatibility guidance.
 - Faster first launch and smaller app footprint.
 - Richer desktop-pet narration for long-running coding sessions.
 
 ## Known Limitations
 
 - The primary tested release target is macOS Apple Silicon. Windows is supported with a bundled installer; report issues if something does not work on your setup.
-- First launch requires an internet connection unless you provide a local model file.
+- Remote services require network access; a localhost service can work offline once you have installed it yourself.
 - Response speed depends on your chip, memory pressure, and selected model.
 - Coding-agent reactions depend on each tool's integration behavior and may vary by version.
 
