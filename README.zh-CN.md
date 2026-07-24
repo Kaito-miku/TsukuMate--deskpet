@@ -3,131 +3,130 @@
 </p>
 
 <p align="center">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg" alt="License"></a>
-  <a href="https://huggingface.co/openbmb/MiniCPM5-1B-GGUF"><img src="https://img.shields.io/badge/Model-MiniCPM5--1B-green" alt="MiniCPM5-1B"></a>
-  <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-lightgrey" alt="Platform">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg" alt="AGPL-3.0-only"></a>
+  <img src="https://img.shields.io/badge/Desktop-macOS%20%7C%20Windows-lightgrey" alt="macOS and Windows">
+  <img src="https://img.shields.io/badge/Inference-Local%20%7C%20OpenAI%20Compatible-7c6cf2" alt="Local or OpenAI-compatible API">
 </p>
+
+<p align="center"><a href="README.md">English</a> · <strong>简体中文</strong></p>
 
 <p align="center">
-  <a href="README.md">English</a> | <strong>简体中文</strong>
+  一个会陪你聊天、记住重要事情，并对工作状态与情绪作出反应的开源 AI 桌宠。
 </p>
 
-<p align="center">
-  一个本地优先的 MiniCPM 桌宠。下载安装，跟随首次启动引导完成设置，就可以和桌面上的小伙伴聊天。
-</p>
+> [!IMPORTANT]
+> TsukuMate 仍处于积极开发阶段。这是一份 README 初稿，部分界面、功能名称与安装方式可能继续调整。
 
----
+## TsukuMate 是什么
 
-## 项目亮点
+TsukuMate 是一款基于 Electron 的桌面 AI 伙伴。它既可以运行本地 MiniCPM 模型，也可以连接 OpenAI Chat Completions 兼容 API。桌宠支持精灵主题与 Live2D 外观，并能显示聊天情绪、编程 Agent 状态和 Codex 实时任务进展。
 
-- **本地运行**：模型下载完成后，日常聊天在你的电脑上完成。
-- **无需手动配置**：首次启动会引导完成环境检查、模型下载和模型预热。
-- **桌面聊天伙伴**：通过悬浮气泡和 MiniCPM 对话，桌宠可以一直陪在桌面上。
-- **感知工作状态**：可根据 Cursor、Claude Code、Codex 等工具的活动展示不同状态。
-- **任务旁白**：coding agent 会话结束时，桌宠会在气泡中用一句话总结 AI 刚刚做了什么，方便你快速了解进度。
-- **等待提醒**：当 coding agent 在等你回复时，桌宠会播放铃铛动画和提示音，防止你错过。
-- **自动发现 agent**：应用会扫描本地已安装的编程 agent，提示你一键连接。
-- **智能下载模型**：支持 Hugging Face 和 ModelScope，会根据网络情况选择更合适的下载源。
-- **人格支持**：可在 **Settings -> MiniCPM** 中切换或导入角色适配器。
+所有对话记录、日记、人格及非敏感配置均保存在本机；API Key 使用 Electron `safeStorage` 加密，不会交给渲染页面。
 
-## 快速开始
+## 主要功能
 
-### 系统要求
+### 对话与记忆
 
-| 项目 | 推荐配置 |
-| --- | --- |
-| macOS | 14.0+，Apple Silicon (M1/M2/M3/M4)，约 2 GB 磁盘空间 |
-| Windows | x64，需 Vulkan 支持，约 2 GB 磁盘空间 |
-| 网络 | 首次启动需要联网下载模型；已有本地模型文件时可手动选择 |
+- 本地 MiniCPM 与 OpenAI 兼容 API 两种推理方式。
+- 保存多套 API 配置，并选择其中一套作为当前服务。
+- 多人格管理，可为每个人格配置独立提示词。
+- 按天保存聊天记录、自动日记与“记住这件事”形成的长期笔记。
+- 在系统提示中注入当前日期与时间。
+- API 模式下可经用户主动授权，截取指定显示器并附加到下一条视觉消息；截图不落盘，也不进入后续历史。
+- 支持 Apple Music 控制与模糊歌曲搜索。
 
-> macOS Apple Silicon 是当前主要验证平台；Windows 已提供安装包，欢迎反馈问题。
+### 桌宠与 Live2D
 
-### 安装
+- 精灵图主题和 Live2D 模型两种显示方式。
+- 透明、置顶、可缩放、可拖动的桌宠窗口。
+- 点击桌宠打开四宫格快捷菜单：问答、休眠（免打扰）、设置、关闭菜单。
+- 点击、拖拽、思考、工作、完成、失败、睡眠等状态动作。
+- 八维复合即时情绪识别，并通过 API 在后台校正。
+- 独立的持续心情状态；即时反应结束后恢复当前心情，并可由后续互动缓解或化解。
+- Live2D 使用主情绪选择动作，并通过连续 VAD 参数混合面部、视线与姿态。
 
-**macOS**
+### Codex 与编程 Agent
 
-1. 前往 [Releases](https://github.com/Kaito-miku/TsukuMate--deskpet/releases) 下载最新 `TsukuMate-*-arm64.dmg`。
-2. 打开 DMG，将 **TsukuMate** 拖入 `Applications`。
-3. 启动应用，按引导完成设置。
+- 读取现有官方 hooks 与本地会话事件，不伪造进度。
+- Codex 工作时自动显示实时任务卡，展示当前任务与最近工具活动。
+- 支持 Claude Code、Codex 及多种可选 Agent 集成。
+- 等待权限、工作、完成、失败等状态可驱动桌宠动作与提示。
 
-如果 macOS 阻止首次打开，可以右键应用选择 **打开**。必要时也可以移除隔离标记：
+## 安装
+
+### 从源码运行
+
+需要 Node.js 20+。首次安装 Electron 依赖需要联网。
 
 ```bash
-xattr -cr /Applications/MiniCPM\ Desk\ Pet.app
+git clone https://github.com/Kaito-miku/TsukuMate--deskpet.git
+cd TsukuMate--deskpet/tsukumate
+npm install
+npm start
 ```
 
-**Windows**
+如果 Electron 下载速度过慢，可以临时使用 npm 镜像后重新安装：
 
-1. 前往 [Releases](https://github.com/Kaito-miku/TsukuMate--deskpet/releases) 下载最新 `.exe` 安装程序。
-2. 运行安装向导，按提示完成安装。
-3. 启动应用，按引导完成设置。
+```bash
+ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install
+```
 
-### 首次启动
+### 安装包
 
-TsukuMate 内置完整首次启动流程：
+预构建版本将在 [GitHub Releases](https://github.com/Kaito-miku/TsukuMate--deskpet/releases) 提供。当前主要开发与验证平台为 macOS Apple Silicon；Windows 功能也在持续验证中。
 
-**环境检查** -> **模型下载** -> **模型预热** -> **开始使用**
+## 初次使用
 
-默认模型是 [MiniCPM5-1B-GGUF](https://huggingface.co/openbmb/MiniCPM5-1B-GGUF)。你可以让应用自动下载，也可以选择已有的本地 `.gguf` 文件。
+1. 启动 TsukuMate，点击桌宠打开快捷菜单。
+2. 在“设置 → 模型与 API”中选择本地模型或 API。
+3. API 模式需要填写完整 Chat Completions 地址、模型名和 API Key。
+4. 在“人格”中选择或创建角色提示词。
+5. 使用 `Cmd/Ctrl + Shift + M` 打开问答窗口，使用 `Cmd/Ctrl + Enter` 发送消息。
 
-## 功能介绍
+屏幕读取、外部 Agent 集成和 Apple Music 控制都需要用户主动启用；应用不会在未授权时持续读取屏幕。
 
-### 和本地桌宠聊天
+## 数据与隐私
 
-打开悬浮聊天气泡，就可以直接和 MiniCPM 对话。设置完成后，日常聊天不需要依赖远程推理服务。
+- 聊天记录、日记和笔记保存在应用的本地用户数据目录，可从设置页直接打开对应文件夹。
+- API Key 单独加密保存，设置页面只读取“已配置”状态，不回显明文。
+- 屏幕截图仅保存在内存中，并只发送给当前启用的 API 服务一次。
+- 使用远程 API 时，消息内容会发送到你配置的服务商，请自行阅读其隐私政策。
+- 本地模型权重不会提交到本仓库。
 
-常用快捷键（macOS 为 `Cmd`，Windows 为 `Ctrl`）：
+## 开发与测试
 
-- `Cmd/Ctrl+Shift+M`：打开或关闭 MiniCPM 聊天气泡
-- `Cmd/Ctrl+Shift+T`：显示或隐藏思考模式
-- `Esc`：输入框聚焦时关闭气泡
+```bash
+cd tsukumate
+npm test
+npm run build:live2d
+```
 
-### 工作时的状态反应
+开发说明见 [`docs/development.md`](docs/development.md)。提交问题前请避免附带 API Key、私人聊天记录、日记、模型文件或其他敏感数据。
 
-桌宠可以停留在你的工作区旁边，根据 coding agent 的状态表现出思考、工作、完成、等待关注、休息等不同反应。
+## 当前限制
 
-### 模型管理
-
-MiniCPM 设置页支持：
-
-- 下载默认模型或选择本地模型文件
-- 重新运行首次启动引导
-- 管理角色 / 人格适配器
-- 在需要时重启本地模型运行环境
-
-### 人格适配器
-
-应用内置一个 neko 风格人格适配器。你可以在 **Settings -> MiniCPM** 中切换适配器，也可以导入自己的适配器。
+- 部分 OpenAI 兼容服务并不支持 SSE、视觉消息或标准字段，实际能力取决于服务商与模型。
+- 屏幕理解需要支持图像输入的 API 模型，本地模式不会接收截图。
+- Live2D 动作效果取决于模型本身提供的参数、表情和 motion 文件。
+- Coding Agent 的可见进度受各工具 hook 与会话格式限制。
+- 项目尚未承诺稳定配置格式，升级前建议备份本地数据。
 
 ## 路线图
 
-- 扩展 Linux 验证。
-- 增加更多人格预设。
-- 优化模型下载提示、重试和诊断体验。
-- 缩短首次启动耗时，减小应用体积。
-- 为长时间 coding 会话提供更丰富的桌宠旁白。
+- 完善 macOS 与 Windows 安装包和自动更新。
+- 改进设置页面、首次启动流程与多语言文案。
+- 继续优化复合情绪、持续心情与 Live2D 动作映射。
+- 增强聊天记录、日记和记忆管理体验。
+- 补充用户文档、贡献指南与隐私说明。
 
-## 已知限制
+## 开源协议与归属
 
-- 当前主要验证和发布目标是 macOS Apple Silicon；Windows 已提供安装包，如遇问题欢迎反馈。
-- 首次启动需要联网下载模型，除非你手动提供本地模型文件。
-- 回复速度会受到芯片、内存压力和模型选择影响。
-- Coding agent 状态反应依赖各工具自身的集成方式，不同版本之间可能存在差异。
+本仓库代码以 [GNU AGPL-3.0-only](./LICENSE) 发布。通过网络向用户提供修改后的程序功能时，也需要按照 AGPL 提供对应版本源码。
 
-## 开发者说明
+TsukuMate 是基于 [OpenBMB/MiniCPM-Desk-Pet](https://github.com/OpenBMB/MiniCPM-Desk-Pet) 与 [rullerzhou-afk/clawd-on-desk](https://github.com/rullerzhou-afk/clawd-on-desk) 的二次开发版本，由 Kaito-miku 及贡献者修改和维护。完整版权和第三方归属见 [`NOTICE.md`](NOTICE.md) 与 [`tsukumate/NOTICE.md`](tsukumate/NOTICE.md)。
 
-开发环境、打包流程和仓库结构见 [`docs/development.md`](docs/development.md)。
+MiniCPM 模型权重、Live2D 模型、美术资源、字体和其他第三方素材可能适用各自独立协议；AGPL 代码许可不自动授予这些素材的商用或再分发权利。
 
-## 致谢
+## 贡献
 
-- 桌宠 UI 基于 [rullerzhou-afk/clawd-on-desk](https://github.com/rullerzhou-afk/clawd-on-desk)。完整归属信息见 [`NOTICE.md`](./NOTICE.md)。
-- 模型权重来自 OpenBMB MiniCPM 模型家族，并在使用时单独下载。
-- 内置 neko 人格使用 **neko30k** 数据集（[liumindmind/NekoQA-30K](https://huggingface.co/datasets/liumindmind/NekoQA-30K)）作为微调数据。
-
-## 许可证
-
-本仓库使用 [GNU AGPL-3.0-only](./LICENSE) 分发。
-
-TsukuMate 是基于 [OpenBMB/MiniCPM-Desk-Pet](https://github.com/OpenBMB/MiniCPM-Desk-Pet) 与 [rullerzhou-afk/clawd-on-desk](https://github.com/rullerzhou-afk/clawd-on-desk) 的二次开发版本，由 Kaito-miku 及贡献者修改和维护。本版本的完整源码位于 [Kaito-miku/TsukuMate--deskpet](https://github.com/Kaito-miku/TsukuMate--deskpet)，上游版权与署名信息保留在 [`NOTICE.md`](./NOTICE.md) 中。
-
-MiniCPM 模型权重会单独下载，受 [OpenBMB MiniCPM Model License](https://github.com/OpenBMB/MiniCPM/blob/main/MiniCPM%20Model%20License.md) 约束。美术素材、第三方代码和数据集保留各自声明；详见 [`NOTICE.md`](./NOTICE.md) 和 [`tsukumate/NOTICE.md`](tsukumate/NOTICE.md)。
+欢迎提交 Issue 与 Pull Request。较大的功能改动建议先开 Issue 说明目标、交互和数据迁移方式。参与贡献即表示你有权提交相关代码或素材，并同意其按本项目适用的许可证发布。

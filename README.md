@@ -13,22 +13,22 @@
 </p>
 
 <p align="center">
-  A local-first desktop pet powered by MiniCPM. Download, complete the guided setup, and chat with a tiny companion that lives on your desktop.
+  An open-source AI desktop companion that chats, remembers, reacts to emotion, and follows your coding-agent progress.
 </p>
 
 ---
 
 ## Highlights
 
-- **Local by default** — after the model is downloaded, everyday chat runs on your machine.
-- **Zero manual setup** — first launch guides you through environment check, model download, and warm-up.
-- **Desktop companion** — open a floating chat bubble, talk with MiniCPM, and keep the pet on screen while you work.
-- **Agent-aware reactions** — the pet can react to coding activity from tools such as Cursor, Claude Code, and Codex.
-- **Task narration** — when a coding-agent session finishes, the pet summarizes what the AI just did in a speech bubble, so you can catch up at a glance.
-- **Idle alerts** — if a coding agent has been waiting for your input, the pet plays a bell animation and sound to get your attention.
-- **Auto-detect agents** — the app scans your machine for installed coding agents and prompts you to connect them in one click.
-- **Smart model download** — the app can download from Hugging Face or ModelScope and choose the better source for your network.
-- **Persona support** — switch or import character adapters from **Settings -> MiniCPM**.
+> **Development status:** TsukuMate is under active development. This README is an initial draft and interfaces may still change.
+
+- **Local or remote inference** — use a local MiniCPM model or one of several saved OpenAI Chat Completions-compatible API profiles.
+- **Personas and memory** — manage multiple personas, daily chat history, journals, and explicit “remember this” notes.
+- **Sprite and Live2D pets** — transparent, resizable pets with clicks, dragging, system actions, compound reactions, and persistent moods.
+- **Private screen context** — explicitly select a display and attach one in-memory screenshot to the next vision request only.
+- **Codex task card** — show real task and tool activity from existing Codex hooks and session events.
+- **Desktop controls** — use the quick launcher, do-not-disturb mode, Apple Music controls, and configurable shortcuts.
+- **Local-first storage** — conversations and journals stay in the app data directory; API keys are encrypted with Electron `safeStorage`.
 
 ## Getting Started
 
