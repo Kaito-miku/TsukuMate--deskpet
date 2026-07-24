@@ -1,10 +1,6 @@
 <p align="center">
-  <img src="assets/readme%20logo.png" alt="TsukuMate" width="760">
-</p>
-
-<p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg" alt="License"></a>
-  <a href="https://huggingface.co/openbmb/MiniCPM5-1B-GGUF"><img src="https://img.shields.io/badge/Model-MiniCPM5--1B-green" alt="MiniCPM5-1B"></a>
+  <img src="https://img.shields.io/badge/Inference-Local%20%7C%20OpenAI%20Compatible-7c6cf2" alt="Local or OpenAI-compatible API">
   <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-lightgrey" alt="Platform">
 </p>
 
@@ -22,7 +18,7 @@
 
 > **Development status:** TsukuMate is under active development. This README is an initial draft and interfaces may still change.
 
-- **Local or remote inference** — use a local MiniCPM model or one of several saved OpenAI Chat Completions-compatible API profiles.
+- **Bring your own model service** — connect a self-hosted local service or one of several saved OpenAI Chat Completions-compatible API profiles.
 - **Personas and memory** — manage multiple personas, daily chat history, journals, and explicit “remember this” notes.
 - **Sprite and Live2D pets** — transparent, resizable pets with clicks, dragging, system actions, compound reactions, and persistent moods.
 - **Private screen context** — explicitly select a display and attach one in-memory screenshot to the next vision request only.
@@ -53,7 +49,7 @@
 If macOS blocks the first launch, right-click the app and choose **Open**. If needed, remove the quarantine flag:
 
 ```bash
-xattr -cr /Applications/MiniCPM\ Desk\ Pet.app
+xattr -cr /Applications/TsukuMate.app
 ```
 
 **Windows**
@@ -68,17 +64,17 @@ TsukuMate includes a complete first-launch guide:
 
 **Environment Check** -> **Model Download** -> **Model Warm-up** -> **Ready to Use**
 
-The default model is [MiniCPM5-1B-GGUF](https://huggingface.co/openbmb/MiniCPM5-1B-GGUF). You can let the app download it automatically, or choose an existing local `.gguf` file.
+Connect a local model service that you operate yourself, or configure an OpenAI Chat Completions-compatible endpoint and model name in Settings.
 
 ## Features
 
-### Chat With a Local Pet
+### Chat With Your Desktop Pet
 
-Use the floating chat bubble to talk with MiniCPM from your desktop. Once setup is complete, your normal conversations do not need a remote inference service.
+Use the floating chat bubble with your selected local or remote model service.
 
 Useful shortcuts (macOS uses `Cmd`, Windows uses `Ctrl`):
 
-- `Cmd/Ctrl+Shift+M` — open or close the MiniCPM chat bubble
+- `Cmd/Ctrl+Shift+M` — open or close the chat bubble
 - `Cmd/Ctrl+Shift+T` — show or hide thinking mode
 - `Esc` — close the bubble when input is focused
 
@@ -86,18 +82,18 @@ Useful shortcuts (macOS uses `Cmd`, Windows uses `Ctrl`):
 
 TsukuMate can stay beside your workspace and react to coding-agent activity: thinking, working, finishing tasks, waiting for attention, or going idle.
 
-### Model Management
+### Model Connections
 
-The MiniCPM settings page lets you:
+The model and API settings let you:
 
-- download the default model or choose a local model file
-- rerun onboarding
-- manage character/persona adapters
-- restart the local model runtime when needed
+- connect a self-hosted local model service
+- save multiple OpenAI-compatible API profiles and select one
+- configure the endpoint, model name, and encrypted API key
+- test the active connection
 
 ### Persona Adapters
 
-The app includes a neko-style persona adapter. You can switch adapters or import your own from **Settings -> MiniCPM**.
+Create and switch between persona prompts from the dedicated Persona settings page.
 
 ## Roadmap
 
@@ -121,7 +117,7 @@ For development setup, packaging, and repository layout, see [`docs/development.
 ## Acknowledgments
 
 - Desktop pet UI is based on [rullerzhou-afk/clawd-on-desk](https://github.com/rullerzhou-afk/clawd-on-desk). Full attribution is listed in [`NOTICE.md`](./NOTICE.md).
-- Model weights come from the OpenBMB MiniCPM model family and are downloaded separately.
+- Users are responsible for the licenses and terms of models they connect.
 - The bundled neko persona uses the **neko30k** dataset ([liumindmind/NekoQA-30K](https://huggingface.co/datasets/liumindmind/NekoQA-30K)) for fine-tuning data.
 
 ## License
@@ -130,4 +126,4 @@ This repository is distributed under [GNU AGPL-3.0-only](./LICENSE).
 
 TsukuMate is a derivative work based on [OpenBMB/MiniCPM-Desk-Pet](https://github.com/OpenBMB/MiniCPM-Desk-Pet) and [rullerzhou-afk/clawd-on-desk](https://github.com/rullerzhou-afk/clawd-on-desk), modified and maintained by Kaito-miku and contributors. The complete source code for this maintained version is available at [Kaito-miku/TsukuMate--deskpet](https://github.com/Kaito-miku/TsukuMate--deskpet). Upstream copyright notices and attribution are preserved in [`NOTICE.md`](./NOTICE.md).
 
-MiniCPM model weights are downloaded separately and governed by the [OpenBMB MiniCPM Model License](https://github.com/OpenBMB/MiniCPM/blob/main/MiniCPM%20Model%20License.md). Artwork, third-party code, and datasets keep their own notices; see [`NOTICE.md`](./NOTICE.md) and [`tsukumate/NOTICE.md`](tsukumate/NOTICE.md).
+Models connected by users, artwork, third-party code, and datasets keep their own license terms. See [`NOTICE.md`](./NOTICE.md) and [`tsukumate/NOTICE.md`](tsukumate/NOTICE.md) for components distributed with this repository.

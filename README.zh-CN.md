@@ -1,8 +1,4 @@
 <p align="center">
-  <img src="assets/readme%20logo.png" alt="TsukuMate" width="760">
-</p>
-
-<p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0--only-blue.svg" alt="AGPL-3.0-only"></a>
   <img src="https://img.shields.io/badge/Desktop-macOS%20%7C%20Windows-lightgrey" alt="macOS and Windows">
   <img src="https://img.shields.io/badge/Inference-Local%20%7C%20OpenAI%20Compatible-7c6cf2" alt="Local or OpenAI-compatible API">
@@ -19,7 +15,7 @@
 
 ## TsukuMate 是什么
 
-TsukuMate 是一款基于 Electron 的桌面 AI 伙伴。它既可以运行本地 MiniCPM 模型，也可以连接 OpenAI Chat Completions 兼容 API。桌宠支持精灵主题与 Live2D 外观，并能显示聊天情绪、编程 Agent 状态和 Codex 实时任务进展。
+TsukuMate 是一款基于 Electron 的桌面 AI 伙伴。它可以连接用户自行部署的本地模型服务，也可以连接 OpenAI Chat Completions 兼容 API。桌宠支持精灵主题与 Live2D 外观，并能显示聊天情绪、编程 Agent 状态和 Codex 实时任务进展。
 
 所有对话记录、日记、人格及非敏感配置均保存在本机；API Key 使用 Electron `safeStorage` 加密，不会交给渲染页面。
 
@@ -27,7 +23,7 @@ TsukuMate 是一款基于 Electron 的桌面 AI 伙伴。它既可以运行本�
 
 ### 对话与记忆
 
-- 本地 MiniCPM 与 OpenAI 兼容 API 两种推理方式。
+- 用户自备的本地模型服务与 OpenAI 兼容 API 两种连接方式。
 - 保存多套 API 配置，并选择其中一套作为当前服务。
 - 多人格管理，可为每个人格配置独立提示词。
 - 按天保存聊天记录、自动日记与“记住这件事”形成的长期笔记。
@@ -78,8 +74,8 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install
 ## 初次使用
 
 1. 启动 TsukuMate，点击桌宠打开快捷菜单。
-2. 在“设置 → 模型与 API”中选择本地模型或 API。
-3. API 模式需要填写完整 Chat Completions 地址、模型名和 API Key。
+2. 在“设置 → 模型与 API”中选择自己的本地模型服务或远程 API。
+3. 填写兼容服务的完整 Chat Completions 地址、模型名；需要鉴权时再填写 API Key。
 4. 在“人格”中选择或创建角色提示词。
 5. 使用 `Cmd/Ctrl + Shift + M` 打开问答窗口，使用 `Cmd/Ctrl + Enter` 发送消息。
 
@@ -91,7 +87,7 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install
 - API Key 单独加密保存，设置页面只读取“已配置”状态，不回显明文。
 - 屏幕截图仅保存在内存中，并只发送给当前启用的 API 服务一次。
 - 使用远程 API 时，消息内容会发送到你配置的服务商，请自行阅读其隐私政策。
-- 本地模型权重不会提交到本仓库。
+- 用户自行准备的本地模型、权重和服务配置不会提交到本仓库。
 
 ## 开发与测试
 
@@ -106,7 +102,7 @@ npm run build:live2d
 ## 当前限制
 
 - 部分 OpenAI 兼容服务并不支持 SSE、视觉消息或标准字段，实际能力取决于服务商与模型。
-- 屏幕理解需要支持图像输入的 API 模型，本地模式不会接收截图。
+- 屏幕理解需要所连接的服务和模型支持图像输入。
 - Live2D 动作效果取决于模型本身提供的参数、表情和 motion 文件。
 - Coding Agent 的可见进度受各工具 hook 与会话格式限制。
 - 项目尚未承诺稳定配置格式，升级前建议备份本地数据。
@@ -125,7 +121,7 @@ npm run build:live2d
 
 TsukuMate 是基于 [OpenBMB/MiniCPM-Desk-Pet](https://github.com/OpenBMB/MiniCPM-Desk-Pet) 与 [rullerzhou-afk/clawd-on-desk](https://github.com/rullerzhou-afk/clawd-on-desk) 的二次开发版本，由 Kaito-miku 及贡献者修改和维护。完整版权和第三方归属见 [`NOTICE.md`](NOTICE.md) 与 [`tsukumate/NOTICE.md`](tsukumate/NOTICE.md)。
 
-MiniCPM 模型权重、Live2D 模型、美术资源、字体和其他第三方素材可能适用各自独立协议；AGPL 代码许可不自动授予这些素材的商用或再分发权利。
+用户自行连接的模型及其权重、Live2D 模型、美术资源、字体和其他第三方素材可能适用各自独立协议；AGPL 代码许可不自动授予这些素材的商用或再分发权利。
 
 ## 贡献
 
