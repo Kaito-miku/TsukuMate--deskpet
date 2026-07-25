@@ -4,7 +4,7 @@ This file is the entry point for coding agents working in this repository. Keep 
 
 ## Project Overview
 
-Clawd 是一个 Electron 桌宠：通过 hook、日志轮询、plugin 和 extension 感知 AI coding agent 的工作状态，并播放像素风动画。当前支持 Claude Code、Codex CLI、Copilot CLI、Gemini CLI、Antigravity CLI (agy)、Cursor Agent、CodeBuddy、Kiro CLI、Kimi Code CLI (Kimi-CLI)、Qwen Code、CodeWhale、opencode、Pi、OpenClaw、Hermes Agent、Qoder、Reasonix；内置 Clawd / Calico / Cloudling 三套主题，支持用户主题；平台覆盖 Windows、macOS、Linux，UI 支持 en / zh / ko / ja。
+TsukuMate 是一个 Electron 桌宠：通过 hook、日志轮询、plugin 和 extension 感知 AI coding agent 的工作状态，并播放桌宠动画。当前支持 Claude Code、Codex CLI、Copilot CLI、Gemini CLI、Antigravity CLI (agy)、Cursor Agent、CodeBuddy、Kiro CLI、Kimi Code CLI (Kimi-CLI)、Qwen Code、CodeWhale、opencode、Pi、OpenClaw、Hermes Agent、Qoder、Reasonix；支持内置与用户主题、Live2D 以及本地/API 模型连接；平台覆盖 Windows、macOS、Linux。
 
 ## Common Commands
 
@@ -74,13 +74,13 @@ Copilot CLI 同步走 `<COPILOT_HOME 或 ~/.copilot>/hooks/hooks.json`，marker-
 
 ## Runtime Summary
 
-- 事件主路径：hook / log monitor → `src/server.js` → `src/state.js` → IPC → `src/renderer.js`
+- 事件主路径：hook / log monitor → `src/main/sessions/server.js` → `src/main/core/state.js` → IPC → `src/renderer/pet/renderer.js`
 - 桌宠采用双窗口模型：渲染窗口只负责显示；输入窗口负责 pointer 事件和拖拽
-- 多会话 UI 主路径：`src/state.js` 生成 session snapshot → Dashboard / Session HUD；HUD 贴近桌宠显示当前 live session，Dashboard 负责详情、别名和跳转终端
-- `src/server.js` 启动后会为已安装且已启用的 agent 异步同步缺失 hooks / plugins；Codex official hooks 为 primary，JSONL 轮询保留为 fallback
-- `src/server.js` 只在 Claude Code 已安装、已启用且 `manageClaudeHooksAutomatically` 打开时 watch `~/.claude/settings.json`，并在 hook 被抹掉时自动重装
-- `src/agent-gate.js` 控制各 agent 的安装意图、启用状态、权限气泡开关和 wait-for-input notification 子开关
-- 设置系统主链路是 `src/prefs.js` → `src/settings-controller.js` → `src/settings-store.js`，写入 side effects 收敛在 `src/settings-actions.js`
+- 多会话 UI 主路径：`src/main/core/state.js` 生成 session snapshot → Dashboard / Session HUD；HUD 贴近桌宠显示当前 live session，Dashboard 负责详情、别名和跳转终端
+- `src/main/sessions/server.js` 启动后会为已安装且已启用的 agent 异步同步缺失 hooks / plugins；Codex official hooks 为 primary，JSONL 轮询保留为 fallback
+- `src/main/sessions/server.js` 只在 Claude Code 已安装、已启用且 `manageClaudeHooksAutomatically` 打开时 watch `~/.claude/settings.json`，并在 hook 被抹掉时自动重装
+- `src/main/integrations/agents/agent-gate.js` 控制各 agent 的安装意图、启用状态、权限气泡开关和 wait-for-input notification 子开关
+- 设置系统主链路是 `src/main/settings/prefs.js` → `src/main/settings/settings-controller.js` → `src/main/settings/settings-store.js`，写入 side effects 收敛在 `src/main/settings/settings-actions.js`
 - 启动时还会尝试自动安装 VS Code / Cursor terminal-focus extension，并初始化 updater
 - 远程场景依赖 Settings Remote SSH runtime / deploy 路径、`scripts/remote-deploy.sh` CLI 备选和 SSH 反向端口转发
 
@@ -90,35 +90,21 @@ Copilot CLI 同步走 `<COPILOT_HOME 或 ~/.copilot>/hooks/hooks.json`，marker-
 
 | File | Responsibility |
 |------|------|
-| `src/main.js` | Electron 主进程胶水，窗口、IPC、生命周期、上下文组装 |
-| `src/server.js` | `/state`、`/permission`、端口发现、按 agent gate 的 hook/plugin 按需自动同步 |
-| `src/state.js` | 状态机、多会话合并、优先级、自动回退、睡眠/DND |
-| `src/renderer.js` | 动画切换、SVG 预加载、眼球追踪渲染 |
-| `src/permission.js` | 权限气泡创建、堆叠、决策回包 |
-| `src/update-bubble.js` | 更新气泡创建、测高、跟随桌宠定位，避让 HUD / permission stack |
-| `src/dashboard.js` + `src/dashboard-renderer.js` | Sessions Dashboard 窗口、会话列表、别名编辑、终端跳转 |
-| `src/session-hud.js` + `src/session-hud-renderer.js` | 桌宠旁轻量会话 HUD、折叠行、点击跳转 |
-| `src/session-alias.js` | session alias key 规范化、TTL pruning、Kiro cwd scope |
-| `src/theme-loader.js` | 主题加载、能力校验、变体 merge、SVG 消毒 |
-| `src/prefs.js` | 偏好 schema、load/save/migrate/validate，设置持久化入口 |
-| `src/settings-actions.js` | 设置 validators / commands / effects，agent flag 和系统副作用入口 |
-| `src/settings-controller.js` | 设置系统唯一写入者 |
-| `src/settings-store.js` | 不可变 snapshot store |
-| `src/settings-renderer.js` | Settings UI 主逻辑 |
-| `src/menu.js` | 托盘 / 右键菜单，串起设置、Dashboard、语言、mini mode、更新入口 |
-| `src/mini.js` | 极简模式入场、滑动、peek、状态映射 |
-| `src/tick.js` | 主循环、鼠标轮询、眼球和 idle/sleep 逻辑 |
-| `src/drag-position.js` | 拖拽落点规范化与跨显示器钳制 |
-| `src/visible-margins.js` | 可视角色边距与 edge pinning 规则 |
-| `src/updater.js` | Git 模式 / `electron-updater` 双路径更新逻辑 |
-| `src/focus.js` | 终端聚焦 |
-| `src/hit-renderer.js` + `src/hit-geometry.js` | 输入窗口命中、拖拽、连击反应 |
-| `src/remote-ssh-runtime.js` | Remote SSH 连接状态机、SSH / health probe、重试、Codex monitor 生命周期 |
-| `src/remote-ssh-deploy.js` | Settings 里的 Remote SSH Deploy / Repair Hooks 流程，与 CLI 脚本保持等价 |
-| `src/remote-ssh-node.js` | 远端 Node 探测、缓存、验证和远端 `node -e` 命令构造 |
-| `src/remote-ssh-profile.js` | Remote SSH profile schema、校验、默认值和持久化规范化 |
-| `src/remote-ssh-ipc.js` | Remote SSH runtime / deploy 的 IPC handler 和状态 / 进度广播 |
-| `src/remote-ssh-quote.js` | Remote SSH 终端命令与跨平台 shell quoting helper |
+| `src/main/index.js` | Electron composition root，窗口、IPC、生命周期和上下文组装 |
+| `src/main/paths.js` | 应用、renderer、preload 及顶层资源的统一绝对路径 |
+| `src/main/core/` | 桌宠状态机、tick、mini、菜单和运行时协调 |
+| `src/main/windows/` | BrowserWindow 创建、定位与生命周期 |
+| `src/main/chat/` | 聊天运输、人格、时间上下文与屏幕截图 |
+| `src/main/settings/` | 偏好 schema、store、controller、actions 和 Settings IPC |
+| `src/main/sessions/` | HTTP 状态服务、session IPC、路由和聚焦交接 |
+| `src/main/theme/` | 主题加载、运行时、资源和动画周期 |
+| `src/main/integrations/` | Agent、Codex Pet、Telegram、Remote SSH、Apple Music 等外部集成 |
+| `src/main/platform/` | macOS / Windows / Linux、任务栏、登录启动与系统唤醒 |
+| `src/main/diagnostics/` | doctor、报告与集成检测器 |
+| `src/renderer/<surface>/` | 每个窗口的 HTML / CSS / renderer 脚本；Settings tabs 在 `renderer/settings/tabs/` |
+| `src/renderer/shared/live2d/` | 多窗口共用的 Live2D 浏览器启动与 bundle |
+| `src/preload/` | 按页面命名的受限 IPC bridge |
+| `src/shared/` | 无 Electron / DOM 依赖的情绪、主题、session、settings、i18n 与工具算法 |
 | `agents/registry.js` | agent 注册表 |
 | `agents/codex-log-monitor.js` | Codex JSONL fallback 轮询 |
 | `agents/gemini-log-monitor.js` | legacy Gemini session JSON 轮询器；当前 Gemini hook-only 路径不启动 |
@@ -144,13 +130,14 @@ Copilot CLI 同步走 `<COPILOT_HOME 或 ~/.copilot>/hooks/hooks.json`，marker-
 - Qwen Code 通过 `~/.qwen/settings.json` 做 hook-only 集成（SessionStart / SessionEnd / UserPromptSubmit / PreToolUse / PostToolUse / Stop / Notification / PermissionRequest），支持状态与阻塞式 `PermissionRequest` 权限气泡；`disableAllHooks: true` 时注册条目不会触发。
 - Qoder 通过 `~/.qoder/settings.json` 做 **state-only** hook 集成（Phase 1：SessionStart / UserPromptSubmit / PreToolUse / PostToolUse / PostToolUseFailure / Stop / Notification / PermissionRequest / PermissionDenied / SessionEnd）。Clawd 只把 `PermissionRequest` / `PermissionDenied` 当 notification 观察，**不替 Qoder 做权限决策**，hook stdout 恒为 `{}`，由 Qoder 原生权限流程接管；`agents/qoder.js` 的 `capabilities.permissionApproval` / `interactiveBubble` 均为 false。Windows 命令走 PowerShell `-EncodedCommand` 包装（与 Qwen / Antigravity 同款 cmd 引号剥离规避）。session id 命名空间是 `qoder:<raw>`；启动恢复只认 CLI 进程 `qodercli` / `qoder-cli`，不认 IDE 进程 `qoder.exe`。真实 Qoder CLI/IDE smoke 尚未完成。
 - HTTP 服务端口范围固定为 `127.0.0.1:23333-23337`；运行时端口写入 `~/.clawd/runtime.json`
-- Remote SSH 的远端 Node 探测要求 Node >= 14；`scripts/remote-deploy.sh` 与 `src/remote-ssh-node.js` 的 probe 顺序、候选路径、版本判断和输出字段必须保持行为对齐
+- Remote SSH 的远端 Node 探测要求 Node >= 14；`scripts/remote-deploy.sh` 与 `src/main/integrations/remote-ssh/remote-ssh-node.js` 的 probe 顺序、候选路径、版本判断和输出字段必须保持行为对齐
 - 注册 Claude Code hook 时只能追加，不能覆盖用户已有 hook 数组
 - Copilot CLI hooks 走按需自动同步：`hooks/copilot-install.js` 在本地启动仅当 Copilot CLI 已安装且已启用时调用；`scripts/remote-deploy.sh --remote` 仍会在远端部署路径里调用。路径解析尊重 `COPILOT_HOME` env（trimmed 非空才生效，否则 fallback 到 `~/.copilot`）；`hooks/copilot-hook.js` 的 session-state resolver 同样走 env
 - 禁用 agent 不应卸载 hooks / plugins / extensions：只停止对应 monitor、清理 session / bubble、让 HTTP hook 入口快速 fallback；重新启用未安装 agent 不触发本机 integration sync。卸载集成必须走 Settings Agent 页的 Uninstall / 对应 uninstall 命令，并同时清掉 `integrationInstalled`
 - Kiro 的 `sessionId="default"` 会复用；session alias key 必须按 cwd scope 区分，同时保留旧 `local|kiro-cli|default` 只读 fallback
 - Windows NSIS release 必须产出明确架构的 x64 / ARM64 安装包：`win.artifactName` 保留 `${arch}`，`nsis.buildUniversalInstaller` 保持 `false`
-- 资源路径统一用 `path.join(__dirname, ...)`
+- 主进程资源路径必须从 `src/main/paths.js` 导出的 root 解析，不得假定调用文件仍在 `src/` 根目录
+- 依赖方向限定为 `main/preload/renderer → shared`；`shared` 不得引入 Electron、DOM 或具体窗口，renderer 不得引入 main 或 Node 系统模块
 - 需要编辑发布素材时，先复制到 `assets/source/` 再改，不要直接改工作素材来源不明的文件
 - `assets/source/cloudling-pointer-bridge/` 是 Cloudling 指针桥素材的保留源文件目录；运行时逻辑已内联进主题 SVG，不要把这个 source 目录当临时文件清理
 - 主题状态、sleep/DND、mini mode、状态映射的细节在 `docs/project/theme-state-ui.md`
@@ -159,7 +146,7 @@ Copilot CLI 同步走 `<COPILOT_HOME 或 ~/.copilot>/hooks/hooks.json`，marker-
 ## Testing
 
 - 自动化测试使用 Node 内置 test runner：`npm test`
-- 当前 `test/*.test.js` 已覆盖 hooks/installers、agent registry、server state/permission 路由、state、theme-loader / overrides、settings、menu、tick、Dashboard、session HUD、session alias、update bubble、updater、remote-deploy、remote-ssh runtime / deploy / profile / node / IPC、work-area / visible margins 等纯逻辑模块
+- 测试按 `test/main|renderer|preload|shared|integrations|packaging` 分类，`test/helpers|fakes|fixtures` 不会被当作测试直接执行；`npm test` 递归发现 `test/**/*.test.js`
 - 当前开发环境是 Windows-first；macOS 特定路径无法在这里手动 QA，改到 mac 逻辑时要用 code-review-first 的方式说明行为变化和残余风险
 - 涉及 Claude Code hook payload 的改动（尤其 `/permission`、`permission_suggestions`、`updatedPermissions`、elicitation 输入）至少用一次真实 Claude Code 验证；`curl` 自编 payload 不够
 - 透明窗口、托盘、真实拖拽、跨平台前台聚焦等 Electron 行为仍以手动验证为主
@@ -180,7 +167,7 @@ Copilot CLI 同步走 `<COPILOT_HOME 或 ~/.copilot>/hooks/hooks.json`，marker-
 - opencode 的 `permission.ask` hook 目前不可用，权限只能走 event hook + bridge
 - Codex CLI official hooks 已接入；JSONL 轮询仍是 fallback，用于 hook 不可用、hook 未覆盖事件（如 WebSearch / compaction / abort）和历史兼容。Windows command 必须用 PowerShell `& "node" ...` 格式，裸 `"node" "hook.js"` 会 exit 1
 - Kiro 没有 global hooks，只能注入到 `~/.kiro/agents/*.json`
-- `src/renderer.js` 里给 `<img>` SVG 追加的 `?_t=` cache-bust query 不能删；Chromium 会复用同 URL SVG 的动画时间线，一次性动画会停在末帧
+- `src/renderer/pet/renderer.js` 里给 `<img>` SVG 追加的 `?_t=` cache-bust query 不能删；Chromium 会复用同 URL SVG 的动画时间线，一次性动画会停在末帧
 
 ## Do Not Revisit
 

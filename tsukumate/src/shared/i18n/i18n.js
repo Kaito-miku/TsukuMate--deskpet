@@ -1,7 +1,7 @@
 "use strict";
 
 // ── Internationalization ──
-// String pool extracted from src/menu.js so settings panel can also depend on it.
+// String pool shared by the main menu and settings renderer.
 // `createTranslator(getLang)` returns a `t(key)` function bound to a lang source.
 // `getLang` is a callback (not a static value) so language switches at runtime
 // take effect without re-creating the translator.

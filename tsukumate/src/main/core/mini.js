@@ -1,4 +1,4 @@
-// src/mini.js — Mini mode (edge snap, crabwalk, peek, window animations)
+// src/main/core/mini.js — Mini mode (edge snap, crabwalk, peek, window animations)
 // Extracted from main.js L315-331, L2700-2911
 
 const { screen } = require("electron");

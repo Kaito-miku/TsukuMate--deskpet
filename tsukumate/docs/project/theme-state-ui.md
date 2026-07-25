@@ -36,12 +36,12 @@ Clawd 是主题化桌宠：动画资源、计时、hitbox、眼球追踪参数�
 - 若 `sleepSequence.mode` 为 `full`（默认），需提供 `yawning / dozing / collapsing / waking`；`direct` 可直接进入 `sleeping`
 - 若 `miniMode.supported` 为 true，需提供 8 个基础 mini 状态；`mini-working` 是可选增强，缺失时优雅跳过
 - 能力缺失时走 `VISUAL_FALLBACK_STATES` 回退链
-- 默认配置集中在 `theme-loader.js` 顶部的 `DEFAULT_*` 常量
+- 默认配置集中在 `src/main/theme/theme-loader.js` 顶部的 `DEFAULT_*` 常量
 - 变体是白名单 deep-merge；数组和特定字段会整体替换
 - Animation override 是用户 per-slot 覆盖，和作者定义的 variants 正交
 - SVG 会经过白名单消毒，阻断脚本、事件属性、外部资源、`javascript:` 和路径穿越
 - `trustedRuntime.scriptedSvgFiles` 只对 loader 判定为内置的主题生效；外部主题声明该字段会被忽略
-- 支持 SVG / GIF / APNG / WebP / PNG / JPG；动画周期由 `src/animation-cycle.js` 探测
+- 支持 SVG / GIF / APNG / WebP / PNG / JPG；动画周期由 `src/main/theme/animation-cycle.js` 探测
 - 更新视觉遵循主题绑定：`checking` 可选走 `theme.updateVisuals.checking`，未声明时回退到当前主题的 `thinking`；发现新版本时会进入 `available -> notification`；`downloading / success / error` 继续分别走 `carrying / attention / error`
 
 主题创建流程见 `docs/guides/guide-theme-creation.md`。
@@ -52,10 +52,10 @@ Settings 是独立 `BrowserWindow`，采用 4 层结构：
 
 | 层 | 文件 | 职责 |
 |---|---|---|
-| Schema / 持久化 | `src/prefs.js` | `SCHEMA` 定义；`load/save/migrate/validate`；坏文件自动 `.bak` + fallback |
-| 内存 store | `src/settings-store.js` | `createStore()` 返回 `{ getSnapshot, subscribe, _commit }`；`_commit` closure-private |
-| 控制器 | `src/settings-controller.js` | 唯一写入者；`applyUpdate` / `applyBulk` / `applyCommand` / `hydrate`；pre-commit effect gate |
-| UI | `src/settings-renderer.js` + `settings.html` + `preload-settings.js` | 主题卡片、animation overrides、agent 开关、诊断；只通过 IPC 调 controller |
+| Schema / 持久化 | `src/main/settings/prefs.js` | `SCHEMA` 定义；`load/save/migrate/validate`；坏文件自动 `.bak` + fallback |
+| 内存 store | `src/main/settings/settings-store.js` | `createStore()` 返回 `{ getSnapshot, subscribe, _commit }`；`_commit` closure-private |
+| 控制器 | `src/main/settings/settings-controller.js` | 唯一写入者；`applyUpdate` / `applyBulk` / `applyCommand` / `hydrate`；pre-commit effect gate |
+| UI | `src/renderer/settings/settings-renderer.js` + `src/renderer/settings/settings.html` + `src/preload/preload-settings.js` | 主题卡片、animation overrides、agent 开关、诊断；只通过 IPC 调 controller |
 
 关键取舍：
 
@@ -120,13 +120,13 @@ Mini 状态映射：
 ### Sound
 
 - `app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required")` 要在窗口创建前设置
-- `main.js` 里的 `playSound(name)` 会检查 `soundMuted`、`doNotDisturb` 和 cooldown
-- `renderer.js` 用 `_audioCache` 缓存 `Audio` 对象
+- `src/main/index.js` 里的 `playSound(name)` 会检查 `soundMuted`、`doNotDisturb` 和 cooldown
+- `src/renderer/pet/renderer.js` 用 `_audioCache` 缓存 `Audio` 对象
 - `attention/mini-happy` 播放 complete，`notification/mini-alert` 播放 confirm
 
 ### Eye Tracking
 
-- `tick.js` 每 50ms 轮询鼠标
+- `src/main/core/tick.js` 每 50ms 轮询鼠标
 - 眼球位移量量化到 0.5px 像素网格
 - 鼠标没动时会 dedup 跳过发送
 - 从 `idle-look` 返回 `idle-follow` 时需要 `forceEyeResend`
@@ -135,7 +135,7 @@ Mini 状态映射：
 
 ### Animated SVG Through `<img>`
 
-- `renderer.js` 里给 `<img>` SVG 追加的 `?_t=` cache-bust query 是必需的
+- `src/renderer/pet/renderer.js` 里给 `<img>` SVG 追加的 `?_t=` cache-bust query 是必需的
 - 原因不是 HTTP 缓存，而是 Chromium 会复用同 URL SVG 的文档与 CSS 动画时间线；`forwards` 的一次性动画第二次加载时会直接停在末帧
 - 相关 dedup 逻辑必须比较规范化后的文件名，而不是带 query 的最终 URL
 

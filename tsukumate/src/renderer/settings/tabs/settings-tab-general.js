@@ -1531,7 +1531,7 @@
     return row;
   }
 
-  // = prefsSizeToUi(9): the prefs `size` default is "P:9" (see src/prefs.js).
+  // = prefsSizeToUi(9): the prefs `size` default is "P:9" (see src/main/settings/prefs.js).
   const SIZE_UI_DEFAULT = 30;
 
   function buildSizeSliderRow() {

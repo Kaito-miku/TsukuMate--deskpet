@@ -4,7 +4,7 @@ const { execFile: defaultExecFile } = require("child_process");
 const {
   getSessionFocusTarget,
   isFocusableLocalHudSession,
-} = require("../../sessions/session-focus");
+} = require("../../../shared/sessions/session-focus");
 
 const DEFAULT_MAPPING_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_REPLY_TEXT = 3800;

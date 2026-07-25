@@ -1,6 +1,6 @@
 "use strict";
 
-const { VISUAL_FALLBACK_STATES } = require("../../main/theme/theme-loader");
+const { VISUAL_FALLBACK_STATES } = require("../theme/theme-schema");
 
 function buildStateBindings(nextTheme) {
   const bindings = {};

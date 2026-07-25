@@ -1,4 +1,4 @@
-// src/server.js — HTTP server + routes (/state, /permission, /health)
+// src/main/sessions/server.js — HTTP server + routes (/state, /permission, /health)
 // Extracted from main.js L1337-1528
 
 const http = require("http");

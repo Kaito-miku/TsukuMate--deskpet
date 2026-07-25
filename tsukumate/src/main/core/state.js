@@ -1,4 +1,4 @@
-// src/state.js — State machine + session management + DND + wake poll
+// src/main/core/state.js — State machine + session management + DND + wake poll
 // Extracted from main.js L158-240, L299-505, L544-960
 
 let screen;
@@ -42,6 +42,7 @@ const {
   readTranscriptTailEntries: readClaudeTranscriptTailEntries,
   extractLastAssistantTextFromEntries: extractLastClaudeAssistantTextFromEntries,
 } = require("../../../hooks/clawd-hook");
+const { readCodexThreadName } = require("../../../hooks/codex-session-index");
 
 module.exports = function initState(ctx) {
 
@@ -921,6 +922,7 @@ function buildSessionSnapshot() {
     sessionHudCleanupDetached: ctx.sessionHudCleanupDetached === true,
     focusHostPlatform: ctx.focusHostPlatform || process.platform,
     isProcessAlive,
+    readCodexThreadName,
   });
 }
 

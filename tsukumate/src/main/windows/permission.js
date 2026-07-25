@@ -1,4 +1,4 @@
-// src/permission.js — Permission bubble management (stacking, show/hide, responses)
+// src/main/windows/permission.js — Permission bubble management (stacking, show/hide, responses)
 // Extracted from main.js L349-357, L1594-1746
 
 const { BrowserWindow, globalShortcut } = require("electron");

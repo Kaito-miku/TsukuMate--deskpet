@@ -1,4 +1,4 @@
-// src/focus.js — Terminal focus system (PowerShell persistent process + macOS osascript)
+// src/main/platform/focus.js — Terminal focus system (PowerShell persistent process + macOS osascript)
 // Extracted from main.js L1030-1335
 
 const fs = require("fs");

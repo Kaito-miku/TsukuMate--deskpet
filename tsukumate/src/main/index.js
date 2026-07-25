@@ -129,7 +129,7 @@ const { createLive2dAssetService } = require("./theme/live2d-assets");
 const {
   getFocusableLocalHudSessionIds: selectFocusableLocalHudSessionIds,
   getSessionFocusTarget,
-} = require("./sessions/session-focus");
+} = require("../shared/sessions/session-focus");
 const { focusCodexThreadTarget } = require("./sessions/session-focus-handoff");
 const { isSessionInProgress } = require("../shared/sessions/state-session-snapshot");
 const { getAllAgents } = require("../../agents/registry");
@@ -1275,7 +1275,7 @@ function setHitWinFocusable(focusable) {
   hitWin.setFocusable(next);
 }
 
-// ── Mini Mode — delegated to src/mini.js ──
+// ── Mini Mode — delegated to src/main/core/mini.js ──
 // Initialized after state module (needs applyState, resolveDisplayState, etc.)
 // See _mini initialization below
 
@@ -1313,7 +1313,7 @@ const {
   startFocusablePoll,
 } = topmostRuntime;
 
-// ── Permission bubble — delegated to src/permission.js ──
+// ── Permission bubble — delegated to src/main/windows/permission.js ──
 const {
   isAgentEnabled: _isAgentEnabled,
   isAgentPermissionsEnabled: _isAgentPermissionsEnabled,
@@ -1452,7 +1452,7 @@ function syncSessionHudVisibilityAndBubbles() {
   return floatingWindowRuntime.syncSessionHudVisibilityAndBubbles();
 }
 
-// ── State machine — delegated to src/state.js ──
+// ── State machine — delegated to src/main/core/state.js ──
 let showDashboard = () => {};
 let broadcastDashboardSessionSnapshot = () => {};
 let sendDashboardI18n = () => {};
@@ -1603,7 +1603,7 @@ function getHitRectScreen(bounds) { return petWindowRuntime.getHitRectScreen(bou
 function getUpdateBubbleAnchorRect(bounds) { return petWindowRuntime.getUpdateBubbleAnchorRect(bounds); }
 function getSessionHudAnchorRect(bounds) { return petWindowRuntime.getSessionHudAnchorRect(bounds); }
 
-// ── Main tick — delegated to src/tick.js ──
+// ── Main tick — delegated to src/main/core/tick.js ──
 const _tickCtx = {
   get theme() { return getActiveTheme(); },
   get win() { return win; },
@@ -1643,7 +1643,7 @@ const _tick = require("./core/tick")(_tickCtx);
 requestFastTick = (maxDelay) => _tick.scheduleSoon(maxDelay);
 const { startMainTick, resetIdleTimer } = _tick;
 
-// ── Terminal focus — delegated to src/focus.js ──
+// ── Terminal focus — delegated to src/main/platform/focus.js ──
 const _focus = require("./platform/focus")({ _allowSetForeground, focusLog });
 const {
   initFocusHelper,
@@ -1819,7 +1819,7 @@ agentRuntime = createAgentRuntimeMain({
   clearCodexNotifyBubbles: (...args) => clearCodexNotifyBubbles(...args),
 });
 
-// ── HTTP server — delegated to src/server.js ──
+// ── HTTP server — delegated to src/main/sessions/server.js ──
 const _serverCtx = {
   get manageClaudeHooksAutomatically() { return manageClaudeHooksAutomatically; },
   get autoStartWithClaude() { return autoStartWithClaude; },
@@ -2764,7 +2764,7 @@ unsubscribeHardwareBuddySettings = _settingsController.subscribeKey("hardwareBud
   }
 });
 
-// ── Menu — delegated to src/menu.js ──
+// ── Menu — delegated to src/main/core/menu.js ──
 //
 // Setters that previously assigned to module-level vars now route through
 // `_settingsController.applyUpdate(key, value)`. The mirror cache is updated

@@ -68,7 +68,7 @@ function resolveHooksDir({ app, isPackaged } = {}) {
   if (isPackaged) {
     return path.join(process.resourcesPath, "app.asar.unpacked", "hooks");
   }
-  // dev path: src/remote-ssh-deploy.js → ../hooks
+  // Development hooks root is supplied by src/main/paths.js.
   return HOOKS_ROOT;
 }
 

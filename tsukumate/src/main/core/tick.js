@@ -1,4 +1,4 @@
-// src/tick.js — Main tick loop (cursor polling, eye tracking, idle/sleep detection, mini peek)
+// src/main/core/tick.js — Main tick loop (cursor polling, eye tracking, idle/sleep detection, mini peek)
 // Extracted from main.js L527-689
 
 const { screen } = require("electron");

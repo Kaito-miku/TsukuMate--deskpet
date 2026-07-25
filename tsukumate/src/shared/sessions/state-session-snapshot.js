@@ -1,13 +1,11 @@
 "use strict";
 
-const path = require("path");
 const { sessionAliasKey } = require("./session-alias");
-const { getSessionFocusTarget } = require("../../main/sessions/session-focus");
+const { getSessionFocusTarget } = require("./session-focus");
 const {
   buildLatestLocalCodexProcessIds,
   isSupersededLocalCodexProcessSession,
 } = require("./state-session-dedupe");
-const { readCodexThreadName } = require("../../../hooks/codex-session-index");
 
 const EVENT_LABEL_KEYS = {
   SessionStart: "eventLabelSessionStart",
@@ -130,7 +128,7 @@ function getSessionAliasEntry(id, sessionLike, sessionAliases = {}) {
 function getEffectiveSessionTitle(id, sessionLike, options = {}) {
   const readThreadName = typeof options.readCodexThreadName === "function"
     ? options.readCodexThreadName
-    : readCodexThreadName;
+    : () => null;
   if (sessionLike && sessionLike.agentId === "codex" && !sessionLike.host) {
     const threadName = normalizeTitle(readThreadName(id));
     if (threadName) return threadName;
@@ -144,7 +142,7 @@ function sessionDisplayTitle(id, sessionLike, sessionAliases = {}, options = {})
   const title = getEffectiveSessionTitle(id, sessionLike, options);
   if (title) return title;
   const cwd = sessionLike && sessionLike.cwd;
-  if (cwd) return path.basename(cwd);
+  if (cwd) return String(cwd).split(/[\\/]/).filter(Boolean).pop() || cwd;
   return id && id.length > 6 ? `${id.slice(0, 6)}..` : id;
 }
 

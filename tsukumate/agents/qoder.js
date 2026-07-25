@@ -12,7 +12,7 @@ module.exports = {
   // qoder.exe / qoder is the IDE; the official CLI is `qodercli`
   // (npm i -g @qoder-ai/qodercli). `qoder-cli` is kept as a defensive alias.
   // Both IDE and CLI can host an agent process tree, so the hook PID resolver
-  // attributes either to this agent. Startup recovery (src/state.js)
+  // attributes either to this agent. Startup recovery (src/main/core/state.js)
   // deliberately watches only the CLI names — an idle open IDE must not look
   // like active agent work.
   processNames: {

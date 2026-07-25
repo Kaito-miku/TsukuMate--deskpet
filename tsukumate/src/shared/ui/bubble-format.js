@@ -111,4 +111,4 @@
   } else if (root && typeof root === "object") {
     root.ClawdBubbleFormat = api;
   }
-})(typeof window !== "undefined" ? window : (typeof self !== "undefined" ? self : globalThis));
+})(globalThis);
