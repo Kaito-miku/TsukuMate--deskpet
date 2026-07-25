@@ -7,7 +7,7 @@ const http = require("http");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { initMobilePreviewServer, PROTOCOL_VERSION } = require("../src/network/mobile-preview-server");
+const { initMobilePreviewServer, PROTOCOL_VERSION } = require("../src/main/integrations/mobile/mobile-preview-server");
 
 function waitForMessage(ws, type, timeoutMs = 5000) {
   return new Promise((resolve, reject) => {

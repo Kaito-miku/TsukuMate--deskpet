@@ -4,13 +4,13 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert");
 const { EventEmitter } = require("node:events");
 
-const initServer = require("../src/server");
+const initServer = require("../src/main/sessions/server");
 const {
   HOOK_EVENT_RING_SIZE_PER_AGENT,
   createSingleRequestHookEventRecorder,
   recordHookEventInBuffer,
   getRecentHookEventsFromBuffer,
-} = require("../src/server-hook-events");
+} = require("../src/main/sessions/server-hook-events");
 
 function makeFakeHttp() {
   let capturedHandler = null;

@@ -10,7 +10,7 @@ const {
   isAllowedLogBasename,
   openClawdLog,
   resolveClawdLogTarget,
-} = require("../src/doctor-logs");
+} = require("../src/main/diagnostics/doctor-logs");
 
 describe("doctor log opener", () => {
   it("accepts only bare .log file names", () => {

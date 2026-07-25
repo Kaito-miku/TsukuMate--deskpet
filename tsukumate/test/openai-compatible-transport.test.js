@@ -3,7 +3,7 @@
 const { test, describe, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
-const { validateConfig, requestJson, makeChatBody } = require("../src/openai-compatible-transport");
+const { validateConfig, requestJson, makeChatBody } = require("../src/main/chat/openai-compatible-transport");
 
 let server;
 afterEach(async () => {

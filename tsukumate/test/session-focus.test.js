@@ -9,7 +9,7 @@ const {
   getFocusableLocalHudSessionIds,
   getSessionFocusTarget,
   isFocusableLocalHudSession,
-} = require("../src/session-focus");
+} = require("../src/main/sessions/session-focus");
 
 describe("session focus helpers", () => {
   it("selects local HUD-visible terminal and Codex Desktop thread sessions", () => {

@@ -7,7 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { pathToFileURL } = require("node:url");
 
-const createThemeContext = require("../src/theme-context");
+const createThemeContext = require("../src/main/theme/theme-context");
 
 function makeRoot() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "clawd-theme-context-"));

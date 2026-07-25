@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 test("main mini-mode timing uses the animation override runtime probe", () => {
-  const source = fs.readFileSync(path.join(__dirname, "..", "src", "main.js"), "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "..", "src", "main/index.js"), "utf8");
 
   assert.ok(
     !source.includes("_buildAnimationAssetProbe"),

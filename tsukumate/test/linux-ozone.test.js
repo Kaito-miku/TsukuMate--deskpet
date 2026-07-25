@@ -1,4 +1,4 @@
-// test/linux-ozone.test.js — Unit tests for src/linux-ozone.js (issue #441)
+// test/linux-ozone.test.js — Unit tests for src/main/platform/linux-ozone.js (issue #441)
 const { describe, it } = require("node:test");
 const assert = require("node:assert");
 
@@ -6,7 +6,7 @@ const {
   resolveLinuxOzonePlatform,
   parseOzonePlatformFromArgv,
   planXWaylandRelaunch,
-} = require("../src/linux-ozone");
+} = require("../src/main/platform/linux-ozone");
 
 // resolve(platform, env, userOzonePlatform)
 const resolve = (platform, env, user) =>

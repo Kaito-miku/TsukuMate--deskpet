@@ -5,9 +5,9 @@ const test = require("node:test");
 
 const {
   createTelegramMigrationController,
-} = require("../src/telegram-migration-controller");
-const { STATES, EVENTS } = require("../src/telegram-migration-state");
-const { buildTelegramStatusDiagnostic } = require("../src/telegram-approval-runtime-status");
+} = require("../src/main/integrations/telegram/telegram-migration-controller");
+const { STATES, EVENTS } = require("../src/main/integrations/telegram/telegram-migration-state");
+const { buildTelegramStatusDiagnostic } = require("../src/main/integrations/telegram/telegram-approval-runtime-status");
 
 class FakeSidecar {
   constructor() { this.running = false; this.stopCalls = []; this.failStart = false; }

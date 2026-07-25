@@ -2,7 +2,7 @@
 
 const path = require("path");
 const { sessionAliasKey } = require("./session-alias");
-const { getSessionFocusTarget } = require("../../session-focus");
+const { getSessionFocusTarget } = require("../../main/sessions/session-focus");
 const {
   buildLatestLocalCodexProcessIds,
   isSupersededLocalCodexProcessSession,

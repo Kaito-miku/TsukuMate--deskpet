@@ -6,8 +6,8 @@ const test = require("node:test");
 const {
   createTelegramSidecarStatusBridge,
   decideSidecarRuntimeEvent,
-} = require("../src/telegram-sidecar-status-bridge");
-const { EVENTS } = require("../src/telegram-migration-state");
+} = require("../src/main/integrations/telegram/telegram-sidecar-status-bridge");
+const { EVENTS } = require("../src/main/integrations/telegram/telegram-migration-state");
 
 // ── Pure decision ──────────────────────────────────────────────────────────
 

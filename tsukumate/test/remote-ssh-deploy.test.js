@@ -13,8 +13,8 @@ const {
   deploy,
   startCodexMonitor,
   stopCodexMonitor,
-} = require("../src/remote-ssh-deploy");
-const { clearRemoteNodeCache } = require("../src/remote-ssh-node");
+} = require("../src/main/integrations/remote-ssh/remote-ssh-deploy");
+const { clearRemoteNodeCache } = require("../src/main/integrations/remote-ssh/remote-ssh-node");
 
 const REPO_ROOT = path.join(__dirname, "..");
 

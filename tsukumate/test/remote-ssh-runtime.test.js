@@ -20,8 +20,8 @@ const {
   PROBE_MIN_GAP_MS,
   PROBE_CHILD_TIMEOUT_MS,
   BACKOFF_SCHEDULE_MS,
-} = require("../src/remote-ssh-runtime");
-const { clearRemoteNodeCache } = require("../src/remote-ssh-node");
+} = require("../src/main/integrations/remote-ssh/remote-ssh-runtime");
+const { clearRemoteNodeCache } = require("../src/main/integrations/remote-ssh/remote-ssh-node");
 
 const DETECT_SSH_OK = () => ({
   available: true,

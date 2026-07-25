@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 
-const { registerPetInteractionIpc } = require("../src/pet-interaction-ipc");
+const { registerPetInteractionIpc } = require("../src/main/core/pet-interaction-ipc");
 
 class FakeIpcMain {
   constructor() {

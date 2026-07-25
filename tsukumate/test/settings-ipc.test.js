@@ -7,7 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const zlib = require("node:zlib");
 
-const { registerSettingsIpc } = require("../src/settings-ipc");
+const { registerSettingsIpc } = require("../src/main/settings/settings-ipc");
 
 class FakeIpcMain {
   constructor() {
@@ -671,11 +671,10 @@ test("settings IPC serves agent/about/update/external and remove-theme dialog he
       version: "1.2.3",
       appName: "TsukuMate",
       repoUrl: "https://github.com/Kaito-miku/TsukuMate--deskpet",
-      modelRepoUrl: "https://huggingface.co/openbmb/MiniCPM5-1B-GGUF",
       license: "AGPL-3.0-only",
       copyright: "\u00a9 2026 Kaito-miku and contributors",
-      upstreamRepoUrl: "https://github.com/rullerzhou-afk/clawd-on-desk",
-      upstreamLabel: "clawd-on-desk",
+      upstreamRepoUrl: "https://github.com/OpenBMB/MiniCPM-Desk-Pet",
+      upstreamLabel: "MiniCPM-Desk-Pet",
       heroSvgContent: "<svg id=\"hero\"></svg>",
       pendingUpdateVersion: "",
       autoUpdateCheck: true,

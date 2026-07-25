@@ -3,7 +3,7 @@ set -euo pipefail
 
 INTERVAL="2"
 # Include the old executable name as a legacy diagnostic match only.
-PATTERN="MiniCPM Desk Pet|Clawd on Desk|clawd-on-desk|src/main.js"
+PATTERN="MiniCPM Desk Pet|Clawd on Desk|clawd-on-desk|src/main/index.js"
 TARGET_PID=""
 OUTFILE=""
 ONCE=0

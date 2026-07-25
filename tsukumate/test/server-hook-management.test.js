@@ -4,11 +4,11 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert");
 const { EventEmitter } = require("node:events");
 
-const initServer = require("../src/server");
+const initServer = require("../src/main/sessions/server");
 const {
   MAX_CODEX_OFFICIAL_TURNS,
   resolveCodexOfficialHookState,
-} = require("../src/server-codex-official-turns");
+} = require("../src/main/sessions/server-codex-official-turns");
 
 class FakeWatcher extends EventEmitter {
   constructor(callback) {

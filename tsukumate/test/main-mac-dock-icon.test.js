@@ -5,7 +5,7 @@ const zlib = require("node:zlib");
 const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
-const MAIN = path.join(ROOT, "src", "main.js");
+const MAIN = path.join(ROOT, "src", "main/index.js");
 const APP_ICON = path.join(ROOT, "assets", "icon.png");
 const DOCK_ICON = path.join(ROOT, "assets", "dock-icon.png");
 const DOCK_ICON_SOURCE = path.join(ROOT, "assets", "source", "dock-icon-fullbleed.png");
@@ -105,7 +105,7 @@ test("macOS runtime dock icon asset is packaged", () => {
 
 test("macOS runtime dock icon override respects hidden Dock preference", () => {
   const source = fs.readFileSync(MAIN, "utf8");
-  const setIcon = 'app.dock.setIcon(path.join(__dirname, "..", "assets", "dock-icon.png"))';
+  const setIcon = 'app.dock.setIcon(path.join(ASSETS_ROOT, "dock-icon.png"))';
   const guard = 'if (isMac && app.dock && _settingsController.get("showDock") !== false)';
   const setIconIndex = source.indexOf(setIcon);
   const guardIndex = source.lastIndexOf(guard, setIconIndex);

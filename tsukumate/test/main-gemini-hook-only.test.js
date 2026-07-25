@@ -5,7 +5,7 @@ const path = require("path");
 
 describe("main Gemini hook-only integration", () => {
   it("does not start a Gemini JSON session monitor", () => {
-    const mainSource = fs.readFileSync(path.resolve(__dirname, "..", "src", "main.js"), "utf8");
+    const mainSource = fs.readFileSync(path.resolve(__dirname, "..", "src", "main/index.js"), "utf8");
 
     assert.ok(!mainSource.includes("GeminiLogMonitor"));
     assert.ok(!mainSource.includes("_geminiMonitor"));

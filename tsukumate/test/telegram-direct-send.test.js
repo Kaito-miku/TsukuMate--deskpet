@@ -9,7 +9,7 @@ const {
   createTelegramDirectSend,
   createWindowsPasteOnlyDeliveryAdapter,
   normalizePromptText,
-} = require("../src/telegram-direct-send");
+} = require("../src/main/integrations/telegram/telegram-direct-send");
 const { buildSessionSnapshot } = require("../src/shared/sessions/state-session-snapshot");
 
 function localTerminalEntry(overrides = {}) {

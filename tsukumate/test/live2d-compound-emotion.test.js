@@ -29,7 +29,7 @@ test("legacy Live2D renderer accepts object blends and restores them after syste
 });
 
 test("state keeps object blends but resolves sprite assets through the primary emotion", () => {
-  const state = src("state.js");
+  const state = src("main/core/state.js");
   assert.match(state, /emotion: state === "idle" \? chatEmotionRuntime\.snapshot\(\)\.display\.primary : null/);
   assert.match(state, /createEmotionRuntime/);
   assert.match(state, /sendToRenderer\("chat-emotion", snapshot\)/);

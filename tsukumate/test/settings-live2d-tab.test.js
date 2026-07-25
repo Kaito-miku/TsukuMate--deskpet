@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { createSettingsController } = require("../src/settings-controller");
+const { createSettingsController } = require("../src/main/settings/settings-controller");
 
 test("Live2D settings tab uses the settings core tab registry", () => {
   const source = fs.readFileSync(path.join(__dirname, "..", "src", "renderer/settings/tabs/settings-tab-live2d.js"), "utf8");

@@ -4,7 +4,7 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
-const { formatLocalTimestamp } = require("../src/log-timestamp");
+const { formatLocalTimestamp } = require("../src/main/core/log-timestamp");
 
 describe("formatLocalTimestamp", () => {
   it("formats an east-of-UTC timezone", () => {
@@ -36,7 +36,7 @@ describe("formatLocalTimestamp", () => {
   });
 
   it("changes only session-debug logging to local time", () => {
-    const main = fs.readFileSync(path.join(__dirname, "..", "src", "main.js"), "utf8");
+    const main = fs.readFileSync(path.join(__dirname, "..", "src", "main/index.js"), "utf8");
     assert.match(
       main,
       /function sessionLog\(msg\) \{[\s\S]*?\[\$\{formatLocalTimestamp\(\)\}\]/

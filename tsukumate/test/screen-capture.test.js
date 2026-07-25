@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { CAPTURE_SIZE, PREVIEW_SIZE, createScreenCaptureService } = require("../src/screen-capture");
+const { CAPTURE_SIZE, PREVIEW_SIZE, createScreenCaptureService } = require("../src/main/chat/screen-capture");
 
 function image(label, empty = false) {
   return {

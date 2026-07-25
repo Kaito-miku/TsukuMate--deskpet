@@ -145,7 +145,7 @@ describe("Qwen Code hook", () => {
     assert.deepStrictEqual(calls[0].options, { timeoutMs: 100 });
     assert.strictEqual(calls[0].body.event, "Stop");
     // qwen Stop plays the happy end-of-turn animation. The server-side
-    // self-submit filter (src/state.js lastBoundaryAt) drops the synthetic
+    // self-submit filter (src/main/core/state.js lastBoundaryAt) drops the synthetic
     // PostToolUse → UserPromptSubmit that used to interrupt it, so attention
     // is safe again.
     assert.strictEqual(calls[0].body.state, "attention");

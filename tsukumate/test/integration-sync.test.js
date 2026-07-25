@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createIntegrationSyncRuntime } = require("../src/integration-sync");
+const { createIntegrationSyncRuntime } = require("../src/main/integrations/agents/integration-sync");
 
 function withPatchedExport(modulePath, exportName, replacement, run) {
   const moduleExports = require(modulePath);

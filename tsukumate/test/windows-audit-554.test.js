@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const MAIN_JS = path.join(__dirname, "..", "src", "main.js");
+const MAIN_JS = path.join(__dirname, "..", "src", "main/index.js");
 
 function readMain() {
   return fs.readFileSync(MAIN_JS, "utf8");

@@ -6,7 +6,7 @@ const assert = require("node:assert");
 const {
   shouldBypassCCBubble,
   shouldBypassOpencodeBubble,
-} = require("../src/server").__test;
+} = require("../src/main/sessions/server").__test;
 
 function makeCtx({ enabled = true, hideBubbles = false, permissionBubblesEnabled = true } = {}) {
   return {

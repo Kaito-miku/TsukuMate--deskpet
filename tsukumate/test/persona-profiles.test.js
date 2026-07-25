@@ -2,7 +2,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert");
-const { normalizeProfiles, selectActiveProfile } = require("../src/persona-profiles");
+const { normalizeProfiles, selectActiveProfile } = require("../src/main/chat/persona-profiles");
 
 test("seeds selectable default and Miku persona profiles", () => {
   const profiles = normalizeProfiles(null);

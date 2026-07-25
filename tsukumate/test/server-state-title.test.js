@@ -7,8 +7,8 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert");
 const { EventEmitter } = require("node:events");
 
-const initServer = require("../src/server");
-const { MAX_STATE_BODY_BYTES } = require("../src/server-route-state");
+const initServer = require("../src/main/sessions/server");
+const { MAX_STATE_BODY_BYTES } = require("../src/main/sessions/server-route-state");
 
 function makeFakeHttp() {
   let capturedHandler = null;

@@ -2,8 +2,8 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert");
 const { EventEmitter } = require("node:events");
 
-const initServer = require("../src/server");
-const { checkLocalServer } = require("../src/doctor-detectors/local-server");
+const initServer = require("../src/main/sessions/server");
+const { checkLocalServer } = require("../src/main/diagnostics/detectors/local-server");
 
 function makeServer({ runtimePort = 23333, addressPort = 23333, listening = true } = {}) {
   function createHttpServer() {

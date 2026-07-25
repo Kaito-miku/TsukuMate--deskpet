@@ -8,8 +8,8 @@ const path = require("node:path");
 
 const {
   detectAgentInstallations,
-} = require("../src/agent-installation-detector");
-const { getAgentDescriptor } = require("../src/doctor-detectors/agent-descriptors");
+} = require("../src/main/integrations/agents/agent-installation-detector");
+const { getAgentDescriptor } = require("../src/main/diagnostics/detectors/agent-descriptors");
 
 const tempDirs = [];
 

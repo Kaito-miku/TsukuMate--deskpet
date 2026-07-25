@@ -1,7 +1,7 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert");
 
-const permission = require("../src/permission");
+const permission = require("../src/main/windows/permission");
 const { buildElicitationUpdatedInput } = permission.__test;
 
 describe("elicitation updated input builder", () => {

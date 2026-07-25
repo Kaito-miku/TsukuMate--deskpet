@@ -3,7 +3,7 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert");
 
-const createSettingsEffectRouter = require("../src/settings-effect-router");
+const createSettingsEffectRouter = require("../src/main/settings/settings-effect-router");
 
 function createFakeSettingsController() {
   let subscriber = null;

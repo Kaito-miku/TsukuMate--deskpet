@@ -7,7 +7,7 @@ const Module = require("node:module");
 const path = require("node:path");
 const { describe, it } = require("node:test");
 
-const DASHBOARD_MODULE_PATH = require.resolve("../src/dashboard");
+const DASHBOARD_MODULE_PATH = require.resolve("../src/main/windows/dashboard");
 
 function loadDashboardWithElectron(fakeElectron) {
   delete require.cache[DASHBOARD_MODULE_PATH];
@@ -17,7 +17,7 @@ function loadDashboardWithElectron(fakeElectron) {
     return originalLoad.apply(this, arguments);
   };
   try {
-    return require("../src/dashboard");
+    return require("../src/main/windows/dashboard");
   } finally {
     Module._load = originalLoad;
   }

@@ -6,8 +6,8 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-const prefs = require("../src/prefs");
-const { createSettingsController } = require("../src/settings-controller");
+const prefs = require("../src/main/settings/prefs");
+const { createSettingsController } = require("../src/main/settings/settings-controller");
 
 const tempDirs = [];
 function makeTempPath() {

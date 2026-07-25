@@ -2,7 +2,7 @@ const { describe, it, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert");
 const path = require("path");
 const childProcess = require("child_process");
-const themeLoader = require("../src/theme-loader");
+const themeLoader = require("../src/main/theme/theme-loader");
 const { createTranslator } = require("../src/shared/i18n/i18n");
 
 themeLoader.init(path.join(__dirname, "..", "src"));
@@ -50,7 +50,7 @@ describe("detectRunningAgentProcesses() agent coverage", () => {
     originalExec = childProcess.exec;
     originalExecFile = childProcess.execFile;
     originalPlatform = process.platform;
-    api = require("../src/state")(makeCtx());
+    api = require("../src/main/core/state")(makeCtx());
   });
 
   afterEach(() => {

@@ -8,7 +8,7 @@ const {
   checkAgentIntegrations,
   findOpenClawPluginEntry,
   findOpencodePluginEntry,
-} = require("../src/doctor-detectors/agent-integrations");
+} = require("../src/main/diagnostics/detectors/agent-integrations");
 const { GEMINI_HOOK_EVENTS } = require("../hooks/gemini-install");
 const { ANTIGRAVITY_HOOK_EVENTS, __test: antigravityInstallTest } = require("../hooks/antigravity-install");
 const { QWEN_CODE_HOOK_EVENTS, buildQwenCodeHookCommand } = require("../hooks/qwen-code-install");

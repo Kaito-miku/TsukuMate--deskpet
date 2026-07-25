@@ -30,7 +30,7 @@ test("model connections and chat memory are separate direct sidebar pages", () =
   assert.ok(!renderer.includes("modelGroup:"));
   assert.ok(!api.includes("聊天与记忆"));
   assert.ok(memory.includes("core.tabs.memory"));
-  assert.ok(html.includes('src="settings-tab-memory.js"'));
+  assert.ok(html.includes('src="tabs/settings-tab-memory.js"'));
 });
 
 test("Live2D updates patch in place so slider drags do not reset scroll", () => {

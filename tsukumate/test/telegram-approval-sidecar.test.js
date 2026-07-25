@@ -22,7 +22,7 @@ const {
   SIDECAR_ENV_CONFIG,
   SIDECAR_ENV_TOKEN_FILE,
   SIDECAR_PATH_ENV,
-} = require("../src/telegram-approval-sidecar");
+} = require("../src/main/integrations/telegram/telegram-approval-sidecar");
 const { TARGETS: SIDECAR_FETCH_TARGETS } = require("../scripts/fetch-sidecar-binaries");
 
 class FakeStream extends EventEmitter {

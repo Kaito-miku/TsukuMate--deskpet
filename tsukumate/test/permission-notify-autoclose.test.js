@@ -7,7 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { describe, it, afterEach, mock } = require("node:test");
 
-const PERMISSION_MODULE_PATH = require.resolve("../src/permission");
+const PERMISSION_MODULE_PATH = require.resolve("../src/main/windows/permission");
 const tempLogPaths = new Set();
 
 function loadPermissionWithElectron(fakeElectron) {
@@ -18,7 +18,7 @@ function loadPermissionWithElectron(fakeElectron) {
     return originalLoad.apply(this, arguments);
   };
   try {
-    return require("../src/permission");
+    return require("../src/main/windows/permission");
   } finally {
     Module._load = originalLoad;
   }

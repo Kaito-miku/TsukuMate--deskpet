@@ -16,7 +16,7 @@ const {
   shouldBypassCodexBubble,
   shouldBypassCopilotBubble,
   shouldBypassOpencodeBubble,
-} = require("../src/server-route-permission");
+} = require("../src/main/sessions/server-route-permission");
 
 function makeReq(body) {
   const req = new EventEmitter();

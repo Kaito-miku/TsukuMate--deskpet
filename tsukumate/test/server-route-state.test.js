@@ -12,7 +12,7 @@ const {
   MAX_STATE_BODY_BYTES,
   sendStateHealthResponse,
   handleStatePost,
-} = require("../src/server-route-state");
+} = require("../src/main/sessions/server-route-state");
 
 function makeReq(body) {
   const req = new EventEmitter();

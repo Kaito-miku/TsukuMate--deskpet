@@ -1,7 +1,7 @@
 const { describe, it, beforeEach, mock } = require("node:test");
 const assert = require("node:assert");
 
-let initUpdater = require("../src/updater");
+let initUpdater = require("../src/main/core/updater");
 
 function makeCtx(overrides = {}) {
   return {
@@ -122,8 +122,8 @@ function makeSequencedHttpsGet(responses, requests = []) {
 describe("updater visual flow", () => {
   beforeEach(() => {
     mock.restoreAll();
-    delete require.cache[require.resolve("../src/updater")];
-    initUpdater = require("../src/updater");
+    delete require.cache[require.resolve("../src/main/core/updater")];
+    initUpdater = require("../src/main/core/updater");
   });
 
   it("shows checking state and up-to-date bubble when latest version matches", async () => {
@@ -970,8 +970,8 @@ describe("updater visual flow", () => {
     const openedUrls = [];
     Object.defineProperty(process, "platform", { value: "darwin" });
     try {
-      delete require.cache[require.resolve("../src/updater")];
-      initUpdater = require("../src/updater");
+      delete require.cache[require.resolve("../src/main/core/updater")];
+      initUpdater = require("../src/main/core/updater");
       const ctx = makeCtx({
         showUpdateBubble: async (payload) => {
           bubbles.push(payload);
@@ -1054,7 +1054,7 @@ describe("updater visual flow", () => {
         if (key === "git rev-parse HEAD") return callback(null, "localsha");
         if (key === "git rev-parse origin/main") return callback(null, "remotesha");
         if (key === "git show origin/main:package.json") return callback(null, JSON.stringify({ version: "0.5.11" }));
-        if (key === "git status --porcelain") return callback(null, "M package-lock.json\nM src/main.js");
+        if (key === "git status --porcelain") return callback(null, "M package-lock.json\nM src/main/index.js");
         return callback(new Error(`unexpected command: ${key}`));
       },
     }));
@@ -1102,8 +1102,8 @@ describe("updater visual flow", () => {
 describe("updater Windows ARM64 migration helpers", () => {
   beforeEach(() => {
     mock.restoreAll();
-    delete require.cache[require.resolve("../src/updater")];
-    initUpdater = require("../src/updater");
+    delete require.cache[require.resolve("../src/main/core/updater")];
+    initUpdater = require("../src/main/core/updater");
   });
 
   it("detects only packaged Windows x64 apps running under ARM64 translation", () => {
@@ -1167,8 +1167,8 @@ describe("updater Windows ARM64 migration helpers", () => {
 describe("updater #329 background scheduler", () => {
   beforeEach(() => {
     mock.restoreAll();
-    delete require.cache[require.resolve("../src/updater")];
-    initUpdater = require("../src/updater");
+    delete require.cache[require.resolve("../src/main/core/updater")];
+    initUpdater = require("../src/main/core/updater");
   });
 
   // Tiny in-memory prefs store. Mirrors the controller API surface the
@@ -1274,8 +1274,8 @@ describe("updater #329 background scheduler", () => {
     assert.ok(setTimeoutCalls[0] >= 2 * 60 * 1000, `first delay too short: ${setTimeoutCalls[0]}`);
     assert.ok(setTimeoutCalls[0] <= 5 * 60 * 1000, `first delay too long: ${setTimeoutCalls[0]}`);
 
-    delete require.cache[require.resolve("../src/updater")];
-    initUpdater = require("../src/updater");
+    delete require.cache[require.resolve("../src/main/core/updater")];
+    initUpdater = require("../src/main/core/updater");
     const setTimeoutCalls2 = [];
     const updater2 = initUpdater(makeCtxWithPrefs(makePrefs()), makeDeps({
       app: { isPackaged: true, getVersion: () => "0.5.0", relaunch() {}, exit() {} },

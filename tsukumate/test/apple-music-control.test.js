@@ -2,7 +2,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert");
-const { parseAppleMusicCommand, runAppleMusicCommand, SEARCH_SCRIPT, FUZZY_SEARCH_SCRIPT } = require("../src/apple-music-control");
+const { parseAppleMusicCommand, runAppleMusicCommand, SEARCH_SCRIPT, FUZZY_SEARCH_SCRIPT } = require("../src/main/integrations/apple-music/apple-music-control");
 
 test("parses the supported Apple Music command allowlist", () => {
   assert.deepStrictEqual(parseAppleMusicCommand("播放音乐"), { action: "play" });

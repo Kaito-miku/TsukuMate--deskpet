@@ -5,8 +5,8 @@ const os = require("node:os");
 const path = require("node:path");
 const zlib = require("node:zlib");
 
-const adapter = require("../src/codex-pet-adapter");
-const themeLoader = require("../src/theme-loader");
+const adapter = require("../src/main/integrations/codex-pet/codex-pet-adapter");
+const themeLoader = require("../src/main/theme/theme-loader");
 
 const FIXTURE_DIR = path.join(__dirname, "fixtures", "codex-pets", "tiny-atlas-png");
 const FRAME_WIDTH = 192;

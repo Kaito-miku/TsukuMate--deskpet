@@ -71,9 +71,9 @@ describe("i18n locales", () => {
   });
 
   it("keeps main-process Settings dialog strings available for every supported language", () => {
-    const settingsIpcSource = fs.readFileSync(path.join(ROOT, "src", "settings-ipc.js"), "utf8");
+    const settingsIpcSource = fs.readFileSync(path.join(ROOT, "src", "main/settings/settings-ipc.js"), "utf8");
     const animationOverridesSource = fs.readFileSync(
-      path.join(ROOT, "src", "settings-animation-overrides-main.js"),
+      path.join(ROOT, "src", "main/settings/settings-animation-overrides-main.js"),
       "utf8"
     );
     for (const [name, source] of [
@@ -94,7 +94,7 @@ describe("i18n locales", () => {
   });
 
   it("keeps Codex Pet main dialog strings available for every supported language", () => {
-    const source = fs.readFileSync(path.join(ROOT, "src", "codex-pet-main.js"), "utf8");
+    const source = fs.readFileSync(path.join(ROOT, "src", "main/integrations/codex-pet/codex-pet-main.js"), "utf8");
     for (const name of ["getImportDialogStrings", "getRemovalDialogStrings"]) {
       const start = source.indexOf(`function ${name}()`);
       assert.notStrictEqual(start, -1, `missing ${name}`);

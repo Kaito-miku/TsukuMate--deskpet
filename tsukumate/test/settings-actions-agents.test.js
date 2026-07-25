@@ -3,8 +3,8 @@
 const test = require("node:test");
 const assert = require("node:assert");
 
-const prefs = require("../src/prefs");
-const agentCommands = require("../src/settings-actions-agents");
+const prefs = require("../src/main/settings/prefs");
+const agentCommands = require("../src/main/settings/settings-actions-agents");
 
 test("settings agent actions expose the command surface", () => {
   assert.deepStrictEqual(Object.keys(agentCommands).sort(), [

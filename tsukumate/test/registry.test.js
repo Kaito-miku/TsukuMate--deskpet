@@ -320,7 +320,7 @@ describe("Agent Registry", () => {
     assert.strictEqual(qwen.eventMap.PermissionRequest, "notification");
     // qwen Stop plays the happy end-of-turn animation like other hook agents.
     // The PostToolUse → UserPromptSubmit self-submit that used to clobber it
-    // is dropped by src/state.js's lastBoundaryAt filter.
+    // is dropped by src/main/core/state.js's lastBoundaryAt filter.
     assert.strictEqual(qwen.eventMap.Stop, "attention");
 
     const codewhale = registry.getAgent("codewhale");

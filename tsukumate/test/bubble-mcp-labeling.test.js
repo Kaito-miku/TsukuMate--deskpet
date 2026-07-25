@@ -15,7 +15,7 @@ const RENDERER_SRC = fs.readFileSync(
   "utf8"
 );
 const PERMISSION_SRC = fs.readFileSync(
-  path.join(__dirname, "..", "src", "permission.js"),
+  path.join(__dirname, "..", "src", "main/windows/permission.js"),
   "utf8"
 );
 

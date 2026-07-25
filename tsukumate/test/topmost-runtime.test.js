@@ -4,7 +4,7 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert");
 const { EventEmitter } = require("node:events");
 
-const createTopmostRuntime = require("../src/topmost-runtime");
+const createTopmostRuntime = require("../src/main/core/topmost-runtime");
 
 class FakeWindow extends EventEmitter {
   constructor(options = {}) {

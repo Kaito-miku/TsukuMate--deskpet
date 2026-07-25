@@ -4,12 +4,12 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert");
 const { EventEmitter } = require("node:events");
 
-const initServer = require("../src/server");
+const initServer = require("../src/main/sessions/server");
 
 const {
   buildToolInputFingerprint,
   findPendingPermissionForStateEvent,
-} = require("../src/server-permission-utils");
+} = require("../src/main/sessions/server-permission-utils");
 
 function makeFakeHttp() {
   let capturedHandler = null;
@@ -189,7 +189,7 @@ describe("findPendingPermissionForStateEvent", () => {
   });
 
   it("does not fall back to fingerprint when tool_use_id mismatches", () => {
-    const fingerprint = buildToolInputFingerprint({ command: "stat -c '%n %y' src/server.js" });
+    const fingerprint = buildToolInputFingerprint({ command: "stat -c '%n %y' src/main/sessions/server.js" });
     const pending = [
       {
         id: "only",
@@ -316,7 +316,7 @@ describe("/state permission cleanup", () => {
         sessionId: "sid",
         toolUseId: "toolu_pending",
         toolName: "Bash",
-        toolInputFingerprint: buildToolInputFingerprint({ command: "stat -c '%n %y' src/server.js" }),
+        toolInputFingerprint: buildToolInputFingerprint({ command: "stat -c '%n %y' src/main/sessions/server.js" }),
         res: {},
       },
     ];
@@ -342,7 +342,7 @@ describe("/state permission cleanup", () => {
         sessionId: "sid",
         toolUseId: "toolu_pending",
         toolName: "Bash",
-        toolInputFingerprint: buildToolInputFingerprint({ command: "stat -c '%n %y' src/server.js" }),
+        toolInputFingerprint: buildToolInputFingerprint({ command: "stat -c '%n %y' src/main/sessions/server.js" }),
         res: {},
       },
     ];

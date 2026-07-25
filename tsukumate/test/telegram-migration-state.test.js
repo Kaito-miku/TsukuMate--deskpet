@@ -15,7 +15,7 @@ const {
   applyEvent,
   computeInitial,
   checkInvariants,
-} = require("../src/telegram-migration-state");
+} = require("../src/main/integrations/telegram/telegram-migration-state");
 
 const { ALL_CASES } = require("./fakes/migration-transitions");
 

@@ -2,7 +2,7 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert");
-const { buildTimeContext } = require("../src/time-context");
+const { buildTimeContext } = require("../src/main/chat/time-context");
 
 test("builds a trusted local time context in the requested time zone", () => {
   const context = buildTimeContext(new Date("2026-07-20T13:05:06.000Z"), "Asia/Shanghai");

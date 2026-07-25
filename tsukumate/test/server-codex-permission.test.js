@@ -4,7 +4,7 @@ const assert = require("node:assert");
 const { EventEmitter } = require("node:events");
 const { describe, it } = require("node:test");
 
-const initServer = require("../src/server");
+const initServer = require("../src/main/sessions/server");
 
 function makeFakeHttp() {
   let capturedHandler = null;

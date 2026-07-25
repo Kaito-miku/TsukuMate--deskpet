@@ -9,7 +9,7 @@ const {
   normalizeApprovalPayload,
   parseDecision,
   normalizeEndpoint,
-} = require("../src/telegram-approval-client");
+} = require("../src/main/integrations/telegram/telegram-approval-client");
 
 function listen(server) {
   return new Promise((resolve, reject) => {

@@ -10,8 +10,8 @@
 const { describe, it, beforeEach, afterEach, mock } = require("node:test");
 const assert = require("node:assert");
 const path = require("path");
-const themeLoader = require("../src/theme-loader");
-const { createTelegramCompanion } = require("../src/telegram-companion");
+const themeLoader = require("../src/main/theme/theme-loader");
+const { createTelegramCompanion } = require("../src/main/integrations/telegram/telegram-companion");
 
 themeLoader.init(path.join(__dirname, "..", "src"));
 const theme = themeLoader.loadTheme("cloudling");
@@ -72,7 +72,7 @@ describe("#406 state -> Telegram completion integration", () => {
       getNotifyOnComplete: () => true,
     });
     companion.onSnapshot({ sessions: [] }); // prime dedupe (no backlog re-ping)
-    api = require("../src/state")(makeCtx({
+    api = require("../src/main/core/state")(makeCtx({
       broadcastSessionSnapshot: (snapshot) => companion.onSnapshot(snapshot),
     }));
   });

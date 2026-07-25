@@ -16,7 +16,7 @@ test("terminal-focus extension activates on startup and focuses terminal input",
     path.join(repoRoot, "extensions", "vscode", "extension.js"),
     "utf8"
   );
-  const main = fs.readFileSync(path.join(repoRoot, "src", "main.js"), "utf8");
+  const main = fs.readFileSync(path.join(repoRoot, "src", "main/index.js"), "utf8");
 
   assert.equal(manifest.version, "0.1.1");
   assert.match(main, /const EXT_VERSION = "0\.1\.1"/);

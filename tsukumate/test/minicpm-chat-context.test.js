@@ -8,7 +8,7 @@ const {
   MAX_HISTORY_TURNS,
   estimateTokens,
   trimHistoryForContext,
-} = require("../src/minicpm-chat-context");
+} = require("../src/renderer/chat-bubble/minicpm-chat-context");
 
 describe("estimateTokens", () => {
   it("returns 0 for empty / non-string input", () => {

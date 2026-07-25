@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const createFloatingWindowRuntime = require("../src/floating-window-runtime");
+const createFloatingWindowRuntime = require("../src/main/core/floating-window-runtime");
 
 const SRC_DIR = path.join(__dirname, "..", "src");
 
@@ -19,7 +19,7 @@ function makeWindow(label, calls, destroyed = false) {
 
 describe("floating-window-runtime", () => {
   it("keeps floating bubble coordination out of main", () => {
-    const mainSource = fs.readFileSync(path.join(SRC_DIR, "main.js"), "utf8");
+    const mainSource = fs.readFileSync(path.join(SRC_DIR, "main/index.js"), "utf8");
 
     assert.match(mainSource, /createFloatingWindowRuntime/);
     assert.ok(!mainSource.includes("if (pendingPermissions.length) repositionBubbles();"));

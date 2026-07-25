@@ -7,7 +7,7 @@ const { EventEmitter } = require("node:events");
 const {
   settingsNeedClaudeHookResync,
   createClaudeSettingsWatcher,
-} = require("../src/claude-settings-watcher");
+} = require("../src/main/integrations/agents/claude-settings-watcher");
 
 class FakeWatcher extends EventEmitter {
   constructor(callback) {

@@ -11,7 +11,7 @@ const {
   classifyHardwareBuddyIssue,
   sanitizeHardwareBuddyPayload,
   buildSidecarSpawnOptions,
-} = require("../src/hardware-buddy-adapter");
+} = require("../src/main/integrations/hardware/hardware-buddy-adapter");
 
 class FakeSidecarClient {
   constructor(options) {
@@ -277,7 +277,7 @@ describe("hardware buddy adapter", () => {
   });
 
   it("defaults the development hardware core checkout to clawstick", () => {
-    const source = fs.readFileSync(path.join(__dirname, "..", "src", "hardware-buddy-adapter.js"), "utf8");
+    const source = fs.readFileSync(path.join(__dirname, "..", "src", "main/integrations/hardware/hardware-buddy-adapter.js"), "utf8");
     assert.match(source, /path\.resolve\(__dirname,\s*"\.\.",\s*"\.\.",\s*"clawstick"\)/);
     assert.doesNotMatch(source, /ClaudeBuddy/);
   });
@@ -996,7 +996,7 @@ describe("hardware buddy adapter", () => {
   });
 
   it("stops the hardware adapter before permission cleanup during app quit", () => {
-    const source = fs.readFileSync(path.join(__dirname, "..", "src", "main.js"), "utf8");
+    const source = fs.readFileSync(path.join(__dirname, "..", "src", "main/index.js"), "utf8");
     const start = source.indexOf('app.on("before-quit"');
     const end = source.indexOf('app.on("window-all-closed"', start);
     const block = source.slice(start, end);

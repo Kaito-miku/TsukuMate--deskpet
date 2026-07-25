@@ -4,7 +4,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("events");
 
-const { registerRemoteSshIpc } = require("../src/remote-ssh-ipc");
+const { registerRemoteSshIpc } = require("../src/main/integrations/remote-ssh/remote-ssh-ipc");
 
 // Build a fake child that emulates the new tryLaunch contract: it emits
 // 'spawn' on the next tick by default; pass { error: <Error> } to make it

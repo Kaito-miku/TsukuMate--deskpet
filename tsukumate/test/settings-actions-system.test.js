@@ -3,8 +3,8 @@
 const test = require("node:test");
 const assert = require("node:assert");
 
-const prefs = require("../src/prefs");
-const systemActions = require("../src/settings-actions-system");
+const prefs = require("../src/main/settings/prefs");
+const systemActions = require("../src/main/settings/settings-actions-system");
 
 test("settings system actions expose the command surface", () => {
   assert.deepStrictEqual(Object.keys(systemActions).sort(), [

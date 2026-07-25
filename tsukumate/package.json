@@ -2,7 +2,7 @@
   "name": "tsukumate",
   "version": "0.11.0",
   "description": "TsukuMate — a local-first AI desktop companion.",
-  "main": "src/main.js",
+  "main": "src/main/index.js",
   "scripts": {
     "start": "node launch.js",
     "build": "electron-builder --win",

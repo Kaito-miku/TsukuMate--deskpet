@@ -11,7 +11,7 @@ const {
   parseTokenFromEnvFileText,
   buildEnvFileText,
   isValidToken,
-} = require("../src/telegram-token-store");
+} = require("../src/main/integrations/telegram/telegram-token-store");
 
 const VALID = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ-_0123456789";
 
@@ -118,12 +118,12 @@ test("envFileTokenStore.deleteToken removes the file silently if missing", async
   assert.equal(fs.existsSync(tmp.file), false);
 });
 
-test("Source invariant: src/telegram-token-store.js never references process.env.CLAWD_TG_BOT_TOKEN", () => {
+test("Source invariant: src/main/integrations/telegram/telegram-token-store.js never references process.env.CLAWD_TG_BOT_TOKEN", () => {
   // Mirrors the existing invariant test for telegram-approval-settings.js.
   const fs = require("node:fs");
   const path = require("node:path");
   const source = fs.readFileSync(
-    path.join(__dirname, "..", "src", "telegram-token-store.js"),
+    path.join(__dirname, "..", "src", "main/integrations/telegram/telegram-token-store.js"),
     "utf8",
   );
   assert.equal(

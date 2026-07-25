@@ -9,7 +9,7 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert");
 
-const initPermission = require("../src/permission");
+const initPermission = require("../src/main/windows/permission");
 
 function createMockResponse() {
   const captured = { destroyCalls: 0 };

@@ -8,7 +8,7 @@ const {
   quoteForCmd,
   quoteForPosixShellArg,
   escapeAppleScriptString,
-} = require("../src/remote-ssh-quote");
+} = require("../src/main/integrations/remote-ssh/remote-ssh-quote");
 
 // ── quoteForCmd ──
 

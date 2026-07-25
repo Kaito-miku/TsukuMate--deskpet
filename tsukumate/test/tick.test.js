@@ -4,7 +4,7 @@ const { describe, it, beforeEach, afterEach, mock } = require("node:test");
 const assert = require("node:assert");
 const path = require("node:path");
 
-const themeLoader = require("../src/theme-loader");
+const themeLoader = require("../src/main/theme/theme-loader");
 themeLoader.init(path.join(__dirname, "..", "src"));
 const _defaultTheme = themeLoader.loadTheme("cloudling");
 
@@ -14,7 +14,7 @@ function cloneTheme(theme) {
 
 function loadTickWithScreen(getCursorScreenPoint) {
   const electronPath = require.resolve("electron");
-  const tickPath = require.resolve("../src/tick");
+  const tickPath = require.resolve("../src/main/core/tick");
   const previousElectron = Object.prototype.hasOwnProperty.call(require.cache, electronPath)
     ? require.cache[electronPath]
     : null;
@@ -33,7 +33,7 @@ function loadTickWithScreen(getCursorScreenPoint) {
   delete require.cache[tickPath];
 
   return {
-    initTick: require("../src/tick"),
+    initTick: require("../src/main/core/tick"),
     restore() {
       if (previousElectron) require.cache[electronPath] = previousElectron;
       else delete require.cache[electronPath];

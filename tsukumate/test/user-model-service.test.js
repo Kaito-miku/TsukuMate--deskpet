@@ -19,8 +19,8 @@ describe("user-managed model service", () => {
 
   test("does not ship model download, onboarding, or local-model settings pages", () => {
     for (const relative of [
-      "src/minicpm-model-download.js",
-      "src/minicpm-onboarding.js",
+      "src/main/core/minicpm-model-download.js",
+      "src/main/core/minicpm-onboarding.js",
       "src/settings-tab-minicpm.js",
     ]) {
       assert.equal(fs.existsSync(path.join(APP_ROOT, relative)), false, relative);

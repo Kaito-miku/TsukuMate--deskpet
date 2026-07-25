@@ -3,7 +3,7 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 
-const initPermission = require("../src/permission");
+const initPermission = require("../src/main/windows/permission");
 
 function flush() {
   return new Promise((resolve) => setImmediate(resolve));

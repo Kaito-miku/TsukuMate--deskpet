@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const settings = require("../src/telegram-approval-settings");
+const settings = require("../src/main/integrations/telegram/telegram-approval-settings");
 
 const tempDirs = [];
 
@@ -269,21 +269,22 @@ test("invariant: Clawd source never reads process.env.CLAWD_TG_BOT_TOKEN", () =>
   // test fails loudly if a future refactor re-introduces the read.
   //
   // Note: the literal string "CLAWD_TG_BOT_TOKEN" is allowed to appear in
-  // src/telegram-approval-settings.js (it writes that key into the env-file
-  // content for the sidecar to read) and in src/telegram-approval-sidecar.js
+  // src/main/integrations/telegram/telegram-approval-settings.js (it writes that key into the env-file
+  // content for the sidecar to read) and in src/main/integrations/telegram/telegram-approval-sidecar.js
   // (handshake constants and child env stripping). What's forbidden is
   // process.env access to that specific name in Clawd's own code.
   const srcDir = path.join(__dirname, "..", "src");
-  // Cover main.js plus every src/telegram-*.js (sidecar, settings, the new
+  // Cover the main entry plus every Telegram integration module (sidecar, settings, the new
   // native-client / owner-manager / migration-state / token-store added in
   // the v0.9.0 spike) so future Telegram modules can't silently regress this
   // invariant.
+  const telegramDir = path.join(srcDir, "main", "integrations", "telegram");
   const sourceFiles = [
-    path.join(srcDir, "main.js"),
+    path.join(srcDir, "main", "index.js"),
     ...fs
-      .readdirSync(srcDir)
+      .readdirSync(telegramDir)
       .filter((name) => /^telegram-.*\.js$/.test(name))
-      .map((name) => path.join(srcDir, name)),
+      .map((name) => path.join(telegramDir, name)),
   ];
   const offenders = [];
   const needle = "process.env.CLAWD_TG_BOT_TOKEN";

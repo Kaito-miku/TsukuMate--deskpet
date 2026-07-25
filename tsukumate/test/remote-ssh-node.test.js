@@ -15,8 +15,8 @@ const {
   resolveRemoteNodeBin,
   buildRemoteHookNodeCommand,
   buildRemoteNodeEvalCommand,
-} = require("../src/remote-ssh-node");
-const { buildSshArgs } = require("../src/remote-ssh-runtime");
+} = require("../src/main/integrations/remote-ssh/remote-ssh-node");
+const { buildSshArgs } = require("../src/main/integrations/remote-ssh/remote-ssh-runtime");
 
 function makeFakeChild() {
   const child = new EventEmitter();

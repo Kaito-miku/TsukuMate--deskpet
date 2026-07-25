@@ -4,7 +4,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { EventEmitter } = require("events");
 
-const { detectRemoteShell, POSIX_OS_RX } = require("../src/remote-ssh-shell-detect");
+const { detectRemoteShell, POSIX_OS_RX } = require("../src/main/integrations/remote-ssh/remote-ssh-shell-detect");
 
 function makeFakeChild() {
   const child = new EventEmitter();

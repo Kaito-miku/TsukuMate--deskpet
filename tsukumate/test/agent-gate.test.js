@@ -13,9 +13,9 @@ const {
   isCodexNativeNotificationSoundEnabled,
   isCodexPermissionInterceptEnabled,
   shouldSyncAgentIntegration,
-} = require("../src/agent-gate");
-const { commandRegistry } = require("../src/settings-actions");
-const prefs = require("../src/prefs");
+} = require("../src/main/integrations/agents/agent-gate");
+const { commandRegistry } = require("../src/main/settings/settings-actions");
+const prefs = require("../src/main/settings/prefs");
 
 describe("isAgentEnabled", () => {
   it("returns true when snapshot is missing", () => {

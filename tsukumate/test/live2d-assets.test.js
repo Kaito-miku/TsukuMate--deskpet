@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { readMotionGroups } = require("../src/live2d-assets");
+const { readMotionGroups } = require("../src/main/theme/live2d-assets");
 
 test("readMotionGroups exposes model3 motion groups without file paths", (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawd-live2d-"));

@@ -7,12 +7,12 @@ const path = require("path");
 const registry = require("../agents/registry");
 
 // Load default theme for test ctx
-const themeLoader = require("../src/theme-loader");
+const themeLoader = require("../src/main/theme/theme-loader");
 themeLoader.init(path.join(__dirname, "..", "src"));
 const _defaultTheme = themeLoader.loadTheme("cloudling");
 
 // Instantiate state.js to get the authoritative STATE_PRIORITY
-const state = require("../src/state.js")({
+const state = require("../src/main/core/state.js")({
   theme: _defaultTheme,
   doNotDisturb: false, miniTransitioning: false, miniMode: false,
   mouseOverPet: false, idlePaused: false, forceEyeResend: false,

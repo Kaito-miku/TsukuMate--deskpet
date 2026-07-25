@@ -17,7 +17,7 @@ const {
   extractApiErrorFromEntries,
   extractLastAssistantTextFromEntries,
 } = require("../hooks/clawd-hook.js");
-const { buildToolInputFingerprint } = require("../src/server").__test;
+const { buildToolInputFingerprint } = require("../src/main/sessions/server").__test;
 
 function writeTmpJsonl(entries) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "clawd-hook-test-"));
@@ -308,7 +308,7 @@ describe("buildStateBody", () => {
       session_id: "s",
       tool_name: "Read",
       tool_use_id: "toolu_123",
-      tool_input: { file_path: "src/server.js" },
+      tool_input: { file_path: "src/main/sessions/server.js" },
       transcript_path: "/tmp/claude-transcript.jsonl",
     };
     const body = buildStateBody("PostToolUse", payload, mockResolve);

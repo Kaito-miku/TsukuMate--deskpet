@@ -7,7 +7,7 @@ const {
   buildCodexMonitorUpdateOptions,
   isCodexMonitorMetadataOnlyEvent,
   isCodexMonitorPermissionEvent,
-} = require("../src/codex-monitor-callback");
+} = require("../src/main/integrations/agents/codex-monitor-callback");
 
 describe("Codex monitor callback helpers", () => {
   it("identifies JSONL permission events", () => {

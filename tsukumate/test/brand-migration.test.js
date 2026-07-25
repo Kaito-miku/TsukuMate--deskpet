@@ -5,7 +5,7 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const test = require("node:test");
-const { migrateLegacyUserData } = require("../src/brand-migration");
+const { migrateLegacyUserData } = require("../src/main/core/brand-migration");
 
 test("TsukuMate migrates durable legacy data once without overwriting new data", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tsukumate-migration-"));

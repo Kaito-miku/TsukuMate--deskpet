@@ -8,7 +8,7 @@ const {
   isNativeTelegramApprovalSelected,
   buildTelegramStatusDiagnostic,
   formatTelegramStatusDiagnostic,
-} = require("../src/telegram-approval-runtime-status");
+} = require("../src/main/integrations/telegram/telegram-approval-runtime-status");
 
 const COMPLETE_CONFIG_DISABLED = {
   enabled: false,

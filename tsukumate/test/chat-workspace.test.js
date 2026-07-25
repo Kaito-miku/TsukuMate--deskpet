@@ -24,7 +24,7 @@ test("chat workspace ships a three-column chat/history/diary/Live2D shell", () =
 
 test("workspace has a permanent chat return action and a dedicated Live2D camera fit", () => {
   const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
-  const chat = read("minicpm-chat.js");
+  const chat = read("main/chat/minicpm-chat.js");
   assert.match(renderer, /chat-tool.*returnToChat/);
   assert.match(chat, /workspaceFraming:\s*"head-to-knees"/);
   assert.match(read("renderer/chat-workspace/chat-workspace-screen.css"), /\[hidden\]\s*\{\s*display:\s*none\s*!important/);
@@ -73,15 +73,15 @@ test("workspace preload exposes only constrained chat, date and diary operations
 });
 
 test("quick launcher opens the workspace while the legacy shortcut still targets the bubble", () => {
-  const main = read("main.js");
+  const main = read("main/index.js");
   assert.match(main, /openChat: \(\) => openChatWorkspace\(\)/);
   assert.match(main, /function openMinicpmChat\(\)/);
   assert.match(main, /_minicpmChat\.isWorkspaceOpen\(\)/);
-  assert.match(read("minicpm-chat.js"), /workspace\.isMinimized\(\).*workspace\.restore\(\)/);
+  assert.match(read("main/chat/minicpm-chat.js"), /workspace\.isMinimized\(\).*workspace\.restore\(\)/);
 });
 
 test("workspace history and diary IPC reject arbitrary paths", () => {
-  const chat = read("minicpm-chat.js");
+  const chat = read("main/chat/minicpm-chat.js");
   assert.match(chat, /DATE_ID_RE = \/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\//);
   assert.match(chat, /chat-workspace:load-history/);
   assert.match(chat, /chat-workspace:save-diary/);
@@ -91,7 +91,7 @@ test("workspace history and diary IPC reject arbitrary paths", () => {
 test("workspace screen capture remains tokenized and one-shot", () => {
   const html = read("renderer/chat-workspace/chat-workspace.html");
   const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
-  const chat = read("minicpm-chat.js");
+  const chat = read("main/chat/minicpm-chat.js");
   assert.match(html, /id="screen-attachment"/);
   assert.match(renderer, /screenCaptureToken: token/);
   assert.match(chat, /takeScreenCapture\(screenCaptureToken, senderId\)/);

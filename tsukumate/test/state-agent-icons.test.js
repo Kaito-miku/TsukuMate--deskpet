@@ -20,7 +20,7 @@ const {
   getAgentIconPath,
   getAgentIcon,
   getAgentIconUrl,
-} = require("../src/state-agent-icons");
+} = require("../src/main/core/state-agent-icons");
 
 function readPngSize(filePath) {
   const buffer = fs.readFileSync(filePath);

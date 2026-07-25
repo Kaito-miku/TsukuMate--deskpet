@@ -13,7 +13,7 @@ const os = require("node:os");
 const path = require("node:path");
 const Module = require("node:module");
 
-const targetPath = require.resolve("../src/minicpm-chat.js");
+const targetPath = require.resolve("../src/main/chat/minicpm-chat.js");
 
 // Stub electron just enough to require the file *without* invoking
 // initMinicpmChat. We re-evaluate the source in our own context so

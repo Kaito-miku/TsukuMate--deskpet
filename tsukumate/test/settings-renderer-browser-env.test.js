@@ -17,9 +17,9 @@ const SETTINGS_I18N = path.join(SRC_DIR, "renderer/settings/settings-i18n.js");
 const SETTINGS_DOCTOR_MODAL = path.join(SRC_DIR, "renderer/settings/settings-doctor-modal.js");
 const SETTINGS_ANIMATION_PREVIEW = path.join(SRC_DIR, "renderer/animation-preview/settings-animation-preview.html");
 const PRELOAD_SETTINGS = path.join(SRC_DIR, "preload/preload-settings.js");
-const MAIN_PROCESS = path.join(SRC_DIR, "main.js");
-const SETTINGS_IPC = path.join(SRC_DIR, "settings-ipc.js");
-const DOCTOR_IPC = path.join(SRC_DIR, "doctor-ipc.js");
+const MAIN_PROCESS = path.join(SRC_DIR, "main/index.js");
+const SETTINGS_IPC = path.join(SRC_DIR, "main/settings/settings-ipc.js");
+const DOCTOR_IPC = path.join(SRC_DIR, "main/diagnostics/doctor-ipc.js");
 const { SUPPORTED_LANGS } = require("../src/shared/i18n/i18n");
 const SETTINGS_LANGUAGE_OPTIONS = ["system", ...SUPPORTED_LANGS];
 const TAB_MODULES = [
@@ -2655,7 +2655,7 @@ describe("settings renderer browser environment", () => {
     const generalSource = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/tabs/settings-tab-general.js"), "utf8");
     const i18nSource = fs.readFileSync(SETTINGS_I18N, "utf8");
     const uiCoreSource = fs.readFileSync(SETTINGS_UI_CORE, "utf8");
-    const actionsSource = fs.readFileSync(path.join(SRC_DIR, "settings-actions.js"), "utf8");
+    const actionsSource = fs.readFileSync(path.join(SRC_DIR, "main/settings/settings-actions.js"), "utf8");
 
     // Group is mounted top-level in the General tab (not nested under HUD).
     assert.ok(generalSource.includes("buildSessionCleanupGroup()"));
@@ -4997,7 +4997,7 @@ describe("settings renderer browser environment", () => {
     const css = fs.readFileSync(SETTINGS_CSS, "utf8");
     const previewHtml = fs.readFileSync(SETTINGS_ANIMATION_PREVIEW, "utf8");
     const overridesSource = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/tabs/settings-tab-anim-overrides.js"), "utf8");
-    const animationOverridesSource = fs.readFileSync(path.join(SRC_DIR, "settings-animation-overrides-main.js"), "utf8");
+    const animationOverridesSource = fs.readFileSync(path.join(SRC_DIR, "main/settings/settings-animation-overrides-main.js"), "utf8");
     const preloadSource = fs.readFileSync(PRELOAD_SETTINGS, "utf8");
     const rendererSource = fs.readFileSync(SETTINGS_RENDERER, "utf8");
 

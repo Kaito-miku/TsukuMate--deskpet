@@ -3,8 +3,8 @@ const { describe, it } = require("node:test");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const MAIN_JS = path.join(__dirname, "..", "src", "main.js");
-const THEME_RUNTIME_JS = path.join(__dirname, "..", "src", "theme-runtime.js");
+const MAIN_JS = path.join(__dirname, "..", "src", "main/index.js");
+const THEME_RUNTIME_JS = path.join(__dirname, "..", "src", "main/theme/theme-runtime.js");
 
 describe("main theme transition wiring", () => {
   it("fades the render window out before theme reload and back in after load", () => {
@@ -12,11 +12,11 @@ describe("main theme transition wiring", () => {
     const runtimeSource = fs.readFileSync(THEME_RUNTIME_JS, "utf8");
 
     assert.ok(
-      mainSource.includes('require("./theme-fade-sequencer")'),
+      mainSource.includes('require("./theme/theme-fade-sequencer")'),
       "main should construct the raw theme fade/reload sequencer"
     );
     assert.ok(
-      mainSource.includes('require("./theme-runtime")'),
+      mainSource.includes('require("./theme/theme-runtime")'),
       "main should delegate theme switching to theme-runtime"
     );
     assert.match(mainSource, /THEME_SWITCH_FADE_OUT_MS\s*=\s*140/);

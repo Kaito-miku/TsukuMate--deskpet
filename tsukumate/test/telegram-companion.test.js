@@ -6,7 +6,7 @@ const test = require("node:test");
 const {
   createTelegramCompanion,
   formatNotification,
-} = require("../src/telegram-companion");
+} = require("../src/main/integrations/telegram/telegram-companion");
 
 function tick() {
   // Flush the fire-and-forget microtask chain in onSnapshot.

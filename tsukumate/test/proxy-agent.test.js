@@ -8,7 +8,7 @@ const {
   matchesNoProxy,
   resolveProxyUrl,
   createProxyAgent,
-} = require("../src/proxy-agent");
+} = require("../src/main/integrations/agents/proxy-agent");
 
 describe("parseScutilOutput", () => {
   it("parses SOCKS, HTTPS, and HTTP proxy from scutil output", () => {

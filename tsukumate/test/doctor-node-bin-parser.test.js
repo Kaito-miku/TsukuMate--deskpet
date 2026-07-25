@@ -2,7 +2,7 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert");
 const { formatNodeHookCommand } = require("../hooks/json-utils");
 const { withCommandEnv } = require("../hooks/codex-install-utils");
-const { validateHookCommand } = require("../src/doctor-detectors/agent-node-bin-parser");
+const { validateHookCommand } = require("../src/main/diagnostics/detectors/agent-node-bin-parser");
 const { __test: antigravityInstallTest } = require("../hooks/antigravity-install");
 
 function fakeFs(existingPaths) {

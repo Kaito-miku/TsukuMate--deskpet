@@ -9,7 +9,7 @@ const {
   WAKE_TIMEOUT_MS,
   createSystemWakeRecovery,
   normalizeWakeStatus,
-} = require("../src/system-wake-recovery");
+} = require("../src/main/platform/system-wake-recovery");
 
 function createClock(start = 1000) {
   let current = start;
@@ -82,7 +82,7 @@ function createHarness() {
 
 describe("system wake recovery", () => {
   it("is wired into the Electron main lifecycle", () => {
-    const main = fs.readFileSync(path.join(__dirname, "..", "src", "main.js"), "utf8");
+    const main = fs.readFileSync(path.join(__dirname, "..", "src", "main/index.js"), "utf8");
     assert.match(main, /powerMonitor/);
     assert.match(main, /systemWakeRecovery = createSystemWakeRecovery\(\{/);
     assert.match(main, /systemWakeRecovery\.start\(\)/);

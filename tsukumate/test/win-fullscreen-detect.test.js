@@ -7,7 +7,7 @@ const {
   createForegroundFullscreenProbe,
   rectCoversMonitor,
   FULLSCREEN_TOLERANCE_PX,
-} = require("../src/win-fullscreen-detect");
+} = require("../src/main/platform/win-fullscreen-detect");
 
 // A koffi stand-in: load().func(signature) returns a stub keyed off the API
 // name, mimicking koffi's _Out_/_Inout_ marshalling by writing into the passed

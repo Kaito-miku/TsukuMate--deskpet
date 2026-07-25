@@ -4,11 +4,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..");
-const MAIN = path.join(ROOT, "src", "main.js");
-const CODEX_PET_MAIN = path.join(ROOT, "src", "codex-pet-main.js");
-const SETTINGS_IPC = path.join(ROOT, "src", "settings-ipc.js");
+const MAIN = path.join(ROOT, "src", "main/index.js");
+const CODEX_PET_MAIN = path.join(ROOT, "src", "main/integrations/codex-pet/codex-pet-main.js");
+const SETTINGS_IPC = path.join(ROOT, "src", "main/settings/settings-ipc.js");
 const PRELOAD_SETTINGS = path.join(ROOT, "src", "preload/preload-settings.js");
-const SETTINGS_ACTIONS = path.join(ROOT, "src", "settings-actions.js");
+const SETTINGS_ACTIONS = path.join(ROOT, "src", "main/settings/settings-actions.js");
 const SETTINGS_TAB_THEME = path.join(ROOT, "src", "renderer/settings/tabs/settings-tab-theme.js");
 
 test("main syncs Codex Pet themes before the first theme load", () => {
@@ -17,7 +17,7 @@ test("main syncs Codex Pet themes before the first theme load", () => {
   const syncIdx = source.indexOf("let _startupCodexPetSyncSummary = codexPetMain.syncThemes(_requestedThemeId);");
   const loadIdx = source.indexOf("const _loadedStartupTheme = themeRuntime.loadInitialTheme(_requestedThemeId");
 
-  assert.ok(source.includes('const createCodexPetMain = require("./codex-pet-main");'));
+  assert.ok(source.includes('const createCodexPetMain = require("./integrations/codex-pet/codex-pet-main");'));
   assert.ok(source.includes("codexPetMain = createCodexPetMain({"));
   assert.ok(runtimeSource.includes('const defaultCodexPetAdapter = require("./codex-pet-adapter");'));
   assert.ok(syncIdx >= 0, "startup Codex Pet sync should be present");
@@ -88,7 +88,7 @@ test("settings exposes Codex Pet refresh and managed theme metadata", () => {
 
 test("managed Codex Pet themes cannot be removed through the user-theme delete command", () => {
   const mainSource = fs.readFileSync(MAIN, "utf8");
-  const themeRuntimeSource = fs.readFileSync(path.join(ROOT, "src", "theme-runtime.js"), "utf8");
+  const themeRuntimeSource = fs.readFileSync(path.join(ROOT, "src", "main/theme/theme-runtime.js"), "utf8");
   const actionsSource = fs.readFileSync(SETTINGS_ACTIONS, "utf8");
 
   assert.ok(mainSource.includes("isManagedTheme: (themeId) => codexPetMain && codexPetMain.isManagedTheme(themeId)"));

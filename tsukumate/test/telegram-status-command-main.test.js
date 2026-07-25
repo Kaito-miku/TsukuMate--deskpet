@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
-const MAIN_JS = path.join(__dirname, "..", "src", "main.js");
+const MAIN_JS = path.join(__dirname, "..", "src", "main/index.js");
 
 test("Telegram /status command uses the full diagnostic view by default", () => {
   const source = fs.readFileSync(MAIN_JS, "utf8");

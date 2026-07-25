@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert");
-const { computeQuickLauncherBounds } = require("../src/quick-launcher");
+const { computeQuickLauncherBounds } = require("../src/main/windows/quick-launcher");
 
 test("quick launcher prefers the right side of the pet", () => {
   const bounds = computeQuickLauncherBounds(

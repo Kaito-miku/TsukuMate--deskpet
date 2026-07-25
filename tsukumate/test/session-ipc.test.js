@@ -5,7 +5,7 @@ const assert = require("node:assert");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const { registerSessionIpc } = require("../src/session-ipc");
+const { registerSessionIpc } = require("../src/main/sessions/session-ipc");
 
 class FakeIpcMain {
   constructor() {
@@ -236,7 +236,7 @@ test("dashboard renderer wires the Mark-read button + ackCompletion fallback (so
 });
 
 test("main forwards dashboard open source options into session IPC", () => {
-  const mainSource = fs.readFileSync(path.join(__dirname, "..", "src", "main.js"), "utf8");
+  const mainSource = fs.readFileSync(path.join(__dirname, "..", "src", "main/index.js"), "utf8");
   const preservesOptions = [
     /registerSessionIpc\(\{[\s\S]*?showDashboard\s*,/,
     /registerSessionIpc\(\{[\s\S]*?showDashboard:\s*\(\s*([A-Za-z_$][\w$]*)\s*\)\s*=>\s*showDashboard\(\s*\1\s*\)/,

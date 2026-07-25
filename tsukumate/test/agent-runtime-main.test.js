@@ -5,7 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const createAgentRuntimeMain = require("../src/agent-runtime-main");
+const createAgentRuntimeMain = require("../src/main/integrations/agents/agent-runtime-main");
 
 const SRC_DIR = path.join(__dirname, "..", "src");
 
@@ -36,7 +36,7 @@ function makeFakeMonitorClass(instances) {
 
 describe("agent-runtime-main", () => {
   it("keeps Codex monitor ownership and agent deferred wrappers out of main", () => {
-    const mainSource = fs.readFileSync(path.join(SRC_DIR, "main.js"), "utf8");
+    const mainSource = fs.readFileSync(path.join(SRC_DIR, "main/index.js"), "utf8");
 
     assert.match(mainSource, /createAgentRuntimeMain/);
     assert.ok(!mainSource.includes("_codexMonitor"));

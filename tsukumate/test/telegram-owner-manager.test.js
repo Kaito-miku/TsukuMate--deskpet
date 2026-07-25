@@ -7,14 +7,14 @@ const {
   TelegramOwnerManager,
   InvariantError,
   DEFAULT_SETTLE_MS,
-} = require("../src/telegram-owner-manager");
+} = require("../src/main/integrations/telegram/telegram-owner-manager");
 const {
   SIDE_EFFECTS,
   applyEvent,
   computeInitial,
   EVENTS,
   STATES,
-} = require("../src/telegram-migration-state");
+} = require("../src/main/integrations/telegram/telegram-migration-state");
 const { ALL_CASES } = require("./fakes/migration-transitions");
 
 class FakeSidecar {

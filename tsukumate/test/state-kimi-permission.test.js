@@ -1,7 +1,7 @@
 const { describe, it, beforeEach, afterEach, mock } = require("node:test");
 const assert = require("node:assert");
 const path = require("path");
-const themeLoader = require("../src/theme-loader");
+const themeLoader = require("../src/main/theme/theme-loader");
 const { createTranslator } = require("../src/shared/i18n/i18n");
 
 themeLoader.init(path.join(__dirname, "..", "src"));
@@ -51,7 +51,7 @@ describe("Kimi permission hold by session", () => {
   beforeEach(() => {
     mock.timers.enable({ apis: ["setTimeout", "setInterval", "Date"] });
     ctx = makeCtx();
-    api = require("../src/state")(ctx);
+    api = require("../src/main/core/state")(ctx);
   });
 
   afterEach(() => {
@@ -100,7 +100,7 @@ describe("Kimi permission hold by session", () => {
     try {
       process.env.CLAWD_KIMI_PERMISSION_MAX_MS = "0";
       ctx = makeCtx();
-      api = require("../src/state")(ctx);
+      api = require("../src/main/core/state")(ctx);
 
       api.updateSession("kimi-a", "notification", "PermissionRequest", { agentId: "kimi-cli" });
       assert.strictEqual(api.resolveDisplayState(), "notification");
@@ -221,7 +221,7 @@ describe("Kimi permission suspect heuristic", () => {
   beforeEach(() => {
     mock.timers.enable({ apis: ["setTimeout", "setInterval", "Date"] });
     ctx = makeCtx();
-    api = require("../src/state")(ctx);
+    api = require("../src/main/core/state")(ctx);
   });
 
   afterEach(() => {
@@ -296,7 +296,7 @@ describe("Global permission animation lock", () => {
   beforeEach(() => {
     mock.timers.enable({ apis: ["setTimeout", "setInterval", "Date"] });
     ctx = makeCtx();
-    api = require("../src/state")(ctx);
+    api = require("../src/main/core/state")(ctx);
   });
 
   afterEach(() => {
