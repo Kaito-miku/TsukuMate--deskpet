@@ -1,11 +1,32 @@
 (() => {
+  var __create = Object.create;
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getProtoOf = Object.getPrototypeOf;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
   var __esm = (fn, res) => function __init() {
     return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
   };
   var __commonJS = (cb, mod) => function __require() {
     return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
   };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+    // If the importer is in node compatibility mode or this is not an ESM
+    // file that has been converted to a CommonJS file using a Babel-
+    // compatible transform (i.e. "__esModule" has not been set), then set
+    // "default" to the CommonJS "module.exports" for node compatibility.
+    isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+    mod
+  ));
 
   // ../CubismSdkForWeb-5-r.5/Framework/src/id/cubismid.ts
   var CubismId, Live2DCubismFramework;
@@ -2679,82 +2700,6 @@
     }
   });
 
-  // ../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lappdefine.ts
-  var CanvasSize, ViewScale, ViewMaxScale, ViewMinScale, ViewLogicalLeft, ViewLogicalRight, ViewLogicalMaxLeft, ViewLogicalMaxRight, ViewLogicalMaxBottom, ViewLogicalMaxTop, ResourcesPath, ShaderPath, BackImageName, GearImageName, ModelDir, ModelDirSize, MotionGroupIdle, MotionGroupTapBody, HitAreaNameHead, HitAreaNameBody, PriorityNone, PriorityIdle, PriorityNormal, PriorityForce, MOCConsistencyValidationEnable, MotionConsistencyValidationEnable, DebugLogEnable, DebugTouchLogEnable, CubismLoggingLevel;
-  var init_lappdefine = __esm({
-    "../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lappdefine.ts"() {
-      init_live2dcubismframework();
-      CanvasSize = "auto";
-      ViewScale = 1;
-      ViewMaxScale = 2;
-      ViewMinScale = 0.8;
-      ViewLogicalLeft = -1;
-      ViewLogicalRight = 1;
-      ViewLogicalMaxLeft = -2;
-      ViewLogicalMaxRight = 2;
-      ViewLogicalMaxBottom = -2;
-      ViewLogicalMaxTop = 2;
-      ResourcesPath = "../../Resources/";
-      ShaderPath = "../../Framework/Shaders/WebGL/";
-      BackImageName = "back_class_normal.png";
-      GearImageName = "icon_gear.png";
-      ModelDir = [
-        "Haru",
-        "Hiyori",
-        "Mark",
-        "Natori",
-        "Rice",
-        "Mao",
-        "Wanko",
-        "Ren"
-      ];
-      ModelDirSize = ModelDir.length;
-      MotionGroupIdle = "Idle";
-      MotionGroupTapBody = "TapBody";
-      HitAreaNameHead = "Head";
-      HitAreaNameBody = "Body";
-      PriorityNone = 0;
-      PriorityIdle = 1;
-      PriorityNormal = 2;
-      PriorityForce = 3;
-      MOCConsistencyValidationEnable = true;
-      MotionConsistencyValidationEnable = true;
-      DebugLogEnable = true;
-      DebugTouchLogEnable = false;
-      CubismLoggingLevel = 0 /* LogLevel_Verbose */;
-    }
-  });
-
-  // ../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lappglmanager.ts
-  var LAppGlManager;
-  var init_lappglmanager = __esm({
-    "../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lappglmanager.ts"() {
-      LAppGlManager = class {
-        constructor() {
-          this._gl = null;
-          this._gl = null;
-        }
-        initialize(canvas) {
-          this._gl = canvas.getContext("webgl2");
-          if (!this._gl) {
-            alert("Cannot initialize WebGL. This browser does not support.");
-            this._gl = null;
-            return false;
-          }
-          return true;
-        }
-        /**
-         * 解放する。
-         */
-        release() {
-        }
-        getGl() {
-          return this._gl;
-        }
-      };
-    }
-  });
-
   // ../CubismSdkForWeb-5-r.5/Framework/src/utils/cubismarrayutils.ts
   function updateSize(curArray, newSize, value = null, callPlacementNew = null) {
     const curSize = curArray.length;
@@ -3392,6 +3337,82 @@
           return offscreenRenderTextureContainer;
         }
         // WebGLContextごとのマネージャー
+      };
+    }
+  });
+
+  // ../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lappdefine.ts
+  var CanvasSize, ViewScale, ViewMaxScale, ViewMinScale, ViewLogicalLeft, ViewLogicalRight, ViewLogicalMaxLeft, ViewLogicalMaxRight, ViewLogicalMaxBottom, ViewLogicalMaxTop, ResourcesPath, ShaderPath, BackImageName, GearImageName, ModelDir, ModelDirSize, MotionGroupIdle, MotionGroupTapBody, HitAreaNameHead, HitAreaNameBody, PriorityNone, PriorityIdle, PriorityNormal, PriorityForce, MOCConsistencyValidationEnable, MotionConsistencyValidationEnable, DebugLogEnable, DebugTouchLogEnable, CubismLoggingLevel;
+  var init_lappdefine = __esm({
+    "../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lappdefine.ts"() {
+      init_live2dcubismframework();
+      CanvasSize = "auto";
+      ViewScale = 1;
+      ViewMaxScale = 2;
+      ViewMinScale = 0.8;
+      ViewLogicalLeft = -1;
+      ViewLogicalRight = 1;
+      ViewLogicalMaxLeft = -2;
+      ViewLogicalMaxRight = 2;
+      ViewLogicalMaxBottom = -2;
+      ViewLogicalMaxTop = 2;
+      ResourcesPath = "../../Resources/";
+      ShaderPath = "../../Framework/Shaders/WebGL/";
+      BackImageName = "back_class_normal.png";
+      GearImageName = "icon_gear.png";
+      ModelDir = [
+        "Haru",
+        "Hiyori",
+        "Mark",
+        "Natori",
+        "Rice",
+        "Mao",
+        "Wanko",
+        "Ren"
+      ];
+      ModelDirSize = ModelDir.length;
+      MotionGroupIdle = "Idle";
+      MotionGroupTapBody = "TapBody";
+      HitAreaNameHead = "Head";
+      HitAreaNameBody = "Body";
+      PriorityNone = 0;
+      PriorityIdle = 1;
+      PriorityNormal = 2;
+      PriorityForce = 3;
+      MOCConsistencyValidationEnable = true;
+      MotionConsistencyValidationEnable = true;
+      DebugLogEnable = true;
+      DebugTouchLogEnable = false;
+      CubismLoggingLevel = 0 /* LogLevel_Verbose */;
+    }
+  });
+
+  // ../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lappglmanager.ts
+  var LAppGlManager;
+  var init_lappglmanager = __esm({
+    "../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lappglmanager.ts"() {
+      LAppGlManager = class {
+        constructor() {
+          this._gl = null;
+          this._gl = null;
+        }
+        initialize(canvas) {
+          this._gl = canvas.getContext("webgl2");
+          if (!this._gl) {
+            alert("Cannot initialize WebGL. This browser does not support.");
+            this._gl = null;
+            return false;
+          }
+          return true;
+        }
+        /**
+         * 解放する。
+         */
+        release() {
+        }
+        getGl() {
+          return this._gl;
+        }
       };
     }
   });
@@ -23380,14 +23401,46 @@
     }
   });
 
+  // src/live2d-workspace-camera.js
+  var require_live2d_workspace_camera = __commonJS({
+    "src/live2d-workspace-camera.js"(exports, module) {
+      "use strict";
+      function clamp2(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+      function computeWorkspaceCamera(bounds, viewportHeight, settings = {}) {
+        if (!bounds || !Number.isFinite(bounds.minX) || !Number.isFinite(bounds.maxX) || !Number.isFinite(bounds.minY) || !Number.isFinite(bounds.maxY) || bounds.maxX <= bounds.minX || bounds.maxY <= bounds.minY) return null;
+        const targetMinY = bounds.minY + (bounds.maxY - bounds.minY) * 0.18;
+        const width = bounds.maxX - bounds.minX;
+        const height = bounds.maxY - targetMinY;
+        const autoFit = Math.min(1.8 / width, 1.8 / height);
+        const userScale = clamp2(Number(settings.workspaceScale) || 1, 0.6, 1.8);
+        const fit = clamp2(autoFit * userScale, 0.1, 4);
+        const centerX = (bounds.minX + bounds.maxX) * 0.5;
+        const centerY = (targetMinY + bounds.maxY) * 0.5;
+        const offsetY = clamp2(Number(settings.workspaceOffsetY) || 0, -300, 300);
+        return {
+          fit,
+          translateX: -centerX * fit,
+          translateY: -centerY * fit - offsetY / Math.max(1, viewportHeight) * 2,
+          targetFraction: 0.82
+        };
+      }
+      module.exports = { computeWorkspaceCamera };
+    }
+  });
+
   // src/live2d-cubism5-renderer.ts
   var require_live2d_cubism5_renderer = __commonJS({
     "src/live2d-cubism5-renderer.ts"() {
       init_live2dcubismframework();
+      init_cubismmatrix44();
+      init_cubismoffscreenmanager();
       init_lappsubdelegate();
       init_lappmodel();
       init_lapppal();
       init_dist();
+      var import_live2d_workspace_camera = __toESM(require_live2d_workspace_camera());
       var stage = document.getElementById("live2d-stage");
       var container = document.getElementById("pet-container");
       var canvas = null;
@@ -23406,6 +23459,8 @@
       var pendingMotion = null;
       var pendingMotionTimer = 0;
       var pendingMotionRetries = 0;
+      var readyReported = false;
+      var drawnFrames = 0;
       function applyView(config) {
         const scale = Number.isFinite(config && config.scale) ? config.scale : 1;
         const x = Number.isFinite(config && config.offsetX) ? config.offsetX : 0;
@@ -23471,6 +23526,8 @@
         pendingMotionTimer = 0;
         pendingMotion = null;
         pendingMotionRetries = 0;
+        readyReported = false;
+        drawnFrames = 0;
         try {
           subdelegate && subdelegate.release();
         } catch {
@@ -23511,6 +23568,16 @@
           canvas = document.createElement("canvas");
           canvas.style.width = "100%";
           canvas.style.height = "100%";
+          canvas.addEventListener("webglcontextlost", (event) => {
+            event.preventDefault();
+            const retryConfig = currentConfig;
+            report("cubism5-recovering", "Live2D \u753B\u5E03\u6B63\u5728\u6062\u590D\u2026");
+            currentConfig = null;
+            stop();
+            window.setTimeout(() => {
+              void configure(retryConfig);
+            }, 250);
+          }, { once: true });
           stage.appendChild(canvas);
           subdelegate = new LAppSubdelegate();
           if (!subdelegate.initialize(canvas)) throw new Error("Cubism 5 WebGL initialization failed");
@@ -23548,6 +23615,53 @@
           const modelDir = config.modelUrl.slice(0, config.modelUrl.lastIndexOf("/") + 1);
           model.loadAssets(modelDir, fileName);
           manager._models.push(model);
+          if (config.workspaceFraming === "head-to-knees") {
+            let boundsCache = null;
+            manager.onUpdate = function() {
+              const gl = this._subdelegate.getGl();
+              CubismWebGLOffscreenManager.getInstance().beginFrameProcess(gl);
+              const { width, height } = this._subdelegate.getCanvas();
+              const projection = new CubismMatrix44();
+              const activeModel = this._models[0];
+              if (activeModel && activeModel.getModel()) {
+                if (activeModel.getModel().getCanvasWidth() > 1 && width < height) {
+                  activeModel.getModelMatrix().setWidth(2);
+                  projection.scale(1, width / height);
+                } else projection.scale(height / width, 1);
+                if (!boundsCache || boundsCache.width !== width || boundsCache.height !== height) {
+                  const coreModel = activeModel.getModel();
+                  const modelMatrix = activeModel.getModelMatrix();
+                  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                  for (let drawable = 0; drawable < coreModel.getDrawableCount(); drawable++) {
+                    const positions = coreModel.getDrawableVertexPositions(drawable);
+                    for (let i = 0; i + 1 < positions.length; i += 2) {
+                      const px = projection.transformX(modelMatrix.transformX(positions[i]));
+                      const py = projection.transformY(modelMatrix.transformY(positions[i + 1]));
+                      if (Number.isFinite(px) && Number.isFinite(py)) {
+                        minX = Math.min(minX, px);
+                        maxX = Math.max(maxX, px);
+                        minY = Math.min(minY, py);
+                        maxY = Math.max(maxY, py);
+                      }
+                    }
+                  }
+                  boundsCache = { width, height, minX, maxX, minY, maxY };
+                }
+                if (Number.isFinite(boundsCache.minX) && boundsCache.maxX > boundsCache.minX && boundsCache.maxY > boundsCache.minY) {
+                  const camera = (0, import_live2d_workspace_camera.computeWorkspaceCamera)(boundsCache, height, currentConfig || {});
+                  if (camera) {
+                    projection.scaleRelative(camera.fit, camera.fit);
+                    projection.translateRelative(camera.translateX, camera.translateY);
+                  }
+                }
+                if (this._viewMatrix) projection.multiplyByMatrix(this._viewMatrix);
+                activeModel.update();
+                activeModel.draw(projection);
+              }
+              CubismWebGLOffscreenManager.getInstance().endFrameProcess(gl);
+              CubismWebGLOffscreenManager.getInstance().releaseStaleRenderTextures(gl);
+            };
+          }
           runtime = new SoullinkRuntime({ profile: makeProfile(config.modelUrl), motionStyle: motionStylePresets.calm });
           const originalUpdate = model.update.bind(model);
           model.update = () => {
@@ -23564,6 +23678,11 @@
             if (token !== generation || !subdelegate) return;
             LAppPal.updateTime();
             subdelegate.update();
+            drawnFrames += 1;
+            if (!readyReported && drawnFrames >= 12 && model && model.getModel && model.getModel()) {
+              readyReported = true;
+              report("cubism5-ready", currentConfig && (currentConfig.modelName || currentConfig.modelUrl) || "Live2D");
+            }
             raf = requestAnimationFrame(loop);
           };
           loop();
@@ -23571,7 +23690,6 @@
           const readyCheck = () => {
             if (token !== generation) return;
             if (model && model.getModel && model.getModel()) {
-              report("cubism5-ready", config.modelName || config.modelUrl);
               setEmotion(stateEmotion[currentState] || latestChatBlend, !!stateEmotion[currentState] || latestChatLayer === "reaction");
             } else if (Date.now() < deadline) setTimeout(readyCheck, 100);
             else {
@@ -23701,6 +23819,14 @@
         try {
           model && model.setDragging(0, 0);
         } catch {
+        }
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && subdelegate) {
+          try {
+            subdelegate._needResize = true;
+          } catch {
+          }
         }
       });
       configure(window.themeConfig && window.themeConfig.live2d);

@@ -78,6 +78,14 @@ let sidecarUrl = null;
 let remoteMode = false;
 let remoteCancel = null;
 let history = [];            // multi-turn conversation; persists across opens
+if (window.minicpm && typeof window.minicpm.onSharedSession === "function") {
+  window.minicpm.onSharedSession((snapshot) => {
+    if (!snapshot || !Array.isArray(snapshot.messages)) return;
+    history = snapshot.messages
+      .filter((message) => message && !message.streaming && (message.role === "user" || message.role === "assistant"))
+      .map((message) => ({ role: message.role, content: String(message.content || "") }));
+  });
+}
 let abortCtrl = null;
 let fadeTimer = null;
 let inputEl = null;          // <textarea> while in ask state

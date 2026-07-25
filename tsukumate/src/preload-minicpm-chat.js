@@ -76,4 +76,9 @@ contextBridge.exposeInMainWorld("minicpm", {
     ipcRenderer.on("minicpm:emotion-status", listener);
     return () => ipcRenderer.removeListener("minicpm:emotion-status", listener);
   },
+  onSharedSession: (cb) => {
+    const listener = (_event, payload) => { try { cb(payload || {}); } catch {} };
+    ipcRenderer.on("minicpm:shared-session", listener);
+    return () => ipcRenderer.removeListener("minicpm:shared-session", listener);
+  },
 });

@@ -5,10 +5,13 @@
  * inside the generated bundle by esbuild.
  */
 import { CubismFramework, LogLevel, Option } from "@framework/live2dcubismframework";
+import { CubismMatrix44 } from "@framework/math/cubismmatrix44";
+import { CubismWebGLOffscreenManager } from "@framework/rendering/cubismoffscreenmanager";
 import { LAppSubdelegate } from "../../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lappsubdelegate";
 import { LAppModel } from "../../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lappmodel";
 import { LAppPal } from "../../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lapppal";
 import { SoullinkRuntime, emotionVADPresets, motionStylePresets } from "@soullink-emotion/engine";
+import { computeWorkspaceCamera } from "./live2d-workspace-camera";
 
 const stage = document.getElementById("live2d-stage") as HTMLElement;
 const container = document.getElementById("pet-container") as HTMLElement;
@@ -28,6 +31,8 @@ let currentState = "idle";
 let pendingMotion: string | null = null;
 let pendingMotionTimer = 0;
 let pendingMotionRetries = 0;
+let readyReported = false;
+let drawnFrames = 0;
 
 function applyView(config: any) {
   const scale = Number.isFinite(config && config.scale) ? config.scale : 1;
@@ -81,6 +86,8 @@ function stop() {
   pendingMotionTimer = 0;
   pendingMotion = null;
   pendingMotionRetries = 0;
+  readyReported = false;
+  drawnFrames = 0;
   try { subdelegate && subdelegate.release(); } catch {}
   subdelegate = null; model = null; runtime = null;
   if (canvas) canvas.remove();
@@ -111,6 +118,14 @@ async function configure(config: any) {
     canvas = document.createElement("canvas");
     canvas.style.width = "100%";
     canvas.style.height = "100%";
+    canvas.addEventListener("webglcontextlost", (event) => {
+      event.preventDefault();
+      const retryConfig = currentConfig;
+      report("cubism5-recovering", "Live2D 画布正在恢复…");
+      currentConfig = null;
+      stop();
+      window.setTimeout(() => { void configure(retryConfig); }, 250);
+    }, { once: true });
     stage.appendChild(canvas);
     subdelegate = new LAppSubdelegate();
     if (!subdelegate.initialize(canvas)) throw new Error("Cubism 5 WebGL initialization failed");
@@ -152,6 +167,55 @@ async function configure(config: any) {
     model.loadAssets(modelDir, fileName);
     manager._models.push(model);
 
+    if (config.workspaceFraming === "head-to-knees") {
+      // Fit the actual drawable bounds instead of guessing from the model's
+      // canvas aspect ratio. The bottom 18% is intentionally outside the
+      // default target frame, producing a stable head-to-knees composition.
+      let boundsCache: any = null;
+      manager.onUpdate = function() {
+        const gl = this._subdelegate.getGl();
+        CubismWebGLOffscreenManager.getInstance().beginFrameProcess(gl);
+        const { width, height } = this._subdelegate.getCanvas();
+        const projection = new CubismMatrix44();
+        const activeModel = this._models[0];
+        if (activeModel && activeModel.getModel()) {
+          if (activeModel.getModel().getCanvasWidth() > 1 && width < height) {
+            activeModel.getModelMatrix().setWidth(2);
+            projection.scale(1, width / height);
+          } else projection.scale(height / width, 1);
+          if (!boundsCache || boundsCache.width !== width || boundsCache.height !== height) {
+            const coreModel = activeModel.getModel();
+            const modelMatrix = activeModel.getModelMatrix();
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            for (let drawable = 0; drawable < coreModel.getDrawableCount(); drawable++) {
+              const positions = coreModel.getDrawableVertexPositions(drawable);
+              for (let i = 0; i + 1 < positions.length; i += 2) {
+                const px = projection.transformX(modelMatrix.transformX(positions[i]));
+                const py = projection.transformY(modelMatrix.transformY(positions[i + 1]));
+                if (Number.isFinite(px) && Number.isFinite(py)) {
+                  minX = Math.min(minX, px); maxX = Math.max(maxX, px);
+                  minY = Math.min(minY, py); maxY = Math.max(maxY, py);
+                }
+              }
+            }
+            boundsCache = { width, height, minX, maxX, minY, maxY };
+          }
+          if (Number.isFinite(boundsCache.minX) && boundsCache.maxX > boundsCache.minX && boundsCache.maxY > boundsCache.minY) {
+            const camera = computeWorkspaceCamera(boundsCache, height, currentConfig || {});
+            if (camera) {
+              projection.scaleRelative(camera.fit, camera.fit);
+              projection.translateRelative(camera.translateX, camera.translateY);
+            }
+          }
+          if (this._viewMatrix) projection.multiplyByMatrix(this._viewMatrix);
+          activeModel.update();
+          activeModel.draw(projection);
+        }
+        CubismWebGLOffscreenManager.getInstance().endFrameProcess(gl);
+        CubismWebGLOffscreenManager.getInstance().releaseStaleRenderTextures(gl);
+      };
+    }
+
     runtime = new SoullinkRuntime({ profile: makeProfile(config.modelUrl), motionStyle: motionStylePresets.calm });
     const originalUpdate = model.update.bind(model);
     model.update = () => {
@@ -169,6 +233,11 @@ async function configure(config: any) {
       if (token !== generation || !subdelegate) return;
       LAppPal.updateTime();
       subdelegate.update();
+      drawnFrames += 1;
+      if (!readyReported && drawnFrames >= 12 && model && model.getModel && model.getModel()) {
+        readyReported = true;
+        report("cubism5-ready", currentConfig && (currentConfig.modelName || currentConfig.modelUrl) || "Live2D");
+      }
       raf = requestAnimationFrame(loop);
     };
     loop();
@@ -177,7 +246,6 @@ async function configure(config: any) {
     const readyCheck = () => {
       if (token !== generation) return;
       if (model && model.getModel && model.getModel()) {
-        report("cubism5-ready", config.modelName || config.modelUrl);
         setEmotion(stateEmotion[currentState] || latestChatBlend, !!stateEmotion[currentState] || latestChatLayer === "reaction");
       } else if (Date.now() < deadline) setTimeout(readyCheck, 100);
       else { report("cubism5-error", "Model setup timed out"); stop(); }
@@ -295,4 +363,9 @@ api.onStartDragReaction((direction: string) => {
   try { model && model.setDragging(direction === "left" ? -0.8 : direction === "right" ? 0.8 : 0, 0); } catch {}
 });
 api.onEndDragReaction(() => { try { model && model.setDragging(0, 0); } catch {} });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && subdelegate) {
+    try { subdelegate._needResize = true; } catch {}
+  }
+});
 configure((window as any).themeConfig && (window as any).themeConfig.live2d);

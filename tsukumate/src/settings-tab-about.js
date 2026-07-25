@@ -13,7 +13,7 @@
     return String(version || "").replace(/^v/i, "");
   }
 
-  const STATIC_ABOUT_KEYS = ["repoUrl", "modelRepoUrl", "license", "copyright", "upstreamRepoUrl", "upstreamLabel", "heroSvgContent"];
+  const STATIC_ABOUT_KEYS = ["repoUrl", "license", "copyright", "upstreamRepoUrl", "upstreamLabel"];
   function fetchAboutInfo() {
     if (!window.settingsAPI || typeof window.settingsAPI.getAboutInfo !== "function") {
       return Promise.resolve(runtime.about.infoCache || null);
@@ -182,21 +182,11 @@
     const hero = document.createElement("div");
     hero.className = "about-hero";
 
-    const logoWrap = document.createElement("div");
-    logoWrap.className = "about-logo-wrap";
-    logoWrap.title = "MiniCPM";
-
     const title = document.createElement("h2");
     title.className = "about-title";
     title.textContent = "TsukuMate";
 
-    const tagline = document.createElement("p");
-    tagline.className = "about-tagline";
-    tagline.textContent = t("aboutTagline");
-
-    hero.appendChild(logoWrap);
     hero.appendChild(title);
-    hero.appendChild(tagline);
     parent.appendChild(hero);
 
     const infoSection = document.createElement("section");
@@ -213,11 +203,6 @@
       const safe = info || {};
 
       if (safe.appName) title.textContent = safe.appName;
-
-      if (safe.heroSvgContent) {
-        logoWrap.innerHTML = safe.heroSvgContent;
-      }
-      logoWrap.addEventListener("click", () => handleAboutLogoClick(logoWrap));
 
       infoSection.innerHTML = "";
 
@@ -292,11 +277,11 @@
         ));
       }
 
-      if (safe.modelRepoUrl) {
+      if (safe.upstreamRepoUrl) {
         infoSection.appendChild(buildAboutLinkRow(
           t("aboutModelRepositoryLabel"),
-          safe.modelRepoUrl,
-          safe.modelRepoUrl.replace(/^https?:\/\//, "")
+          safe.upstreamRepoUrl,
+          safe.upstreamRepoUrl.replace(/^https?:\/\//, "")
         ));
       }
 

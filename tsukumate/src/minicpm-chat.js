@@ -38,6 +38,7 @@ const { runAppleMusicCommand } = require("./apple-music-control");
 const { buildTimeContext } = require("./time-context");
 const { normalizeProfiles, selectActiveProfile } = require("./persona-profiles");
 const { createScreenCaptureService } = require("./screen-capture");
+const { parseHistoryLines, paginateHistoryLines } = require("./chat-history-page");
 const {
   EMOTIONS,
   normalizeEmotionBlend,
@@ -914,7 +915,8 @@ module.exports = function initMinicpmChat(ctx) {
     try {
       fs.mkdirSync(chatHistoryDir, { recursive: true });
       const now = new Date();
-      const day = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
+      const requestedDay = typeof entry.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(entry.date) ? entry.date : "";
+      const day = requestedDay || [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
       const line = JSON.stringify({ timestamp: now.toISOString(), role: entry.role, content }) + "\n";
       fs.appendFileSync(path.join(chatHistoryDir, `${day}.jsonl`), line, "utf8");
       return { ok: true, dir: chatHistoryDir };
@@ -1324,6 +1326,10 @@ module.exports = function initMinicpmChat(ctx) {
   }
 
   let bubble = null;
+  let workspace = null;
+  let workspaceSenderId = null;
+  let workspacePetWasHidden = false;
+  let shuttingDown = false;
   let activeSide = "right";
   // Updated from /api/health after the sidecar comes online — drives the
   // narrator's voice (default vs neko etc.).
@@ -1535,6 +1541,14 @@ module.exports = function initMinicpmChat(ctx) {
 
   function isChatBubbleSender(sender) {
     return !!(bubble && !bubble.isDestroyed() && sender === bubble.webContents);
+  }
+
+  function isWorkspaceSender(sender) {
+    return !!(workspace && !workspace.isDestroyed() && sender === workspace.webContents);
+  }
+
+  function isChatSurfaceSender(sender) {
+    return isChatBubbleSender(sender) || isWorkspaceSender(sender);
   }
 
   function publishEmotionStatus(next) {
@@ -2264,6 +2278,7 @@ module.exports = function initMinicpmChat(ctx) {
   }
 
   function shutdown() {
+    shuttingDown = true;
     if (diaryTimer) clearInterval(diaryTimer);
     if (emotionController) emotionController.abort();
     emotionController = null;
@@ -2272,6 +2287,8 @@ module.exports = function initMinicpmChat(ctx) {
     sidecar.stop();
     if (bubble && !bubble.isDestroyed()) bubble.destroy();
     bubble = null;
+    if (workspace && !workspace.isDestroyed()) workspace.destroy();
+    workspace = null;
   }
 
   // ── Narration logic ─────────────────────────────────────────────────────
@@ -2686,9 +2703,264 @@ module.exports = function initMinicpmChat(ctx) {
     if (bubble && !bubble.isDestroyed()) menu.popup({ window: bubble });
   }
 
+  // ── Full chat workspace ───────────────────────────────────────────────
+  const DATE_ID_RE = /^\d{4}-\d{2}-\d{2}$/;
+  let sharedSession = { date: localDay(), messages: [], generating: false, requestId: null };
+  let sharedSessionController = null;
+  let workspaceConnectionState = "configured";
+
+  function readHistoryLines(day) {
+    if (!DATE_ID_RE.test(String(day || ""))) return [];
+    let raw = "";
+    try { raw = fs.readFileSync(path.join(chatHistoryDir, `${day}.jsonl`), "utf8"); } catch { return []; }
+    return raw.split(/\r?\n/).filter(Boolean);
+  }
+
+  function readHistoryPage(day, before, requestedLimit = 100) {
+    const lines = readHistoryLines(day);
+    return paginateHistoryLines(day, lines, before, requestedLimit);
+  }
+
+  function readHistoryContext(day) {
+    const lines = readHistoryLines(day);
+    const start = Math.max(0, lines.length - 240);
+    return parseHistoryLines(day, lines.slice(start), start);
+  }
+
+  sharedSession.messages = readHistoryContext(sharedSession.date);
+
+  function publicSharedSession() {
+    return {
+      date: sharedSession.date,
+      generating: sharedSession.generating,
+      connectionState: workspaceConnectionState,
+      // Rendering starts with the latest page; the model still keeps the
+      // larger 240-message context and older display pages load on demand.
+      messages: sharedSession.messages.slice(-100).map((message) => ({ ...message })),
+    };
+  }
+
+  function broadcastSharedSession() {
+    const snapshot = publicSharedSession();
+    if (workspace && !workspace.isDestroyed()) workspace.webContents.send("chat-workspace:session", snapshot);
+    if (bubble && !bubble.isDestroyed()) bubble.webContents.send("minicpm:shared-session", snapshot);
+  }
+
+  function listDatedFiles(directory, extension) {
+    try {
+      return fs.readdirSync(directory)
+        .filter((name) => DATE_ID_RE.test(name.slice(0, -extension.length)) && name.endsWith(extension))
+        .map((name) => name.slice(0, -extension.length)).sort().reverse();
+    } catch { return []; }
+  }
+
+  function getWorkspaceBounds() {
+    const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    const area = display.workArea;
+    const width = Math.max(960, Math.round(area.width * 0.82));
+    const height = Math.max(680, Math.round(area.height * 0.82));
+    return {
+      x: Math.round(area.x + (area.width - width) / 2),
+      y: Math.round(area.y + (area.height - height) / 2),
+      width: Math.min(width, area.width), height: Math.min(height, area.height),
+    };
+  }
+
+  function adaptWorkspaceLive2dConfig(input) {
+    const config = input && typeof input === "object" ? input : {};
+    const live2d = config.live2d && typeof config.live2d === "object" ? config.live2d : null;
+    if (!live2d) return config;
+    return {
+      ...config,
+      live2d: {
+        ...live2d,
+        // Desktop transforms are intentionally not reused in the workspace.
+        scale: 1,
+        offsetX: 0,
+        offsetY: 0,
+        workspaceScale: Number.isFinite(live2d.workspaceScale) ? live2d.workspaceScale : 1,
+        workspaceOffsetY: Number.isFinite(live2d.workspaceOffsetY) ? live2d.workspaceOffsetY : 0,
+        workspaceFraming: "head-to-knees",
+      },
+    };
+  }
+
+  function ensureWorkspace() {
+    if (workspace && !workspace.isDestroyed()) return workspace;
+    const desktopThemeConfig = typeof ctx.getPetRendererConfig === "function" ? ctx.getPetRendererConfig() : {};
+    const themeConfig = adaptWorkspaceLive2dConfig(desktopThemeConfig);
+    workspace = new BrowserWindow({
+      ...getWorkspaceBounds(), minWidth: 900, minHeight: 620, show: false,
+      title: "TsukuMate 对话", backgroundColor: "#101115", autoHideMenuBar: true,
+      webPreferences: {
+        preload: path.join(__dirname, "preload-chat-workspace.js"),
+        contextIsolation: true, nodeIntegration: false, sandbox: true,
+        additionalArguments: [`--theme-config=${JSON.stringify(themeConfig)}`],
+      },
+    });
+    workspace.loadFile(path.join(__dirname, "chat-workspace.html"));
+    workspaceSenderId = workspace.webContents.id;
+    workspace.webContents.once("did-finish-load", () => {
+      broadcastSharedSession();
+      try { workspace.webContents.send("theme-config", themeConfig); } catch {}
+      try { workspace.webContents.send("state-change", typeof ctx.getCurrentState === "function" ? ctx.getCurrentState() : "idle"); } catch {}
+      try { workspace.webContents.send("chat-emotion", ctx.getChatEmotion && ctx.getChatEmotion()); } catch {}
+    });
+    workspace.on("closed", () => {
+      try { if (workspaceSenderId != null) discardScreenCapturesForSender(workspaceSenderId); } catch {}
+      workspaceSenderId = null;
+      workspace = null;
+      if (!shuttingDown && !workspacePetWasHidden && typeof ctx.setPetHidden === "function") ctx.setPetHidden(false);
+      workspacePetWasHidden = false;
+    });
+    return workspace;
+  }
+
+  function openWorkspace() {
+    if (workspace && !workspace.isDestroyed()) { workspace.show(); workspace.focus(); return true; }
+    workspacePetWasHidden = typeof ctx.isPetHidden === "function" ? !!ctx.isPetHidden() : false;
+    if (quickWorkspaceHideBubble()) void 0;
+    if (typeof ctx.hideQuickLauncher === "function") ctx.hideQuickLauncher();
+    if (typeof ctx.setPetHidden === "function") ctx.setPetHidden(true);
+    const target = ensureWorkspace(); target.show(); target.focus();
+    return true;
+  }
+
+  function quickWorkspaceHideBubble() {
+    if (!bubble || bubble.isDestroyed() || !bubble.isVisible()) return false;
+    try { bubble.hide(); } catch {}
+    bubbleShown = false;
+    return true;
+  }
+
+  async function sendWorkspaceMessage(text, screenCaptureToken, senderId) {
+    const clean = String(text || "").trim().slice(0, 16000);
+    if (!clean) return { ok: false, error: "消息不能为空" };
+    if (sharedSession.generating) return { ok: false, error: "上一条回复仍在生成" };
+    const screenImageDataUrl = screenCaptureToken ? takeScreenCapture(screenCaptureToken, senderId) : null;
+    if (screenCaptureToken && !screenImageDataUrl) return { ok: false, error: tr("chatScreenCaptureExpired") };
+    const user = { id: `user-${Date.now()}`, role: "user", content: clean, timestamp: new Date().toISOString() };
+    const assistant = { id: `assistant-${Date.now()}`, role: "assistant", content: "", timestamp: new Date().toISOString(), streaming: true };
+    sharedSession.messages.push(user, assistant);
+    if (sharedSession.messages.length > 240) sharedSession.messages.splice(0, sharedSession.messages.length - 240);
+    sharedSession.generating = true;
+    appendChatHistory({ ...user, date: sharedSession.date });
+    broadcastSharedSession();
+    const controller = new AbortController(); sharedSessionController = controller;
+    void classifyChatEmotion(sharedSession.messages, user.id).catch(() => {});
+    setImmediate(async () => {
+      try {
+        await remoteCompletion({ messages: sharedSession.messages.filter((m) => !m.streaming).map(({ role, content }) => ({ role, content })), screenImageDataUrl, stream: true }, (frame) => {
+          if (frame && frame.event === "delta") {
+            assistant.content += String(frame.content || frame.reasoning_content || "");
+            broadcastSharedSession();
+          }
+        }, controller.signal);
+        assistant.streaming = false;
+        workspaceConnectionState = "available";
+        if (assistant.content.trim()) appendChatHistory({ ...assistant, date: sharedSession.date });
+      } catch (error) {
+        assistant.streaming = false;
+        assistant.error = true;
+        workspaceConnectionState = "error";
+        assistant.content = assistant.content || `请求失败：${localizeError(error)}`;
+      } finally {
+        sharedSession.generating = false; sharedSessionController = null; broadcastSharedSession();
+      }
+    });
+    return { ok: true };
+  }
+
   // ── IPC ───────────────────────────────────────────────────────────────
 
   const handlers = {
+    "chat-workspace:get-session": async (event) => isWorkspaceSender(event.sender) ? publicSharedSession() : null,
+    "chat-workspace:get-connection-status": async (event) => {
+      if (!isWorkspaceSender(event.sender)) return { configured: false, state: "error" };
+      const config = getInferenceConfig();
+      const configured = !!(config.api_endpoint && config.api_model);
+      return { configured, state: configured ? workspaceConnectionState : "unconfigured" };
+    },
+    "chat-workspace:send": async (event, payload = {}) => isWorkspaceSender(event.sender)
+      ? sendWorkspaceMessage(payload.text, payload.screenCaptureToken, event.sender.id)
+      : { ok: false, error: "Invalid workspace sender" },
+    "chat-workspace:cancel": async (event) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false };
+      if (sharedSessionController) sharedSessionController.abort();
+      return { ok: true };
+    },
+    "chat-workspace:screen-list": async (event) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      try { return { ok: true, sources: await screenCapture.list() }; }
+      catch (error) { return { ok: false, error: screenCaptureErrorMessage(error), permissionRequired: screenCaptureNeedsPermission(error) }; }
+    },
+    "chat-workspace:screen-take": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      try { return { ok: true, ...storeScreenCapture(event.sender.id, await screenCapture.capture(payload.sourceId)) }; }
+      catch (error) { return { ok: false, error: screenCaptureErrorMessage(error), permissionRequired: screenCaptureNeedsPermission(error) }; }
+    },
+    "chat-workspace:screen-discard": async (event, payload = {}) => ({
+      ok: isWorkspaceSender(event.sender) && discardScreenCapture(payload.token, event.sender.id),
+    }),
+    "chat-workspace:screen-settings": async (event) => {
+      if (!isWorkspaceSender(event.sender) || !isMac) return { ok: false };
+      try {
+        await shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture");
+        return { ok: true };
+      } catch { return { ok: false }; }
+    },
+    "chat-workspace:reload-live2d": async (event) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false };
+      const base = typeof ctx.getPetRendererConfig === "function" ? ctx.getPetRendererConfig() : {};
+      const config = adaptWorkspaceLive2dConfig(base);
+      if (config.live2d) config.live2d = { ...config.live2d, reloadToken: Date.now() };
+      event.sender.send("theme-config", config);
+      return { ok: true };
+    },
+    "chat-workspace:list-history": async (event) => isWorkspaceSender(event.sender)
+      ? { ok: true, dates: Array.from(new Set([sharedSession.date, localDay(), ...listDatedFiles(chatHistoryDir, ".jsonl")])).sort().reverse() }
+      : { ok: false, dates: [] },
+    "chat-workspace:load-history": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || !DATE_ID_RE.test(String(payload.date || ""))) return { ok: false, error: "Invalid date" };
+      const switchingDate = payload.date !== sharedSession.date && (payload.before == null || payload.before === "");
+      if (switchingDate && sharedSession.generating) return { ok: false, error: "请先停止当前回复" };
+      if (switchingDate) {
+        sharedSession = { date: payload.date, messages: readHistoryContext(payload.date), generating: false, requestId: null };
+        broadcastSharedSession();
+      }
+      return { ok: true, date: payload.date, ...readHistoryPage(payload.date, payload.before, payload.limit) };
+    },
+    "chat-workspace:list-diaries": async (event) => isWorkspaceSender(event.sender)
+      ? { ok: true, dates: Array.from(new Set([localDay(), ...listDatedFiles(diaryDir, ".md")])).sort().reverse() }
+      : { ok: false, dates: [] },
+    "chat-workspace:load-diary": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || !DATE_ID_RE.test(String(payload.date || ""))) return { ok: false, error: "Invalid date" };
+      try { return { ok: true, date: payload.date, content: fs.readFileSync(path.join(diaryDir, `${payload.date}.md`), "utf8") }; }
+      catch (error) {
+        if (error && error.code === "ENOENT") return { ok: true, date: payload.date, content: `# ${payload.date}\n\n` };
+        return { ok: false, error: String(error && error.message || error) };
+      }
+    },
+    "chat-workspace:save-diary": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || !DATE_ID_RE.test(String(payload.date || ""))) return { ok: false, error: "Invalid date" };
+      const content = typeof payload.content === "string" ? payload.content.slice(0, 200000) : "";
+      try {
+        fs.mkdirSync(diaryDir, { recursive: true });
+        const target = path.join(diaryDir, `${payload.date}.md`); const temp = `${target}.tmp-${process.pid}`;
+        fs.writeFileSync(temp, content, "utf8"); fs.renameSync(temp, target); diaryMemoryCache.at = 0;
+        return { ok: true };
+      } catch (error) { return { ok: false, error: String(error && error.message || error) }; }
+    },
+    "chat-workspace:generate-diary": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || !DATE_ID_RE.test(String(payload.date || ""))) return { ok: false, error: "Invalid date" };
+      try { return await generateDailyDiary(payload.date, true); }
+      catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:open-diary-folder": async (event) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false };
+      fs.mkdirSync(diaryDir, { recursive: true }); const error = await shell.openPath(diaryDir);
+      return error ? { ok: false, error } : { ok: true };
+    },
     "minicpm:status": async () => {
       const config = getInferenceConfig();
       return {
@@ -2699,11 +2971,11 @@ module.exports = function initMinicpmChat(ctx) {
       };
     },
     "minicpm:emotion-status": async (event) => {
-      if (!isChatBubbleSender(event.sender)) return { phase: "idle", emotion: "calm", blend: normalizeEmotionBlend("calm"), updatedAt: null };
+      if (!isChatSurfaceSender(event.sender)) return { phase: "idle", emotion: "calm", blend: normalizeEmotionBlend("calm"), updatedAt: null };
       return { ...emotionStatus };
     },
     "minicpm:emotion-classify-local": async (event, payload = {}) => {
-      if (!isChatBubbleSender(event.sender)) return { ok: false, error: "Emotion classification is only available from the chat window" };
+      if (!isChatSurfaceSender(event.sender)) return { ok: false, error: "Emotion classification is only available from the chat window" };
       const text = typeof payload.text === "string" ? payload.text.trim().slice(0, 1600) : "";
       const blend = inferEmotionBlendFromText(text);
       const moodAction = inferMoodActionFromText(text, blend);
@@ -2739,18 +3011,38 @@ module.exports = function initMinicpmChat(ctx) {
       const controller = new AbortController();
       remoteRequests.set(id, controller);
       const sender = event.sender;
+      let mirroredAssistant = null;
+      if (isChatBubbleSender(sender)) {
+        sharedSession = {
+          date: localDay(), generating: true, requestId: id,
+          messages: (Array.isArray(payload.messages) ? payload.messages : []).filter((message) => message && ["user", "assistant"].includes(message.role)).map((message, index) => ({
+            id: `bubble-${Date.now()}-${index}`, role: message.role,
+            content: typeof message.content === "string" ? message.content : "", timestamp: new Date().toISOString(),
+          })),
+        };
+        mirroredAssistant = { id: `bubble-assistant-${Date.now()}`, role: "assistant", content: "", timestamp: new Date().toISOString(), streaming: true };
+        sharedSession.messages.push(mirroredAssistant); broadcastSharedSession();
+      }
       // Fire and forget: emotional feedback is auxiliary and never holds up
       // the response stream or creates a chat/history entry.
       void classifyChatEmotion(payload.messages, payload.emotion_event_id).catch(() => {});
       setImmediate(async () => {
         try {
           await remoteCompletion({ ...payload, screenImageDataUrl }, (frame) => {
+            if (mirroredAssistant && frame && frame.event === "delta") {
+              mirroredAssistant.content += String(frame.content || frame.reasoning_content || "");
+              broadcastSharedSession();
+            }
             if (!sender.isDestroyed()) sender.send("minicpm:remote-chat-event", { id, ...frame });
           }, controller.signal);
+          if (mirroredAssistant) mirroredAssistant.streaming = false;
+          workspaceConnectionState = "available";
           if (!sender.isDestroyed()) sender.send("minicpm:remote-chat-event", { id, event: "end" });
         } catch (err) {
+          workspaceConnectionState = "error";
+          if (mirroredAssistant) { mirroredAssistant.streaming = false; mirroredAssistant.error = true; mirroredAssistant.content = mirroredAssistant.content || `请求失败：${localizeError(err)}`; }
           if (!sender.isDestroyed()) sender.send("minicpm:remote-chat-event", { id, event: "error", message: localizeError(err) });
-        } finally { remoteRequests.delete(id); }
+        } finally { if (mirroredAssistant) { sharedSession.generating = false; broadcastSharedSession(); } remoteRequests.delete(id); }
       });
       return { ok: true, id };
     },
@@ -3599,6 +3891,17 @@ module.exports = function initMinicpmChat(ctx) {
 
   return {
     open,
+    openWorkspace,
+    isWorkspaceOpen: () => !!(workspace && !workspace.isDestroyed()),
+    focusWorkspace: () => { if (workspace && !workspace.isDestroyed()) { if (workspace.isMinimized()) workspace.restore(); workspace.show(); workspace.focus(); return true; } return false; },
+    sendWorkspaceEvent: (channel, ...args) => {
+      if (!workspace || workspace.isDestroyed()) return;
+      if (channel === "theme-config") {
+        workspace.webContents.send(channel, adaptWorkspaceLive2dConfig(args[0]));
+        return;
+      }
+      workspace.webContents.send(channel, ...args);
+    },
     toggle,
     dismiss,
     toggleThinking,

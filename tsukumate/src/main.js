@@ -999,6 +999,9 @@ function bringPetToPrimaryDisplay() {
 
 function sendToRenderer(channel, ...args) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, ...args);
+  if (_minicpmChat && typeof _minicpmChat.sendWorkspaceEvent === "function") {
+    _minicpmChat.sendWorkspaceEvent(channel, ...args);
+  }
 }
 
 let live2dAssets = null;
@@ -1013,6 +1016,8 @@ function getPetRendererConfig() {
       scale: Number.isFinite(raw.scale) ? raw.scale : 1,
       offsetX: Number.isFinite(raw.offsetX) ? raw.offsetX : 0,
       offsetY: Number.isFinite(raw.offsetY) ? raw.offsetY : 0,
+      workspaceScale: Number.isFinite(raw.workspaceScale) ? raw.workspaceScale : 1,
+      workspaceOffsetY: Number.isFinite(raw.workspaceOffsetY) ? raw.workspaceOffsetY : 0,
     },
   };
 }
@@ -1747,12 +1752,25 @@ _minicpmChat = require("./minicpm-chat")({
   // bridge lets its best-effort remote classifier update the pet runtime.
   setChatEmotion: (emotion) => _state && _state.setChatEmotion(emotion),
   getChatEmotion: () => _state && _state.getChatEmotion(),
+  getCurrentState: () => _state && _state.getCurrentState(),
+  getPetRendererConfig,
+  isPetHidden: () => petWindowRuntime.isPetHidden(),
+  setPetHidden: (hidden) => petWindowRuntime.setPetHidden(hidden),
+  hideQuickLauncher: () => quickLauncher && quickLauncher.hide(),
 });
 
 function openMinicpmChat() {
+  if (_minicpmChat && typeof _minicpmChat.isWorkspaceOpen === "function" && _minicpmChat.isWorkspaceOpen()) {
+    _minicpmChat.focusWorkspace();
+    return;
+  }
   if (_minicpmChat && typeof _minicpmChat.open === "function") {
     _minicpmChat.open();
   }
+}
+
+function openChatWorkspace() {
+  if (_minicpmChat && typeof _minicpmChat.openWorkspace === "function") _minicpmChat.openWorkspace();
 }
 
 // Model runtimes are user-managed. TsukuMate never downloads a model or
@@ -1775,6 +1793,7 @@ const _sessionHud = require("./session-hud")({
   getPetWindowBounds,
   getHitRectScreen,
   getSessionHudAnchorRect,
+  isLive2dEnabled: () => !!(live2dAssets && live2dAssets.getRendererConfig().enabled),
   getNearestWorkArea,
   getTextScale: () => getTextScaleForPetWindows(),
   guardAlwaysOnTop,
@@ -3028,7 +3047,7 @@ quickLauncher = createQuickLauncher({
   isLive2dEnabled: () => !!(live2dAssets && live2dAssets.getRendererConfig().enabled),
   isPetHidden: () => petWindowRuntime.isPetHidden(),
   isMiniMode: () => _mini.getMiniMode(),
-  openChat: () => openMinicpmChat(),
+  openChat: () => openChatWorkspace(),
   openSettings: () => settingsWindowRuntime.open(),
   enableDoNotDisturb: () => enableDoNotDisturb(),
   disableDoNotDisturb: () => disableDoNotDisturb(),
@@ -3847,6 +3866,8 @@ if (!gotTheLock) {
         scale: Number.isFinite(payload.scale) ? payload.scale : current.scale,
         offsetX: Number.isFinite(payload.offsetX) ? payload.offsetX : current.offsetX,
         offsetY: Number.isFinite(payload.offsetY) ? payload.offsetY : current.offsetY,
+        workspaceScale: Number.isFinite(payload.workspaceScale) ? payload.workspaceScale : (Number.isFinite(current.workspaceScale) ? current.workspaceScale : 1),
+        workspaceOffsetY: Number.isFinite(payload.workspaceOffsetY) ? payload.workspaceOffsetY : (Number.isFinite(current.workspaceOffsetY) ? current.workspaceOffsetY : 0),
       };
       const result = _settingsController.applyUpdate("live2d", next);
       if (result && result.status === "error") return result;

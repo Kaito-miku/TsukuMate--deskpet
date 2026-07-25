@@ -69,12 +69,12 @@
     "url": "https://github.com/Kaito-miku/TsukuMate--deskpet.git"
   },
   "homepage": "https://github.com/Kaito-miku/TsukuMate--deskpet",
-  "upstreamRepository": "https://github.com/rullerzhou-afk/clawd-on-desk",
+  "upstreamRepository": "https://github.com/OpenBMB/MiniCPM-Desk-Pet",
   "type": "commonjs",
   "build": {
     "appId": "io.github.kaito-miku.tsukumate",
     "productName": "TsukuMate",
-    "copyright": "Copyright © 2026 Kaito-miku and contributors. Based on MiniCPM Desk Pet and clawd-on-desk (AGPL-3.0-only).",
+    "copyright": "Copyright © 2026 Kaito-miku and contributors. Based on OpenBMB MiniCPM Desk Pet (AGPL-3.0-only).",
     "protocols": [
       {
         "name": "TsukuMate Import Protocol",
