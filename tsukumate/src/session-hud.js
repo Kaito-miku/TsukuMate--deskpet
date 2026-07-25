@@ -272,6 +272,20 @@ function computeSessionHudBounds({ hitRect, anchorRect, workArea, width = HUD_WI
   };
 }
 
+function getLive2dHudAnchorRect(petBounds) {
+  if (!petBounds
+      || !Number.isFinite(petBounds.x)
+      || !Number.isFinite(petBounds.y)
+      || !Number.isFinite(petBounds.width)
+      || !Number.isFinite(petBounds.height)) return null;
+  return {
+    left: petBounds.x,
+    top: petBounds.y,
+    right: petBounds.x + petBounds.width,
+    bottom: petBounds.y + petBounds.height,
+  };
+}
+
 function getHudWidth(showElapsed = true, showStateLabels = true, showContextUsage = false) {
   const base = showStateLabels === false
     ? (showElapsed === false ? HUD_WIDTH_COMPACT : HUD_WIDTH)
@@ -371,9 +385,11 @@ module.exports = function initSessionHud(ctx) {
     const hitRect = typeof ctx.getHitRectScreen === "function"
       ? ctx.getHitRectScreen(petBounds)
       : null;
-    const anchorRect = typeof ctx.getSessionHudAnchorRect === "function"
-      ? ctx.getSessionHudAnchorRect(petBounds)
-      : null;
+    const anchorRect = typeof ctx.isLive2dEnabled === "function" && ctx.isLive2dEnabled()
+      ? getLive2dHudAnchorRect(petBounds)
+      : (typeof ctx.getSessionHudAnchorRect === "function"
+        ? ctx.getSessionHudAnchorRect(petBounds)
+        : null);
     const cx = petBounds.x + petBounds.width / 2;
     const cy = petBounds.y + petBounds.height / 2;
     const workArea = typeof ctx.getNearestWorkArea === "function"
@@ -656,9 +672,11 @@ module.exports = function initSessionHud(ctx) {
     const hitRect = typeof ctx.getHitRectScreen === "function"
       ? ctx.getHitRectScreen(petBounds)
       : null;
-    const anchorRect = typeof ctx.getSessionHudAnchorRect === "function"
-      ? ctx.getSessionHudAnchorRect(petBounds)
-      : null;
+    const anchorRect = typeof ctx.isLive2dEnabled === "function" && ctx.isLive2dEnabled()
+      ? getLive2dHudAnchorRect(petBounds)
+      : (typeof ctx.getSessionHudAnchorRect === "function"
+        ? ctx.getSessionHudAnchorRect(petBounds)
+        : null);
     const cx = petBounds.x + petBounds.width / 2;
     const cy = petBounds.y + petBounds.height / 2;
     const workArea = typeof ctx.getNearestWorkArea === "function"
@@ -788,6 +806,7 @@ module.exports.__test = {
   isHudSession,
   getHudWidth,
   getHudWidthScale,
+  getLive2dHudAnchorRect,
   computeHudOuterWidth,
   evaluateBaseEligible,
   evaluateShouldShow,

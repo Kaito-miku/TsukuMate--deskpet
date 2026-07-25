@@ -448,7 +448,6 @@ function registerSettingsIpc(options = {}) {
       version: app.getVersion(),
       appName: productMetadata.appDisplayName,
       repoUrl: productMetadata.repoUrl,
-      modelRepoUrl: productMetadata.modelRepoUrl,
       license: productMetadata.licenseId,
       copyright: productMetadata.copyrightLine,
       upstreamRepoUrl: productMetadata.upstreamRepoUrl,

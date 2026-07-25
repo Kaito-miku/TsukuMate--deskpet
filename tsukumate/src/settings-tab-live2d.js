@@ -91,7 +91,7 @@
         return;
       }
 
-      let settings = { modelId: "", scale: 1, offsetX: 0, offsetY: 0, ...(payload && payload.settings || {}) };
+      let settings = { modelId: "", scale: 1, offsetX: 0, offsetY: 0, workspaceScale: 1, workspaceOffsetY: 0, ...(payload && payload.settings || {}) };
       let runtime = payload && payload.runtime || { enabled: false, models: [] };
       let saveTimer = null;
       let saveVersion = 0;
@@ -179,6 +179,23 @@
       layoutSection.appendChild(layoutRows);
       parent.appendChild(layoutSection);
 
+      const workspaceSection = make("section", "section");
+      workspaceSection.appendChild(make("div", "section-title", "问答工作台显示"));
+      const workspaceRows = make("div", "section-rows");
+      workspaceRows.appendChild(buildSlider("工作台模型大小", "在自动构图基础上调整右侧 Live2D 大小，不影响桌面桌宠。", settings.workspaceScale, 0.6, 1.8, 0.01, "%", (workspaceScale) => apply({ workspaceScale })));
+      workspaceRows.appendChild(buildSlider("工作台垂直位置", "向上或向下移动问答工作台中的模型。", settings.workspaceOffsetY, -300, 300, 1, " px", (workspaceOffsetY) => apply({ workspaceOffsetY })));
+      const workspaceResetRow = make("div", "row");
+      addCopy(workspaceResetRow, "恢复工作台默认构图", "恢复头部到膝盖的自动构图。桌面桌宠设置不会改变。");
+      const workspaceResetControl = make("div", "row-control");
+      const workspaceReset = make("button", "soft-btn", "恢复默认");
+      workspaceReset.type = "button";
+      workspaceReset.addEventListener("click", () => apply({ workspaceScale: 1, workspaceOffsetY: 0 }, true));
+      workspaceResetControl.appendChild(workspaceReset);
+      workspaceResetRow.appendChild(workspaceResetControl);
+      workspaceRows.appendChild(workspaceResetRow);
+      workspaceSection.appendChild(workspaceRows);
+      parent.appendChild(workspaceSection);
+
       const motionSection = make("section", "section");
       motionSection.appendChild(make("div", "section-title", "当前模型动作"));
       const motionCard = make("div", "live2d-motion-card");
@@ -200,7 +217,13 @@
       parent.appendChild(motionSection);
     }
 
-    core.tabs.live2d = { render };
+    core.tabs.live2d = {
+      render,
+      // Slider commits broadcast the new live2d object back to Settings.
+      // The controls already reflect that value, so rebuilding the whole tab
+      // would only reset the content scroll position while dragging.
+      patchInPlace: (changes) => !!(changes && Object.keys(changes).length === 1 && Object.prototype.hasOwnProperty.call(changes, "live2d")),
+    };
   }
 
   root.ClawdSettingsTabLive2d = { init };

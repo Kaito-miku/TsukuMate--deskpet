@@ -211,12 +211,14 @@ const SCHEMA = {
   freeRoam: { type: "boolean", default: false },
   live2d: {
     type: "object",
-    defaultFactory: () => ({ modelId: "", scale: 1, offsetX: 0, offsetY: 0 }),
+    defaultFactory: () => ({ modelId: "", scale: 1, offsetX: 0, offsetY: 0, workspaceScale: 1, workspaceOffsetY: 0 }),
     normalize: (value) => ({
       modelId: typeof (value && value.modelId) === "string" ? value.modelId.slice(0, 512) : "",
       scale: Number.isFinite(value && value.scale) ? Math.max(0.35, Math.min(2.5, value.scale)) : 1,
       offsetX: Number.isFinite(value && value.offsetX) ? Math.max(-300, Math.min(300, value.offsetX)) : 0,
       offsetY: Number.isFinite(value && value.offsetY) ? Math.max(-300, Math.min(300, value.offsetY)) : 0,
+      workspaceScale: Number.isFinite(value && value.workspaceScale) ? Math.max(0.6, Math.min(1.8, value.workspaceScale)) : 1,
+      workspaceOffsetY: Number.isFinite(value && value.workspaceOffsetY) ? Math.max(-300, Math.min(300, value.workspaceOffsetY)) : 0,
     }),
   },
   // #562: Windows-only. When ON, the pet floats ON TOP of a foreground

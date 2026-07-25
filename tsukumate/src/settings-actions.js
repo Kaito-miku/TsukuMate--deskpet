@@ -175,6 +175,12 @@ const updateRegistry = {
     if (!Number.isFinite(value.scale) || value.scale < 0.35 || value.scale > 2.5) {
       return { status: "error", message: "live2d.scale must be between 0.35 and 2.5" };
     }
+    if (!Number.isFinite(value.workspaceScale) || value.workspaceScale < 0.6 || value.workspaceScale > 1.8) {
+      return { status: "error", message: "live2d.workspaceScale must be between 0.6 and 1.8" };
+    }
+    if (!Number.isFinite(value.workspaceOffsetY) || value.workspaceOffsetY < -300 || value.workspaceOffsetY > 300) {
+      return { status: "error", message: "live2d.workspaceOffsetY must be between -300 and 300" };
+    }
     for (const key of ["offsetX", "offsetY"]) {
       if (!Number.isFinite(value[key]) || value[key] < -300 || value[key] > 300) {
         return { status: "error", message: `live2d.${key} must be between -300 and 300` };

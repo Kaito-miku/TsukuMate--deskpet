@@ -11,6 +11,7 @@ const {
   computeHudHeight,
   getHudWidth,
   getHudWidthScale,
+  getLive2dHudAnchorRect,
   computeHudOuterWidth,
   evaluateBaseEligible,
   evaluateShouldShow,
@@ -32,6 +33,26 @@ function mkSession(id, overrides = {}) {
 }
 
 describe("session HUD geometry", () => {
+  it("anchors a Live2D task card to the top of the transparent pet window", () => {
+    assert.deepStrictEqual(getLive2dHudAnchorRect({ x: 120, y: 40, width: 192, height: 208 }), {
+      left: 120,
+      top: 40,
+      right: 312,
+      bottom: 248,
+    });
+  });
+
+  it("places the task card fully above the Live2D window anchor", () => {
+    const anchorRect = getLive2dHudAnchorRect({ x: 120, y: 140, width: 192, height: 208 });
+    const result = computeSessionHudBounds({
+      hitRect: { left: 150, top: 190, right: 280, bottom: 340 },
+      anchorRect,
+      workArea: { x: 0, y: 0, width: 900, height: 700 },
+    });
+    assert.strictEqual(result.flippedAbove, true);
+    assert.strictEqual(result.contentBounds.y + result.contentBounds.height + constants.HUD_PET_GAP, 140);
+  });
+
   it("uses wider HUD widths when state labels are enabled", () => {
     assert.strictEqual(
       getHudWidth(true, true),

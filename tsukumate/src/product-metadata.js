@@ -2,9 +2,8 @@
 
 const pkg = require("../package.json");
 
-const DEFAULT_UPSTREAM_LABEL = "clawd-on-desk";
-const DEFAULT_UPSTREAM_URL = "https://github.com/rullerzhou-afk/" + DEFAULT_UPSTREAM_LABEL;
-const MODEL_REPO_URL = "https://huggingface.co/openbmb/MiniCPM5-1B-GGUF";
+const DEFAULT_UPSTREAM_LABEL = "MiniCPM-Desk-Pet";
+const DEFAULT_UPSTREAM_URL = "https://github.com/OpenBMB/" + DEFAULT_UPSTREAM_LABEL;
 
 function normalizeRepoUrl(url) {
   if (!url || typeof url !== "string") return null;
@@ -38,7 +37,6 @@ module.exports = {
   licenseId: pkg.license || "AGPL-3.0-only",
   copyrightLine: extractCopyrightShort(pkg.build && pkg.build.copyright),
   repoUrl,
-  modelRepoUrl: MODEL_REPO_URL,
   releasesLatestUrl: repoUrl ? `${repoUrl}/releases/latest` : null,
   githubOwner: githubRepo ? githubRepo.owner : null,
   githubRepo: githubRepo ? githubRepo.repo : null,

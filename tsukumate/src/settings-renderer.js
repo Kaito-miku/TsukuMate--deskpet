@@ -4,7 +4,8 @@ const core = globalThis.ClawdSettingsCore;
 
 const SIDEBAR_TABS = [
   { id: "general", labelKey: "sidebarGeneral", available: true },
-  { id: "modelGroup", label: "模型连接", available: true },
+  { id: "api", label: "模型连接", available: true },
+  { id: "memory", label: "聊天与记忆", available: true },
   { id: "personas", label: "人格", available: true },
   { id: "agents", labelKey: "sidebarAgents", available: true },
   { id: "appearanceGroup", label: "外观与动画", available: true },
@@ -16,9 +17,6 @@ const SIDEBAR_TABS = [
 ];
 
 const SETTINGS_GROUPS = {
-  modelGroup: {
-    tabs: [{ id: "api", label: "兼容服务" }],
-  },
   appearanceGroup: {
     tabs: [
       { id: "theme", label: "主题" },
@@ -29,7 +27,7 @@ const SETTINGS_GROUPS = {
   },
 };
 
-const activeGroupTabs = { modelGroup: "api", appearanceGroup: "theme" };
+const activeGroupTabs = { appearanceGroup: "theme" };
 
 function getTabIcon(tabId) {
   const icons = globalThis.ClawdSettingsIcons;
@@ -165,6 +163,7 @@ if (globalThis.ClawdSettingsTabRemoteSsh) globalThis.ClawdSettingsTabRemoteSsh.i
 if (globalThis.ClawdSettingsTabMobile) globalThis.ClawdSettingsTabMobile.init(core);
 if (globalThis.ClawdSettingsTabMinicpm) globalThis.ClawdSettingsTabMinicpm.init(core);
 if (globalThis.ClawdSettingsTabApi) globalThis.ClawdSettingsTabApi.init(core);
+if (globalThis.ClawdSettingsTabMemory) globalThis.ClawdSettingsTabMemory.init(core);
 if (globalThis.ClawdSettingsTabPersonas) globalThis.ClawdSettingsTabPersonas.init(core);
 
 if (window.settingsAPI && typeof window.settingsAPI.onChanged === "function") {
