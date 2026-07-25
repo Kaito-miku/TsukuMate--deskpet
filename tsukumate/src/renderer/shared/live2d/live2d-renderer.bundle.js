@@ -23401,9 +23401,9 @@
     }
   });
 
-  // src/live2d-workspace-camera.js
+  // src/shared/live2d/live2d-workspace-camera.js
   var require_live2d_workspace_camera = __commonJS({
-    "src/live2d-workspace-camera.js"(exports, module) {
+    "src/shared/live2d/live2d-workspace-camera.js"(exports, module) {
       "use strict";
       function clamp2(value, min, max) {
         return Math.max(min, Math.min(max, value));
@@ -23430,9 +23430,9 @@
     }
   });
 
-  // src/live2d-cubism5-renderer.ts
+  // src/renderer/shared/live2d/live2d-cubism5-renderer.ts
   var require_live2d_cubism5_renderer = __commonJS({
-    "src/live2d-cubism5-renderer.ts"() {
+    "src/renderer/shared/live2d/live2d-cubism5-renderer.ts"() {
       init_live2dcubismframework();
       init_cubismmatrix44();
       init_cubismoffscreenmanager();

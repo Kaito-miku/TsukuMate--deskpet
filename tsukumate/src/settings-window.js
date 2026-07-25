@@ -2,7 +2,7 @@
 
 const defaultFs = require("fs");
 const defaultPath = require("path");
-const { PRELOAD_ROOT } = require("./main/paths");
+const { PRELOAD_ROOT, RENDERER_ROOT } = require("./main/paths");
 
 const {
   SETTINGS_WINDOW_TITLE,
@@ -64,7 +64,7 @@ function createSettingsWindowRuntime(options = {}) {
   const resourcesPath = options.resourcesPath || process.resourcesPath;
   const execPath = options.execPath || process.execPath;
   const appDir = options.appDir || path.join(__dirname, "..");
-  const settingsHtmlPath = options.settingsHtmlPath || path.join(__dirname, "settings.html");
+  const settingsHtmlPath = options.settingsHtmlPath || path.join(RENDERER_ROOT, "settings", "settings.html");
   const preloadPath = options.preloadPath || path.join(PRELOAD_ROOT, "preload-settings.js");
   const scheduleLater = typeof options.setTimeout === "function" ? options.setTimeout : setTimeout;
   const clearScheduled = typeof options.clearTimeout === "function" ? options.clearTimeout : clearTimeout;

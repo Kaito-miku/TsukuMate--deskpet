@@ -237,7 +237,7 @@ describe("dashboard window", () => {
   });
 
   it("exposes a Clawd-only hide action instead of a terminal close action", () => {
-    const rendererSource = fs.readFileSync(path.join(__dirname, "..", "src", "dashboard-renderer.js"), "utf8");
+    const rendererSource = fs.readFileSync(path.join(__dirname, "..", "src", "renderer/dashboard/dashboard-renderer.js"), "utf8");
     const preloadSource = fs.readFileSync(path.join(__dirname, "..", "src", "preload/preload-dashboard.js"), "utf8");
 
     assert.match(rendererSource, /dashboardHideSessionTitle/);

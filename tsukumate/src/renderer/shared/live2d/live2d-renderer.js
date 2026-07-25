@@ -75,8 +75,8 @@ async function enable(config) {
   report("loading", config.modelName || config.modelUrl);
   try {
     const [{ Live2DRenderer, createScriptTagCubismLoader }, engine] = await Promise.all([
-      import("../node_modules/@soullink-emotion/live2d-pixi/dist/index.js"),
-      import("../node_modules/@soullink-emotion/engine/dist/index.js"),
+      import("../../../../node_modules/@soullink-emotion/live2d-pixi/dist/index.js"),
+      import("../../../../node_modules/@soullink-emotion/engine/dist/index.js"),
     ]);
     engineModule = engine;
     // PIXI measures its container in the constructor.  It must be visible

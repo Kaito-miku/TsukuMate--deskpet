@@ -8,7 +8,7 @@ const path = require("node:path");
 const src = (name) => fs.readFileSync(path.join(__dirname, "..", "src", name), "utf8");
 
 test("Cubism 5 uses the primary motion and a weighted Soullink VAD target", () => {
-  const renderer = src("live2d-cubism5-renderer.ts");
+  const renderer = src("renderer/shared/live2d/live2d-cubism5-renderer.ts");
   assert.match(renderer, /emotionVADPresets/);
   assert.match(renderer, /primary\.valence \* blend\.primaryWeight \+ secondary\.valence \* blend\.secondaryWeight/);
   assert.match(renderer, /\{ vadTarget: blendedVAD\(blend\) \}/);
@@ -20,7 +20,7 @@ test("Cubism 5 uses the primary motion and a weighted Soullink VAD target", () =
 });
 
 test("legacy Live2D renderer accepts object blends and restores them after system states", () => {
-  const renderer = src("live2d-renderer.js");
+  const renderer = src("renderer/shared/live2d/live2d-renderer.js");
   assert.match(renderer, /function normalizeBlend/);
   assert.match(renderer, /function blendVAD/);
   assert.match(renderer, /STATE_EMOTION\[currentState\] \|\| latestChatBlend/);

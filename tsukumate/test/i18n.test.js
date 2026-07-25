@@ -37,7 +37,7 @@ function assertLocaleObjectParity(locales, label) {
 }
 
 function loadSettingsI18nStrings() {
-  const source = fs.readFileSync(path.join(ROOT, "src", "settings-i18n.js"), "utf8");
+  const source = fs.readFileSync(path.join(ROOT, "src", "renderer/settings/settings-i18n.js"), "utf8");
   const context = {};
   context.globalThis = context;
   vm.runInNewContext(source, context);
@@ -45,7 +45,7 @@ function loadSettingsI18nStrings() {
 }
 
 function loadBubbleStrings() {
-  const source = fs.readFileSync(path.join(ROOT, "src", "bubble-renderer.js"), "utf8");
+  const source = fs.readFileSync(path.join(ROOT, "src", "renderer/permission-bubble/bubble-renderer.js"), "utf8");
   const match = source.match(/const BUBBLE_STRINGS = (\{[\s\S]*?\n\});/);
   assert.ok(match, "bubble-renderer.js should define BUBBLE_STRINGS");
   const context = {};

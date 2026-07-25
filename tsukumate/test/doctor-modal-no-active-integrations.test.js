@@ -18,8 +18,8 @@ const vm = require("node:vm");
 const { SUPPORTED_LANGS } = require("../src/shared/i18n/i18n");
 
 const ROOT = path.join(__dirname, "..");
-const SETTINGS_I18N = path.join(ROOT, "src", "settings-i18n.js");
-const SETTINGS_DOCTOR_MODAL = path.join(ROOT, "src", "settings-doctor-modal.js");
+const SETTINGS_I18N = path.join(ROOT, "src", "renderer/settings/settings-i18n.js");
+const SETTINGS_DOCTOR_MODAL = path.join(ROOT, "src", "renderer/settings/settings-doctor-modal.js");
 
 function loadSettingsStrings() {
   const context = {};

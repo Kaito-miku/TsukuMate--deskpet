@@ -1,6 +1,6 @@
 const { BrowserWindow } = require("electron");
 const path = require("path");
-const { PRELOAD_ROOT } = require("./main/paths");
+const { PRELOAD_ROOT, RENDERER_ROOT } = require("./main/paths");
 const { keepOutOfTaskbar } = require("./taskbar");
 const { clampTextScale, scaleWidth, scaleHeight, applyZoomToWindow } = require("./shared/utils/text-scale");
 
@@ -203,7 +203,7 @@ module.exports = function initUpdateBubble(ctx) {
 
     if (isWin) bubble.setAlwaysOnTop(true, WIN_TOPMOST_LEVEL);
 
-    bubble.loadFile(path.join(__dirname, "update-bubble.html"));
+    bubble.loadFile(path.join(RENDERER_ROOT, "update-bubble", "update-bubble.html"));
     bubble.on("closed", () => {
       bubble = null;
       measuredHeight = 0;

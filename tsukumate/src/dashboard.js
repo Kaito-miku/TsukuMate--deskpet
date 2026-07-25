@@ -2,7 +2,7 @@
 
 const { BrowserWindow, nativeTheme } = require("electron");
 const path = require("path");
-const { PRELOAD_ROOT } = require("./main/paths");
+const { PRELOAD_ROOT, RENDERER_ROOT } = require("./main/paths");
 const { clampTextScale, scaleWidth, scaleHeight, applyZoomToWindow } = require("./shared/utils/text-scale");
 
 const DEFAULT_WIDTH = 480;
@@ -197,7 +197,7 @@ module.exports = function initDashboard(ctx) {
 
     dashboardWindow = new BrowserWindow(opts);
     dashboardWindow.setMenuBarVisibility(false);
-    dashboardWindow.loadFile(path.join(__dirname, "dashboard.html"));
+    dashboardWindow.loadFile(path.join(RENDERER_ROOT, "dashboard", "dashboard.html"));
     // textScale is per-display: re-resolve after the user drags the window
     // somewhere else (debounced — "move" fires continuously during drags).
     let moveTextScaleTimer = null;

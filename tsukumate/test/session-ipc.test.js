@@ -213,7 +213,7 @@ test("dashboard renderer wires the Mark-read button + ackCompletion fallback (so
   // (3) Mark-read click awaits invoke result and re-enables on failure.
   // Manual QA covers the actual click flow.
   const rendererSrc = fs.readFileSync(
-    path.join(__dirname, "..", "src", "dashboard-renderer.js"),
+    path.join(__dirname, "..", "src", "renderer/dashboard/dashboard-renderer.js"),
     "utf8"
   );
   assert.ok(rendererSrc.includes("session.requiresCompletionAck === true"),

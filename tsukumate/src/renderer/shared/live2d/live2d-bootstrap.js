@@ -11,7 +11,7 @@
   }
   const loadFramework = () => {
     const framework = document.createElement("script");
-    framework.src = "live2d-renderer.bundle.js";
+    framework.src = new URL("live2d-renderer.bundle.js", document.currentScript.src).href;
     framework.onload = () => report("cubism5-framework", "loaded");
     framework.onerror = () => report("cubism5-error", "Failed to load bundled Cubism 5 Framework");
     document.head.appendChild(framework);

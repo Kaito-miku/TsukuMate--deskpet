@@ -6,7 +6,7 @@ const { getDefaultShortcuts } = require("./shared/settings/shortcut-actions");
 const { keepOutOfTaskbar } = require("./taskbar");
 const { clampTextScale, scaleWidth, scaleHeight, applyZoomToWindow } = require("./shared/utils/text-scale");
 const path = require("path");
-const { PRELOAD_ROOT } = require("./main/paths");
+const { PRELOAD_ROOT, RENDERER_ROOT } = require("./main/paths");
 const http = require("http");
 const {
   CLAWD_SERVER_HEADER,
@@ -703,7 +703,7 @@ function showPermissionBubble(permEntry) {
     bub.setAlwaysOnTop(true, WIN_TOPMOST_LEVEL);
   }
 
-  bub.loadFile(path.join(__dirname, "bubble.html"));
+  bub.loadFile(path.join(RENDERER_ROOT, "permission-bubble", "bubble.html"));
 
   bub.webContents.once("did-finish-load", () => {
     permEntry.bubbleReady = true;

@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const RENDERER = path.join(__dirname, "..", "src", "renderer.js");
+const RENDERER = path.join(__dirname, "..", "src", "renderer/pet/renderer.js");
 const PRELOAD = path.join(__dirname, "..", "src", "preload/preload.js");
 const MAIN = path.join(__dirname, "..", "src", "main.js");
 

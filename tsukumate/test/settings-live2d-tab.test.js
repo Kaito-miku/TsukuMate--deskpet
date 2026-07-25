@@ -8,7 +8,7 @@ const path = require("node:path");
 const { createSettingsController } = require("../src/settings-controller");
 
 test("Live2D settings tab uses the settings core tab registry", () => {
-  const source = fs.readFileSync(path.join(__dirname, "..", "src", "settings-tab-live2d.js"), "utf8");
+  const source = fs.readFileSync(path.join(__dirname, "..", "src", "renderer/settings/tabs/settings-tab-live2d.js"), "utf8");
   assert.match(source, /core\.tabs\.live2d\s*=\s*\{[\s\S]*?\brender\b/);
   assert.doesNotMatch(source, /core\.ops\.registerTab/);
   assert.match(source, /问答工作台显示/);

@@ -1,5 +1,5 @@
 const { app, BrowserWindow, screen, ipcMain, globalShortcut, nativeTheme, dialog, shell, nativeImage, powerSaveBlocker, powerMonitor, clipboard } = require("electron");
-const { PRELOAD_ROOT } = require("./main/paths");
+const { PRELOAD_ROOT, RENDERER_ROOT } = require("./main/paths");
 // ── Linux/Wayland: relaunch under XWayland so the pet is draggable (issue #441) ──
 // Native Wayland ignores client-side window positioning and blocks global cursor
 // queries, so the pet spawns centered, can't be dragged, and has no tracking;
@@ -3425,7 +3425,7 @@ function createWindow() {
     initialWindowBounds,
     initialVirtualBounds,
     preloadPath: path.join(PRELOAD_ROOT, "preload.js"),
-    loadFilePath: path.join(__dirname, "index.html"),
+    loadFilePath: path.join(RENDERER_ROOT, "pet", "index.html"),
     themeConfig: getPetRendererConfig(),
     setRenderWindow: (createdWindow) => { win = createdWindow; },
     isQuitting: () => isQuitting,
@@ -3440,7 +3440,7 @@ function createWindow() {
   hitWin = petWindowRuntime.createHitWindow({
     BrowserWindow,
     preloadPath: path.join(PRELOAD_ROOT, "preload-hit.js"),
-    loadFilePath: path.join(__dirname, "hit.html"),
+    loadFilePath: path.join(RENDERER_ROOT, "hit-target", "hit.html"),
     hitThemeConfig: themeRuntime.getHitRendererConfig(),
     guardAlwaysOnTop,
     onDidFinishLoad: () => {

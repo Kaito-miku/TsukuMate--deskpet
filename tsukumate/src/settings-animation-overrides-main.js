@@ -2,6 +2,7 @@
 
 const defaultFs = require("fs");
 const defaultPath = require("path");
+const { RENDERER_ROOT } = require("./main/paths");
 const { pathToFileURL } = require("url");
 const defaultAnimationCycle = require("./animation-cycle");
 const { ANIMATION_OVERRIDES_EXPORT_VERSION } = require("./settings-actions");
@@ -380,7 +381,7 @@ function createSettingsAnimationOverridesMain(options = {}) {
   async function ensureAnimationPreviewPosterPage() {
     const posterWindow = getAnimationPreviewPosterWindow();
     if (!animationOverridePreviewPosterReady) {
-      animationOverridePreviewPosterReady = posterWindow.loadFile(path.join(__dirname, "settings-animation-preview.html"))
+      animationOverridePreviewPosterReady = posterWindow.loadFile(path.join(RENDERER_ROOT, "animation-preview", "settings-animation-preview.html"))
         .catch((err) => {
           animationOverridePreviewPosterReady = null;
           throw err;

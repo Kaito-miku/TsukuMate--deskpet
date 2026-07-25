@@ -33,7 +33,7 @@ const fs = require("fs");
 const http = require("http");
 const os = require("os");
 const path = require("path");
-const { PRELOAD_ROOT } = require("./main/paths");
+const { PRELOAD_ROOT, RENDERER_ROOT } = require("./main/paths");
 const { validateConfig: validateApiConfig, requestJson: requestOpenAi, makeChatBody } = require("./openai-compatible-transport");
 const { runAppleMusicCommand } = require("./apple-music-control");
 const { buildTimeContext } = require("./time-context");
@@ -2195,7 +2195,7 @@ module.exports = function initMinicpmChat(ctx) {
     bubble.setMenuBarVisibility(false);
     // Bypass any cached HTML so code changes always take effect.
     bubble.webContents.session.clearCache();
-    bubble.loadFile(path.join(__dirname, "minicpm-chat.html"));
+    bubble.loadFile(path.join(RENDERER_ROOT, "chat-bubble", "minicpm-chat.html"));
 
     bubble.webContents.on("before-input-event", (event, input) => {
       if (input.type === "keyDown" && input.key === "Escape") {
@@ -2799,7 +2799,7 @@ module.exports = function initMinicpmChat(ctx) {
         additionalArguments: [`--theme-config=${JSON.stringify(themeConfig)}`],
       },
     });
-    workspace.loadFile(path.join(__dirname, "chat-workspace.html"));
+    workspace.loadFile(path.join(RENDERER_ROOT, "chat-workspace", "chat-workspace.html"));
     workspaceSenderId = workspace.webContents.id;
     workspace.webContents.once("did-finish-load", () => {
       broadcastSharedSession();

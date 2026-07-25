@@ -2,7 +2,7 @@
 
 const { BrowserWindow, screen } = require("electron");
 const path = require("path");
-const { PRELOAD_ROOT } = require("./main/paths");
+const { PRELOAD_ROOT, RENDERER_ROOT } = require("./main/paths");
 const { keepOutOfTaskbar } = require("./taskbar");
 const { clampTextScale, scaleHeight, applyZoomToWindow } = require("./shared/utils/text-scale");
 
@@ -639,7 +639,7 @@ module.exports = function initSessionHud(ctx) {
     if (isWin) hudWindow.setAlwaysOnTop(true, WIN_TOPMOST_LEVEL);
     if (typeof ctx.guardAlwaysOnTop === "function") ctx.guardAlwaysOnTop(hudWindow);
 
-    hudWindow.loadFile(path.join(__dirname, "session-hud.html"));
+    hudWindow.loadFile(path.join(RENDERER_ROOT, "session-hud", "session-hud.html"));
     hudWindow.webContents.once("did-finish-load", () => {
       didFinishLoad = true;
       // Explicit even though same-origin propagation usually covers it — a

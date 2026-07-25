@@ -26,8 +26,8 @@ test("chat emotion status uses a constrained main-to-renderer IPC surface", () =
 });
 
 test("chat UI renders the latest emotion without adding it to conversation history", () => {
-  const html = src("minicpm-chat.html");
-  const renderer = src("minicpm-chat-renderer.js");
+  const html = src("renderer/chat-bubble/minicpm-chat.html");
+  const renderer = src("renderer/chat-bubble/minicpm-chat-renderer.js");
   assert.match(html, /id="emotionStatus"/);
   assert.match(renderer, /moodPrefix: "持续"/);
   assert.match(renderer, /function renderEmotionStatus/);

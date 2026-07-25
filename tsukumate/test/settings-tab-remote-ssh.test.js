@@ -11,7 +11,7 @@ const { SUPPORTED_LANGS } = require("../src/shared/i18n/i18n");
 // ── settings-tab-remote-ssh.js script integrity ──
 
 test("settings-tab-remote-ssh.js loads in a sandbox via the same IIFE pattern as siblings", () => {
-  const code = fs.readFileSync(path.join(SRC_DIR, "settings-tab-remote-ssh.js"), "utf8");
+  const code = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/tabs/settings-tab-remote-ssh.js"), "utf8");
   // IIFE registration check — must call ClawdSettingsTabRemoteSsh = { init }.
   assert.match(code, /root\.ClawdSettingsTabRemoteSsh\s*=\s*\{\s*init\s*\}/);
   // Must register itself in core.tabs["remote-ssh"].
@@ -19,7 +19,7 @@ test("settings-tab-remote-ssh.js loads in a sandbox via the same IIFE pattern as
 });
 
 test("settings-tab-remote-ssh.js is registered in settings.html before settings-renderer.js", () => {
-  const html = fs.readFileSync(path.join(SRC_DIR, "settings.html"), "utf8");
+  const html = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/settings.html"), "utf8");
   const tabIdx = html.indexOf('settings-tab-remote-ssh.js');
   const rendererIdx = html.indexOf('settings-renderer.js');
   assert.ok(tabIdx > 0, "settings-tab-remote-ssh.js must appear in settings.html");
@@ -27,7 +27,7 @@ test("settings-tab-remote-ssh.js is registered in settings.html before settings-
 });
 
 test("settings-renderer.js SIDEBAR_TABS includes remote-ssh entry", () => {
-  const code = fs.readFileSync(path.join(SRC_DIR, "settings-renderer.js"), "utf8");
+  const code = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/settings-renderer.js"), "utf8");
   assert.match(code, /id:\s*"remote-ssh"/);
   assert.match(code, /labelKey:\s*"sidebarRemoteSsh"/);
 });
@@ -35,7 +35,7 @@ test("settings-renderer.js SIDEBAR_TABS includes remote-ssh entry", () => {
 // ── i18n: all language packs include the new keys ──
 
 test("settings-i18n.js: all language packs include remote-ssh keys", () => {
-  const code = fs.readFileSync(path.join(SRC_DIR, "settings-i18n.js"), "utf8");
+  const code = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/settings-i18n.js"), "utf8");
   const REQUIRED_KEYS = [
     "sidebarRemoteSsh",
     "remoteSshTitle",
@@ -67,7 +67,7 @@ test("settings-i18n.js: all language packs include remote-ssh keys", () => {
 // ── i18n strings sanity: every lang block defines sidebarRemoteSsh ──
 
 test("settings-i18n.js: sidebarRemoteSsh defined in every supported language", () => {
-  const code = fs.readFileSync(path.join(SRC_DIR, "settings-i18n.js"), "utf8");
+  const code = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/settings-i18n.js"), "utf8");
   const matches = code.match(/sidebarRemoteSsh:\s*"[^"]+"/g) || [];
   assert.equal(
     matches.length,
@@ -90,7 +90,7 @@ test("settings-i18n.js: sidebarRemoteSsh defined in every supported language", (
 // dedicated rules for the layout classes the tab introduces.
 
 test("settings-tab-remote-ssh.js uses only CSS classes that exist in settings.css", () => {
-  const code = fs.readFileSync(path.join(SRC_DIR, "settings-tab-remote-ssh.js"), "utf8");
+  const code = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/tabs/settings-tab-remote-ssh.js"), "utf8");
   // Tokenize all `className = "..."` literals into the actual class names.
   const usedClasses = new Set();
   const re = /className\s*=\s*["']([^"']+)["']/g;
@@ -108,7 +108,7 @@ test("settings-tab-remote-ssh.js uses only CSS classes that exist in settings.cs
   }
   // Every shared class (not remote-ssh-* — those are scoped to this tab and
   // checked in the next test) must have a definition in settings.css.
-  const css = fs.readFileSync(path.join(SRC_DIR, "settings.css"), "utf8");
+  const css = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/settings.css"), "utf8");
   for (const cls of usedClasses) {
     if (cls.startsWith("remote-ssh-")) continue;
     assert.match(css, new RegExp(`\\.${cls.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`),
@@ -117,7 +117,7 @@ test("settings-tab-remote-ssh.js uses only CSS classes that exist in settings.cs
 });
 
 test("settings.css defines remote-ssh-* layout rules used by the tab", () => {
-  const css = fs.readFileSync(path.join(SRC_DIR, "settings.css"), "utf8");
+  const css = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/settings.css"), "utf8");
   const required = [
     "remote-ssh-section-header",
     "remote-ssh-empty",
@@ -157,7 +157,7 @@ test("settings.css defines remote-ssh-* layout rules used by the tab", () => {
 });
 
 test("settings-tab-remote-ssh.js translates runtime status hints before raw messages", () => {
-  const code = fs.readFileSync(path.join(SRC_DIR, "settings-tab-remote-ssh.js"), "utf8");
+  const code = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/tabs/settings-tab-remote-ssh.js"), "utf8");
   assert.match(code, /function\s+statusMessageText\s*\(\s*status\s*\)/);
   assert.match(code, /status\.hint/);
   assert.match(code, /translated\s*!==\s*status\.hint/);
@@ -165,7 +165,7 @@ test("settings-tab-remote-ssh.js translates runtime status hints before raw mess
 });
 
 test("settings-i18n.js: codexHookReviewReminder defined in every supported language (B2 followup)", () => {
-  const code = fs.readFileSync(path.join(SRC_DIR, "settings-i18n.js"), "utf8");
+  const code = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/settings-i18n.js"), "utf8");
   const matches = code.match(/codexHookReviewReminder:\s*"[^"]+"/g) || [];
   assert.equal(matches.length, SUPPORTED_LANGS.length,
     `expected ${SUPPORTED_LANGS.length} codexHookReviewReminder defs; got ${matches.length}`);
@@ -176,7 +176,7 @@ test("settings-i18n.js: codexHookReviewReminder defined in every supported langu
 });
 
 test("settings-i18n.js: hooks deploy status keys present in every supported language", () => {
-  const code = fs.readFileSync(path.join(SRC_DIR, "settings-i18n.js"), "utf8");
+  const code = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/settings-i18n.js"), "utf8");
   const REQUIRED_KEYS = [
     "remoteSshHooksLabel",
     "remoteSshHooksNever",
@@ -197,7 +197,7 @@ test("settings-tab-remote-ssh.js can be evaluated without DOM (no top-level DOM 
   // Provide a minimal fake globalThis stand-in. The module only uses globalThis
   // to register `ClawdSettingsTabRemoteSsh`; render() is what actually touches
   // the DOM, and we don't call it here.
-  const code = fs.readFileSync(path.join(SRC_DIR, "settings-tab-remote-ssh.js"), "utf8");
+  const code = fs.readFileSync(path.join(SRC_DIR, "renderer/settings/tabs/settings-tab-remote-ssh.js"), "utf8");
   const sandbox = { globalThis: undefined };
   sandbox.globalThis = sandbox;
   // eslint-disable-next-line no-new-func

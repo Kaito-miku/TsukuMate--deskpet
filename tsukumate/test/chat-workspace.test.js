@@ -11,8 +11,8 @@ const { paginateHistoryLines } = require("../src/shared/chat/chat-history-page")
 const { computeWorkspaceCamera } = require("../src/shared/live2d/live2d-workspace-camera");
 
 test("chat workspace ships a three-column chat/history/diary/Live2D shell", () => {
-  const html = read("chat-workspace.html");
-  const css = read("chat-workspace.css");
+  const html = read("renderer/chat-workspace/chat-workspace.html");
+  const css = read("renderer/chat-workspace/chat-workspace.css");
   assert.match(html, /class="tool-rail"/);
   assert.match(html, /id="history-tool"/);
   assert.match(html, /id="diary-tool"/);
@@ -23,11 +23,11 @@ test("chat workspace ships a three-column chat/history/diary/Live2D shell", () =
 });
 
 test("workspace has a permanent chat return action and a dedicated Live2D camera fit", () => {
-  const renderer = read("chat-workspace-renderer.js");
+  const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
   const chat = read("minicpm-chat.js");
   assert.match(renderer, /chat-tool.*returnToChat/);
   assert.match(chat, /workspaceFraming:\s*"head-to-knees"/);
-  assert.match(read("chat-workspace-screen.css"), /\[hidden\]\s*\{\s*display:\s*none\s*!important/);
+  assert.match(read("renderer/chat-workspace/chat-workspace-screen.css"), /\[hidden\]\s*\{\s*display:\s*none\s*!important/);
 });
 
 test("workspace camera auto-fits tall, regular, and wide drawable bounds without changing aspect", () => {
@@ -89,8 +89,8 @@ test("workspace history and diary IPC reject arbitrary paths", () => {
 });
 
 test("workspace screen capture remains tokenized and one-shot", () => {
-  const html = read("chat-workspace.html");
-  const renderer = read("chat-workspace-renderer.js");
+  const html = read("renderer/chat-workspace/chat-workspace.html");
+  const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
   const chat = read("minicpm-chat.js");
   assert.match(html, /id="screen-attachment"/);
   assert.match(renderer, /screenCaptureToken: token/);
@@ -100,7 +100,7 @@ test("workspace screen capture remains tokenized and one-shot", () => {
 
 test("workspace keeps lifecycle state separate from Cubism diagnostic logs", () => {
   const preload = read("preload/preload-chat-workspace.js");
-  const renderer = read("chat-workspace-renderer.js");
+  const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
   assert.match(preload, /lifecycleEvent/);
   assert.match(preload, /lastLive2dStatus\.phase/);
   assert.match(renderer, /const viewState = \{ content: "chat", drawer: null/);

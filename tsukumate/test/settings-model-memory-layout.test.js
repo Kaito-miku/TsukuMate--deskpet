@@ -9,7 +9,7 @@ const SRC = path.join(__dirname, "..", "src");
 const read = (name) => fs.readFileSync(path.join(SRC, name), "utf8");
 
 test("about page omits the legacy logo/tagline and links to the upstream project", () => {
-  const about = read("settings-tab-about.js");
+  const about = read("renderer/settings/tabs/settings-tab-about.js");
   const metadata = read("shared/product-metadata.js");
   assert.ok(!about.includes('className = "about-logo-wrap"'));
   assert.ok(!about.includes('t("aboutTagline")'));
@@ -21,10 +21,10 @@ test("about page omits the legacy logo/tagline and links to the upstream project
 });
 
 test("model connections and chat memory are separate direct sidebar pages", () => {
-  const renderer = read("settings-renderer.js");
-  const api = read("settings-tab-api.js");
-  const memory = read("settings-tab-memory.js");
-  const html = read("settings.html");
+  const renderer = read("renderer/settings/settings-renderer.js");
+  const api = read("renderer/settings/tabs/settings-tab-api.js");
+  const memory = read("renderer/settings/tabs/settings-tab-memory.js");
+  const html = read("renderer/settings/settings.html");
   assert.match(renderer, /\{ id: "api", label: "模型连接"/);
   assert.match(renderer, /\{ id: "memory", label: "聊天与记忆"/);
   assert.ok(!renderer.includes("modelGroup:"));
@@ -34,7 +34,7 @@ test("model connections and chat memory are separate direct sidebar pages", () =
 });
 
 test("Live2D updates patch in place so slider drags do not reset scroll", () => {
-  const live2d = read("settings-tab-live2d.js");
+  const live2d = read("renderer/settings/tabs/settings-tab-live2d.js");
   assert.ok(live2d.includes("patchInPlace"));
   assert.ok(live2d.includes('hasOwnProperty.call(changes, "live2d")'));
 });

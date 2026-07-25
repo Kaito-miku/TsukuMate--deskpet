@@ -1,7 +1,7 @@
 "use strict";
 
 const path = require("path");
-const { PRELOAD_ROOT } = require("./main/paths");
+const { PRELOAD_ROOT, RENDERER_ROOT } = require("./main/paths");
 
 const WIDTH = 284;
 const HEIGHT = 284;
@@ -77,7 +77,7 @@ function createQuickLauncher(options = {}) {
       },
     });
     window.setAlwaysOnTop(true, process.platform === "darwin" ? "screen-saver" : "pop-up-menu");
-    window.loadFile(path.join(__dirname, "quick-launcher.html"));
+    window.loadFile(path.join(RENDERER_ROOT, "quick-launcher", "quick-launcher.html"));
     window.on("blur", hide);
     window.on("closed", () => { window = null; });
     window.webContents.on("did-finish-load", sendState);

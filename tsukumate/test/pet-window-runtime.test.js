@@ -206,7 +206,7 @@ describe("pet-window-runtime", () => {
   });
 
   it("keeps the click-capture window visually transparent", () => {
-    const hitHtml = fs.readFileSync(path.join(SRC_DIR, "hit.html"), "utf8");
+    const hitHtml = fs.readFileSync(path.join(SRC_DIR, "renderer/hit-target/hit.html"), "utf8");
 
     assert.match(hitHtml, /background:\s*transparent/);
     assert.doesNotMatch(hitHtml, /rgba\(0,\s*0,\s*0,\s*0\.004\)/);
