@@ -1299,44 +1299,10 @@ module.exports = function initMinicpmChat(ctx) {
     }
   }
 
-  // Copy bundled adapters (from <resources>/adapters/) into the
-  // writable user dir on first run. Cheap idempotent walk; skips
-  // anything the user already has. Runs once before the sidecar
-  // spawns so /api/adapters returns the seeded files immediately.
-  try { seedBundledAdapters(); } catch (err) {
-    log(`[minicpm] seedBundledAdapters threw: ${err && err.message}`);
-  }
-  const adapterDir = getEffectiveAdapterDir();
-  try { fs.mkdirSync(adapterDir, { recursive: true }); } catch {}
-  // Manifest seed runs AFTER the .gguf copy so filenameHint lookups
-  // can resolve against actual disk files. Also writes the mirror for
-  // the gateway to read on its first /api/adapters call.
-  try { seedDefaultManifest(); } catch (err) {
-    log(`[minicpm] seedDefaultManifest threw: ${err && err.message}`);
-  }
-  // After seeding, repair any bundled preset whose recorded path went
-  // stale (typical when a dev manifest got carried into a packaged
-  // install, or vice versa).
-  try { repairBundledManifestPaths(); } catch (err) {
-    log(`[minicpm] repairBundledManifestPaths threw: ${err && err.message}`);
-  }
-  // Drop duplicate persona chips: re-point each bundled preset to its
-  // newest on-disk copy and delete superseded ones (e.g. an old nekoqa
-  // adapter left behind after a newer build was seeded in).
-  try { reconcileBundledDuplicates(); } catch (err) {
-    log(`[minicpm] reconcileBundledDuplicates threw: ${err && err.message}`);
-  }
-  // Always ensure the mirror exists, even when the manifest is non-empty
-  // (user already has a manifest from a previous launch, but the mirror
-  // file may be missing if they upgraded across the change).
-  try {
-    const dir = getEffectiveAdapterDir();
-    const mirror = path.join(dir, ADAPTER_MANIFEST_MIRROR);
-    if (!fs.existsSync(mirror)) {
-      writeAdapterManifest(readAdapterManifest());
-    }
-  } catch {}
-
+  // Inference runtimes and adapters are user-managed. Keep the legacy
+  // object inert during the transition; no directories are created and no
+  // model or LoRA discovery runs at application startup.
+  const adapterDir = null;
   const sidecar = new Sidecar({
     sidecarDir, sidecarBin, appRoot, port, host, log,
     logFile: sidecarLogPath,
@@ -1356,9 +1322,6 @@ module.exports = function initMinicpmChat(ctx) {
     }
     return sidecar.activeAdapterPath;
   }
-  // First evaluation: pick up whatever the user had selected last
-  // session. `null` means "boot Base, no --lora".
-  refreshActiveAdapterPath();
 
   let bubble = null;
   let activeSide = "right";
