@@ -158,7 +158,7 @@ describe("pet-window-runtime", () => {
     const harness = createRuntime();
     harness.runtime.createHitWindow({
       BrowserWindow: makeBrowserWindow(instances),
-      preloadPath: "preload-hit.js",
+      preloadPath: "preload/preload-hit.js",
       loadFilePath: "hit.html",
       hitThemeConfig: { ok: true },
       guardAlwaysOnTop: (win) => harness.calls.push(["guard", win]),
@@ -194,7 +194,7 @@ describe("pet-window-runtime", () => {
     const hitHarness = createRuntime();
     hitHarness.runtime.createHitWindow({
       BrowserWindow: makeBrowserWindow(hitInstances),
-      preloadPath: "preload-hit.js",
+      preloadPath: "preload/preload-hit.js",
       loadFilePath: "hit.html",
       hitThemeConfig: {},
     });
@@ -360,7 +360,7 @@ describe("pet-window-runtime", () => {
 
     harness.runtime.createHitWindow({
       BrowserWindow: makeBrowserWindow(instances),
-      preloadPath: "preload-hit.js",
+      preloadPath: "preload/preload-hit.js",
       loadFilePath: "hit.html",
       hitThemeConfig: {},
     });

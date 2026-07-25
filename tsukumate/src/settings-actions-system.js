@@ -1,7 +1,7 @@
 "use strict";
 
 const { isAgentEnabled } = require("./agent-gate");
-const { requireBoolean } = require("./settings-validators");
+const { requireBoolean } = require("./shared/settings/settings-validators");
 
 const CLAUDE_HOOKS_LOCK_KEY = "claude-hooks";
 

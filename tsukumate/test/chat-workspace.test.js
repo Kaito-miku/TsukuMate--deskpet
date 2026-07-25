@@ -7,8 +7,8 @@ const path = require("node:path");
 
 const SRC = path.join(__dirname, "..", "src");
 const read = (name) => fs.readFileSync(path.join(SRC, name), "utf8");
-const { paginateHistoryLines } = require("../src/chat-history-page");
-const { computeWorkspaceCamera } = require("../src/live2d-workspace-camera");
+const { paginateHistoryLines } = require("../src/shared/chat/chat-history-page");
+const { computeWorkspaceCamera } = require("../src/shared/live2d/live2d-workspace-camera");
 
 test("chat workspace ships a three-column chat/history/diary/Live2D shell", () => {
   const html = read("chat-workspace.html");
@@ -62,7 +62,7 @@ test("history pagination exposes every line beyond the old 240-message cap with 
 });
 
 test("workspace preload exposes only constrained chat, date and diary operations", () => {
-  const preload = read("preload-chat-workspace.js");
+  const preload = read("preload/preload-chat-workspace.js");
   assert.match(preload, /chat-workspace:list-history/);
   assert.match(preload, /chat-workspace:load-diary/);
   assert.match(preload, /chat-workspace:save-diary/);
@@ -99,7 +99,7 @@ test("workspace screen capture remains tokenized and one-shot", () => {
 });
 
 test("workspace keeps lifecycle state separate from Cubism diagnostic logs", () => {
-  const preload = read("preload-chat-workspace.js");
+  const preload = read("preload/preload-chat-workspace.js");
   const renderer = read("chat-workspace-renderer.js");
   assert.match(preload, /lifecycleEvent/);
   assert.match(preload, /lastLive2dStatus\.phase/);

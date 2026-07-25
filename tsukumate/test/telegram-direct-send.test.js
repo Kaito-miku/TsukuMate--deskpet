@@ -10,7 +10,7 @@ const {
   createWindowsPasteOnlyDeliveryAdapter,
   normalizePromptText,
 } = require("../src/telegram-direct-send");
-const { buildSessionSnapshot } = require("../src/state-session-snapshot");
+const { buildSessionSnapshot } = require("../src/shared/sessions/state-session-snapshot");
 
 function localTerminalEntry(overrides = {}) {
   return {

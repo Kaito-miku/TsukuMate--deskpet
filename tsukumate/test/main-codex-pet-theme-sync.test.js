@@ -7,7 +7,7 @@ const ROOT = path.join(__dirname, "..");
 const MAIN = path.join(ROOT, "src", "main.js");
 const CODEX_PET_MAIN = path.join(ROOT, "src", "codex-pet-main.js");
 const SETTINGS_IPC = path.join(ROOT, "src", "settings-ipc.js");
-const PRELOAD_SETTINGS = path.join(ROOT, "src", "preload-settings.js");
+const PRELOAD_SETTINGS = path.join(ROOT, "src", "preload/preload-settings.js");
 const SETTINGS_ACTIONS = path.join(ROOT, "src", "settings-actions.js");
 const SETTINGS_TAB_THEME = path.join(ROOT, "src", "settings-tab-theme.js");
 

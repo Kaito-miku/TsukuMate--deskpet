@@ -54,20 +54,20 @@ const {
   TEXT_SCALE_MAX,
   isValidTextScale,
   normalizeTextScaleByDisplay,
-} = require("./text-scale");
-const { isValidDisplaySnapshot } = require("./work-area");
+} = require("./shared/utils/text-scale");
+const { isValidDisplaySnapshot } = require("./shared/utils/work-area");
 const {
   MAX_AUTO_CLOSE_SECONDS,
   buildAggregateHideCommit,
   buildCategoryEnabledCommit,
-} = require("./bubble-policy");
+} = require("./shared/ui/bubble-policy");
 const {
   normalizeSessionAliases,
   pruneExpiredSessionAliases,
   sanitizeSessionAlias,
   sessionAliasKey,
-} = require("./session-alias");
-const { validateShortcutMapShape } = require("./shortcut-actions");
+} = require("./shared/sessions/session-alias");
+const { validateShortcutMapShape } = require("./shared/settings/shortcut-actions");
 const {
   requireBoolean,
   requireFiniteNumber,
@@ -77,7 +77,7 @@ const {
   requireEnum,
   requireString,
   requirePlainObject,
-} = require("./settings-validators");
+} = require("./shared/settings/settings-validators");
 const {
   registerShortcut,
   resetShortcut,

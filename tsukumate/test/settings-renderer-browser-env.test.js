@@ -12,15 +12,15 @@ const SETTINGS_CSS = path.join(SRC_DIR, "settings.css");
 const SETTINGS_TAB_GENERAL = path.join(SRC_DIR, "settings-tab-general.js");
 const SETTINGS_RENDERER = path.join(SRC_DIR, "settings-renderer.js");
 const SETTINGS_UI_CORE = path.join(SRC_DIR, "settings-ui-core.js");
-const SETTINGS_ANIM_OVERRIDES_MERGE = path.join(SRC_DIR, "settings-anim-overrides-merge.js");
+const SETTINGS_ANIM_OVERRIDES_MERGE = path.join(SRC_DIR, "shared/settings/settings-anim-overrides-merge.js");
 const SETTINGS_I18N = path.join(SRC_DIR, "settings-i18n.js");
 const SETTINGS_DOCTOR_MODAL = path.join(SRC_DIR, "settings-doctor-modal.js");
 const SETTINGS_ANIMATION_PREVIEW = path.join(SRC_DIR, "settings-animation-preview.html");
-const PRELOAD_SETTINGS = path.join(SRC_DIR, "preload-settings.js");
+const PRELOAD_SETTINGS = path.join(SRC_DIR, "preload/preload-settings.js");
 const MAIN_PROCESS = path.join(SRC_DIR, "main.js");
 const SETTINGS_IPC = path.join(SRC_DIR, "settings-ipc.js");
 const DOCTOR_IPC = path.join(SRC_DIR, "doctor-ipc.js");
-const { SUPPORTED_LANGS } = require("../src/i18n");
+const { SUPPORTED_LANGS } = require("../src/shared/i18n/i18n");
 const SETTINGS_LANGUAGE_OPTIONS = ["system", ...SUPPORTED_LANGS];
 const TAB_MODULES = [
   path.join(SRC_DIR, "settings-tab-general.js"),
@@ -1216,10 +1216,10 @@ describe("settings renderer browser environment", () => {
   it("loads browser scripts in dependency order and keeps CommonJS helpers out of settings.html", () => {
     const html = fs.readFileSync(SETTINGS_HTML, "utf8");
     const scriptOrder = [
-      "shortcut-actions.js",
+      "shared/settings/shortcut-actions.js",
       "settings-size-slider.js",
       "settings-i18n.js",
-      "settings-anim-overrides-merge.js",
+      "shared/settings/settings-anim-overrides-merge.js",
       "settings-ui-core.js",
       "settings-agent-order.js",
       "settings-hardware-buddy-panel.js",
@@ -5003,7 +5003,7 @@ describe("settings renderer browser environment", () => {
 
     assert.ok(html.includes("img-src 'self' data: file:"));
     assert.ok(!html.includes("frame-src"));
-    assert.ok(html.includes("settings-anim-overrides-merge.js"));
+    assert.ok(html.includes("shared/settings/settings-anim-overrides-merge.js"));
     const themeTabSource = fs.readFileSync(path.join(SRC_DIR, "settings-tab-theme.js"), "utf8");
     assert.ok(!html.includes("object-src"));
     assert.ok(css.includes(".theme-thumb-atlas-frame"));

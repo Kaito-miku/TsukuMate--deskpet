@@ -10,6 +10,6 @@ module.exports = Object.freeze({
   SRC_ROOT,
   main: (...parts) => path.join(SRC_ROOT, "main", ...parts),
   renderer: (...parts) => path.join(SRC_ROOT, "renderer", ...parts),
-  preload: (...parts) => path.join(SRC_ROOT, "preload", ...parts),
+  preload: (...parts) => path.join(SRC_ROOT, "preload/preload", ...parts),
   shared: (...parts) => path.join(SRC_ROOT, "shared", ...parts),
 });

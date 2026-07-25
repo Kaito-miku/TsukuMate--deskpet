@@ -6,7 +6,7 @@ const { pathToFileURL } = require("url");
 
 const defaultCodexPetAdapter = require("./codex-pet-adapter");
 const defaultCodexPetImporter = require("./codex-pet-importer");
-const { DEFAULT_THEME_ID } = require("./default-theme");
+const { DEFAULT_THEME_ID } = require("./shared/theme/default-theme");
 
 const REGISTER_PROTOCOL_DEV_ARG = "--register-protocol";
 const CLAWD_PROTOCOL_SCHEME = "tsukumate";

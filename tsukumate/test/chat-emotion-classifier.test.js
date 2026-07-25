@@ -9,7 +9,7 @@ const {
   inferEmotionFromText,
   inferEmotionBlendFromText,
   normalizeEmotionBlend,
-} = require("../src/chat-emotion-classifier");
+} = require("../src/shared/emotion/chat-emotion-classifier");
 
 test("parses strict, fenced, direct, localized, and reasoning emotion responses", () => {
   assert.equal(parseEmotionResponse('{"emotion":"happy"}'), "happy");

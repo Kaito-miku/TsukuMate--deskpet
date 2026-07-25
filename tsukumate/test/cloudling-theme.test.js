@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const themeLoader = require("../src/theme-loader");
-const hitGeometry = require("../src/hit-geometry");
+const hitGeometry = require("../src/shared/utils/hit-geometry");
 
 themeLoader.init(path.join(__dirname, "..", "src"));
 

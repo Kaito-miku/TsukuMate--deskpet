@@ -8,7 +8,7 @@ const path = require("path");
 const {
   sanitizeSvg,
   collectSafeRasterRefs,
-} = require("./theme-sanitizer");
+} = require("./shared/theme/theme-sanitizer");
 
 function isPlainObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);

@@ -7,7 +7,7 @@ const {
   collectRequiredAssetFiles,
   mergeDefaults,
   validateTheme,
-} = require("./theme-schema");
+} = require("./shared/theme/theme-schema");
 
 const MAX_THEME_ZIP_BYTES = 80 * 1024 * 1024;
 const MAX_THEME_ZIP_ENTRY_BYTES = 40 * 1024 * 1024;

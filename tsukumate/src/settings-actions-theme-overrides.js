@@ -1,7 +1,7 @@
 "use strict";
 
 const { normalizeThemeOverrides } = require("./prefs");
-const { requireString } = require("./settings-validators");
+const { requireString } = require("./shared/settings/settings-validators");
 const { isPlainObject } = require("./theme-loader");
 
 const ANIMATION_OVERRIDES_EXPORT_VERSION = 1;

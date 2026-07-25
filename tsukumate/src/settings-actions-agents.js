@@ -12,7 +12,7 @@ const {
 const {
   requireBoolean,
   requireString,
-} = require("./settings-validators");
+} = require("./shared/settings/settings-validators");
 
 const AUTO_REPAIRABLE_AGENT_IDS = new Set([
   "claude-code",

@@ -226,7 +226,7 @@ test("dashboard renderer wires the Mark-read button + ackCompletion fallback (so
   assert.ok(/result\.status !== "ok"[\s\S]+button\.disabled = false/.test(rendererSrc),
     "Mark-read click must re-enable button on ack failure");
 
-  const i18nSrc = fs.readFileSync(path.join(__dirname, "..", "src", "i18n.js"), "utf8");
+  const i18nSrc = fs.readFileSync(path.join(__dirname, "..", "src", "shared/i18n/i18n.js"), "utf8");
   // Both new keys must appear in all 5 language tables (en/zh/zh-TW/ko/ja).
   for (const key of ["dashboardMarkRead", "dashboardMarkReadTitle"]) {
     const matches = i18nSrc.match(new RegExp(`\\b${key}:`, "g"));

@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { DEFAULT_THEME_ID } = require("../src/default-theme");
+const { DEFAULT_THEME_ID } = require("../src/shared/theme/default-theme");
 const themeLoader = require("../src/theme-loader");
 
 afterEach(() => {

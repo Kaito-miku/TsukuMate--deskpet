@@ -2,13 +2,14 @@
 
 const defaultFs = require("fs");
 const defaultPath = require("path");
+const { PRELOAD_ROOT } = require("./main/paths");
 
 const {
   SETTINGS_WINDOW_TITLE,
   getSettingsWindowIconPath,
   getSettingsWindowTaskbarDetails,
 } = require("./settings-window-icon");
-const { clampTextScale, scaleWidth, scaleHeight, applyZoomToWindow } = require("./text-scale");
+const { clampTextScale, scaleWidth, scaleHeight, applyZoomToWindow } = require("./shared/utils/text-scale");
 
 const DEFAULT_WIDTH = 800;
 const DEFAULT_HEIGHT = 560;
@@ -64,7 +65,7 @@ function createSettingsWindowRuntime(options = {}) {
   const execPath = options.execPath || process.execPath;
   const appDir = options.appDir || path.join(__dirname, "..");
   const settingsHtmlPath = options.settingsHtmlPath || path.join(__dirname, "settings.html");
-  const preloadPath = options.preloadPath || path.join(__dirname, "preload-settings.js");
+  const preloadPath = options.preloadPath || path.join(PRELOAD_ROOT, "preload-settings.js");
   const scheduleLater = typeof options.setTimeout === "function" ? options.setTimeout : setTimeout;
   const clearScheduled = typeof options.clearTimeout === "function" ? options.clearTimeout : clearTimeout;
 

@@ -1,7 +1,8 @@
 const { BrowserWindow } = require("electron");
 const path = require("path");
+const { PRELOAD_ROOT } = require("./main/paths");
 const { keepOutOfTaskbar } = require("./taskbar");
-const { clampTextScale, scaleWidth, scaleHeight, applyZoomToWindow } = require("./text-scale");
+const { clampTextScale, scaleWidth, scaleHeight, applyZoomToWindow } = require("./shared/utils/text-scale");
 
 const isLinux = process.platform === "linux";
 const isMac = process.platform === "darwin";
@@ -194,7 +195,7 @@ module.exports = function initUpdateBubble(ctx) {
       ...(isLinux ? { type: LINUX_WINDOW_TYPE } : {}),
       ...(isMac ? { type: "panel" } : {}),
       webPreferences: {
-        preload: path.join(__dirname, "preload-update-bubble.js"),
+        preload: path.join(PRELOAD_ROOT, "preload-update-bubble.js"),
         nodeIntegration: false,
         contextIsolation: true,
       },

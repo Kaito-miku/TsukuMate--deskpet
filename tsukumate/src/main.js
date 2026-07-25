@@ -1,4 +1,5 @@
 const { app, BrowserWindow, screen, ipcMain, globalShortcut, nativeTheme, dialog, shell, nativeImage, powerSaveBlocker, powerMonitor, clipboard } = require("electron");
+const { PRELOAD_ROOT } = require("./main/paths");
 // ── Linux/Wayland: relaunch under XWayland so the pet is draggable (issue #441) ──
 // Native Wayland ignores client-side window positioning and blocks global cursor
 // queries, so the pet spawns centered, can't be dragged, and has no tracking;
@@ -66,7 +67,7 @@ if (_xwaylandRelaunch) {
   console.error("Clawd: XWayland relaunch failed; continuing under native Wayland (issue #441).");
 }
 
-const { clampTextScale, scaleWidth, scaleHeight, resolveTextScaleForKey } = require("./text-scale");
+const { clampTextScale, scaleWidth, scaleHeight, resolveTextScaleForKey } = require("./shared/utils/text-scale");
 const path = require("path");
 const fs = require("fs");
 const { EventEmitter } = require("events");
@@ -107,12 +108,12 @@ const {
   findNearestWorkArea,
   buildDisplaySnapshot,
   SYNTHETIC_WORK_AREA,
-} = require("./work-area");
+} = require("./shared/utils/work-area");
 const {
   getLaunchPixelSize,
   getLaunchSizingWorkArea,
   getProportionalPixelSize,
-} = require("./size-utils");
+} = require("./shared/utils/size-utils");
 const { keepOutOfTaskbar } = require("./taskbar");
 const createTopmostRuntime = require("./topmost-runtime");
 const { WIN_TOPMOST_LEVEL } = createTopmostRuntime;
@@ -130,7 +131,7 @@ const {
   getSessionFocusTarget,
 } = require("./session-focus");
 const { focusCodexThreadTarget } = require("./session-focus-handoff");
-const { isSessionInProgress } = require("./state-session-snapshot");
+const { isSessionInProgress } = require("./shared/sessions/state-session-snapshot");
 const { getAllAgents } = require("../agents/registry");
 // ── Autoplay policy: allow sound playback without user gesture ──
 // MUST be set before any BrowserWindow is created (before app.whenReady)
@@ -235,13 +236,13 @@ const SIZES = {
 // `_settingsController.applyUpdate()`, which auto-persists.
 const prefsModule = require("./prefs");
 const { createSettingsController } = require("./settings-controller");
-const { createTranslator, i18n } = require("./i18n");
-const { resolveEffectiveLang } = require("./locale-resolver");
-const { DEFAULT_THEME_ID } = require("./default-theme");
+const { createTranslator, i18n } = require("./shared/i18n/i18n");
+const { resolveEffectiveLang } = require("./shared/i18n/locale-resolver");
+const { DEFAULT_THEME_ID } = require("./shared/theme/default-theme");
 const {
   getBubblePolicy,
   isAllBubblesHidden,
-} = require("./bubble-policy");
+} = require("./shared/ui/bubble-policy");
 const loginItemHelpers = require("./login-item");
 const PREFS_PATH = path.join(app.getPath("userData"), "tsukumate-prefs.json");
 if (!fs.existsSync(PREFS_PATH)) {
@@ -3423,7 +3424,7 @@ function createWindow() {
     size,
     initialWindowBounds,
     initialVirtualBounds,
-    preloadPath: path.join(__dirname, "preload.js"),
+    preloadPath: path.join(PRELOAD_ROOT, "preload.js"),
     loadFilePath: path.join(__dirname, "index.html"),
     themeConfig: getPetRendererConfig(),
     setRenderWindow: (createdWindow) => { win = createdWindow; },
@@ -3438,7 +3439,7 @@ function createWindow() {
   // ── Create input window (hitWin) — small rect over hitbox, receives all pointer events ──
   hitWin = petWindowRuntime.createHitWindow({
     BrowserWindow,
-    preloadPath: path.join(__dirname, "preload-hit.js"),
+    preloadPath: path.join(PRELOAD_ROOT, "preload-hit.js"),
     loadFilePath: path.join(__dirname, "hit.html"),
     hitThemeConfig: themeRuntime.getHitRendererConfig(),
     guardAlwaysOnTop,

@@ -1,10 +1,10 @@
 "use strict";
 
-const defaultHitGeometry = require("./hit-geometry");
+const defaultHitGeometry = require("./shared/utils/hit-geometry");
 const {
   getThemeMarginBox: defaultGetThemeMarginBox,
   computeThemeAnchorRect: defaultComputeThemeAnchorRect,
-} = require("./visible-margins");
+} = require("./shared/utils/visible-margins");
 
 function createPetGeometryMain(options = {}) {
   const hitGeometry = options.hitGeometry || defaultHitGeometry;

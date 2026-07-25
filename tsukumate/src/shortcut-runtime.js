@@ -3,7 +3,7 @@
 const {
   SHORTCUT_ACTIONS,
   SHORTCUT_ACTION_IDS,
-} = require("./shortcut-actions");
+} = require("./shared/settings/shortcut-actions");
 
 function requiredDependency(value, name) {
   if (!value) throw new Error(`createShortcutRuntime requires ${name}`);

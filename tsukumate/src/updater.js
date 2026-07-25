@@ -3,7 +3,7 @@ const { execFile } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const electron = require("electron");
-const productMetadata = require("./product-metadata");
+const productMetadata = require("./shared/product-metadata");
 
 const RELEASES_LATEST_URL = productMetadata.releasesLatestUrl
   || "https://github.com/Kaito-miku/TsukuMate--deskpet/releases/latest";

@@ -1,7 +1,7 @@
 "use strict";
 
 const { validateThemeShape } = require("../theme-loader");
-const { DEFAULT_THEME_ID } = require("../default-theme");
+const { DEFAULT_THEME_ID } = require("../shared/theme/default-theme");
 
 function checkThemeHealth(options = {}) {
   const prefs = options.prefs || {};

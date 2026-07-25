@@ -2,12 +2,12 @@
 
 const path = require("path");
 const { sessionAliasKey } = require("./session-alias");
-const { getSessionFocusTarget } = require("./session-focus");
+const { getSessionFocusTarget } = require("../../session-focus");
 const {
   buildLatestLocalCodexProcessIds,
   isSupersededLocalCodexProcessSession,
 } = require("./state-session-dedupe");
-const { readCodexThreadName } = require("../hooks/codex-session-index");
+const { readCodexThreadName } = require("../../../hooks/codex-session-index");
 
 const EVENT_LABEL_KEYS = {
   SessionStart: "eventLabelSessionStart",

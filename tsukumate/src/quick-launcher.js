@@ -1,6 +1,7 @@
 "use strict";
 
 const path = require("path");
+const { PRELOAD_ROOT } = require("./main/paths");
 
 const WIDTH = 284;
 const HEIGHT = 284;
@@ -69,7 +70,7 @@ function createQuickLauncher(options = {}) {
       alwaysOnTop: true,
       hasShadow: false,
       webPreferences: {
-        preload: path.join(__dirname, "preload-quick-launcher.js"),
+        preload: path.join(PRELOAD_ROOT, "preload-quick-launcher.js"),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,

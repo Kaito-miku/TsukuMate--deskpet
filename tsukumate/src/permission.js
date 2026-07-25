@@ -2,10 +2,11 @@
 // Extracted from main.js L349-357, L1594-1746
 
 const { BrowserWindow, globalShortcut } = require("electron");
-const { getDefaultShortcuts } = require("./shortcut-actions");
+const { getDefaultShortcuts } = require("./shared/settings/shortcut-actions");
 const { keepOutOfTaskbar } = require("./taskbar");
-const { clampTextScale, scaleWidth, scaleHeight, applyZoomToWindow } = require("./text-scale");
+const { clampTextScale, scaleWidth, scaleHeight, applyZoomToWindow } = require("./shared/utils/text-scale");
 const path = require("path");
+const { PRELOAD_ROOT } = require("./main/paths");
 const http = require("http");
 const {
   CLAWD_SERVER_HEADER,
@@ -689,7 +690,7 @@ function showPermissionBubble(permEntry) {
     // textarea feedback path on other platforms.
     focusable: isMac ? true : !!(permEntry.isElicitation || permEntry.toolName === "ExitPlanMode"),
     webPreferences: {
-      preload: path.join(__dirname, "preload-bubble.js"),
+      preload: path.join(PRELOAD_ROOT, "preload-bubble.js"),
       nodeIntegration: false,
       contextIsolation: true,
     },

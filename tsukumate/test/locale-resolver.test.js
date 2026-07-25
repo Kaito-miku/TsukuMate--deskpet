@@ -8,9 +8,9 @@ const {
   STORED_LANGS,
   mapOsLocale,
   resolveEffectiveLang,
-} = require("../src/locale-resolver");
+} = require("../src/shared/i18n/locale-resolver");
 
-describe("locale-resolver", () => {
+describe("shared/i18n/locale-resolver", () => {
   it("exposes supported and stored language lists", () => {
     assert.deepStrictEqual(SUPPORTED_LANGS, ["en", "zh", "zh-TW", "ko", "ja"]);
     assert.deepStrictEqual(STORED_LANGS, ["system", "en", "zh", "zh-TW", "ko", "ja"]);

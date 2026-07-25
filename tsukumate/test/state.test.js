@@ -15,7 +15,7 @@ _defaultTheme.timings.wakeDuration = 1500;
 _defaultTheme.timings.dndSleepTransitionSvg = null;
 _defaultTheme.timings.dndSleepTransitionDuration = 0;
 const _calicoTheme = themeLoader.loadTheme("calico");
-const { createTranslator } = require("../src/i18n");
+const { createTranslator } = require("../src/shared/i18n/i18n");
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

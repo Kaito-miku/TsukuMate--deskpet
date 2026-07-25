@@ -3,7 +3,7 @@
 const fs = require("fs");
 const path = require("path");
 const { pathToFileURL } = require("url");
-const { DEFAULT_THEME_ID } = require("./default-theme");
+const { DEFAULT_THEME_ID } = require("./shared/theme/default-theme");
 const createThemeContext = require("./theme-context");
 const {
   resolveExternalAssetsDir: _resolveExternalAssetsDir,
@@ -35,13 +35,13 @@ const {
   buildCapabilities: _buildCapabilities,
   collectRequiredAssetFiles: _collectRequiredAssetFiles,
   basenameOnly: _basenameOnly,
-} = require("./theme-schema");
+} = require("./shared/theme/theme-schema");
 const {
   resolveVariant: _resolveVariant,
   applyVariantPatch: _applyVariantPatch,
   buildBaseBindingMetadata: _buildBaseBindingMetadata,
   applyUserOverridesPatch: _applyUserOverridesPatch,
-} = require("./theme-variants");
+} = require("./shared/theme/theme-variants");
 
 // ── State ──
 

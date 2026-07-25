@@ -11,7 +11,7 @@ import { LAppSubdelegate } from "../../CubismSdkForWeb-5-r.5/Samples/TypeScript/
 import { LAppModel } from "../../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lappmodel";
 import { LAppPal } from "../../CubismSdkForWeb-5-r.5/Samples/TypeScript/Demo/src/lapppal";
 import { SoullinkRuntime, emotionVADPresets, motionStylePresets } from "@soullink-emotion/engine";
-import { computeWorkspaceCamera } from "./live2d-workspace-camera";
+import { computeWorkspaceCamera } from "./shared/live2d/live2d-workspace-camera";
 
 const stage = document.getElementById("live2d-stage") as HTMLElement;
 const container = document.getElementById("pet-container") as HTMLElement;

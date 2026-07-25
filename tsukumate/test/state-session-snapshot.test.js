@@ -9,7 +9,7 @@ const {
   buildSessionSnapshot,
   getActiveSessionAliasKeys,
   sessionSnapshotSignature,
-} = require("../src/state-session-snapshot");
+} = require("../src/shared/sessions/state-session-snapshot");
 
 const STATE_PRIORITY = {
   error: 8,

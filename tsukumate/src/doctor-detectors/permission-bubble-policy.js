@@ -1,6 +1,6 @@
 "use strict";
 
-const { getBubblePolicy } = require("../bubble-policy");
+const { getBubblePolicy } = require("../shared/ui/bubble-policy");
 
 function checkPermissionBubblePolicy(options = {}) {
   const prefs = options.prefs || {};

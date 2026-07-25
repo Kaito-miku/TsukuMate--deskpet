@@ -3,7 +3,7 @@ const assert = require("node:assert");
 const path = require("path");
 const childProcess = require("child_process");
 const themeLoader = require("../src/theme-loader");
-const { createTranslator } = require("../src/i18n");
+const { createTranslator } = require("../src/shared/i18n/i18n");
 
 themeLoader.init(path.join(__dirname, "..", "src"));
 const defaultTheme = themeLoader.loadTheme("cloudling");

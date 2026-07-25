@@ -11,7 +11,7 @@ const {
   isPlainObject,
   getStateFiles,
   buildCapabilities,
-} = require("./theme-schema");
+} = require("./shared/theme/theme-schema");
 
 function fileUrl(absPath) {
   try { return pathToFileURL(absPath).href; } catch { return null; }

@@ -6,7 +6,7 @@ const fs = require("fs");
 const path = require("path");
 
 const SRC_DIR = path.join(__dirname, "..", "src");
-const { SUPPORTED_LANGS } = require("../src/i18n");
+const { SUPPORTED_LANGS } = require("../src/shared/i18n/i18n");
 
 // ── settings-tab-remote-ssh.js script integrity ──
 

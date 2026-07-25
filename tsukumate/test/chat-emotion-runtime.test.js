@@ -2,8 +2,8 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createEmotionRuntime, normalizeMoodDurationMinutes } = require("../src/chat-emotion-runtime");
-const { inferEmotionBlendFromText, inferMoodActionFromText, parseEmotionDecisionResponse } = require("../src/chat-emotion-classifier");
+const { createEmotionRuntime, normalizeMoodDurationMinutes } = require("../src/shared/emotion/chat-emotion-runtime");
+const { inferEmotionBlendFromText, inferMoodActionFromText, parseEmotionDecisionResponse } = require("../src/shared/emotion/chat-emotion-classifier");
 
 function fixture(minutes = 15) {
   let time = 1_000_000;

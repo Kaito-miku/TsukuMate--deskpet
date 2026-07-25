@@ -10,7 +10,7 @@ const read = (name) => fs.readFileSync(path.join(SRC, name), "utf8");
 
 test("about page omits the legacy logo/tagline and links to the upstream project", () => {
   const about = read("settings-tab-about.js");
-  const metadata = read("product-metadata.js");
+  const metadata = read("shared/product-metadata.js");
   assert.ok(!about.includes('className = "about-logo-wrap"'));
   assert.ok(!about.includes('t("aboutTagline")'));
   assert.ok(about.includes("safe.upstreamRepoUrl"));

@@ -2,7 +2,8 @@
 
 const { BrowserWindow, nativeTheme } = require("electron");
 const path = require("path");
-const { clampTextScale, scaleWidth, scaleHeight, applyZoomToWindow } = require("./text-scale");
+const { PRELOAD_ROOT } = require("./main/paths");
+const { clampTextScale, scaleWidth, scaleHeight, applyZoomToWindow } = require("./shared/utils/text-scale");
 
 const DEFAULT_WIDTH = 480;
 const DEFAULT_HEIGHT = 600;
@@ -187,7 +188,7 @@ module.exports = function initDashboard(ctx) {
       title: typeof ctx.t === "function" ? ctx.t("dashboardWindowTitle") : "Sessions",
       backgroundColor: getDashboardBackgroundColor(),
       webPreferences: {
-        preload: path.join(__dirname, "preload-dashboard.js"),
+        preload: path.join(PRELOAD_ROOT, "preload-dashboard.js"),
         nodeIntegration: false,
         contextIsolation: true,
       },

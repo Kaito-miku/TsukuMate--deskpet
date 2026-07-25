@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const { i18n, SUPPORTED_LANGS } = require("../src/i18n");
+const { i18n, SUPPORTED_LANGS } = require("../src/shared/i18n/i18n");
 
 const ROOT = path.join(__dirname, "..");
 

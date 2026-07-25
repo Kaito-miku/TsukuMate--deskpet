@@ -7,17 +7,17 @@ const {
   createStatePriorityConstants,
   getStatePriority,
   resolveDisplayStateFromSessions,
-} = require("./state-priority");
+} = require("./shared/sessions/state-priority");
 const {
   buildStateBindings,
   hasOwnVisualFiles: hasOwnVisualFilesWithBindings,
   resolveVisualBinding: resolveVisualBindingWithBindings,
   getSvgOverride: getSvgOverrideWithDeps,
-} = require("./state-visual-resolver");
+} = require("./shared/sessions/state-visual-resolver");
 const {
   getStaleSessionDecision,
   isWorkingLikeState,
-} = require("./state-stale-cleanup");
+} = require("./shared/sessions/state-stale-cleanup");
 const {
   createHitboxRuntime,
   resolveHitBoxForSvg: resolveHitBoxForSvgWithRuntime,
@@ -25,7 +25,7 @@ const {
 const {
   pickDisplayHint: pickDisplayHintWithMap,
   pushRecentEvent,
-} = require("./state-session-events");
+} = require("./shared/sessions/state-session-events");
 const {
   deriveSessionBadge,
   normalizeTitle,
@@ -33,11 +33,11 @@ const {
   buildSessionSnapshot: buildSessionSnapshotFromSessions,
   getActiveSessionAliasKeys: getActiveSessionAliasKeysFromSessions,
   sessionSnapshotSignature,
-} = require("./state-session-snapshot");
+} = require("./shared/sessions/state-session-snapshot");
 const { getAgentIconUrl } = require("./state-agent-icons");
 const { normalizeTranscriptPath } = require("./transcript-path");
-const { normalizeEmotionBlend } = require("./chat-emotion-classifier");
-const { createEmotionRuntime } = require("./chat-emotion-runtime");
+const { normalizeEmotionBlend } = require("./shared/emotion/chat-emotion-classifier");
+const { createEmotionRuntime } = require("./shared/emotion/chat-emotion-runtime");
 const {
   readTranscriptTailEntries: readClaudeTranscriptTailEntries,
   extractLastAssistantTextFromEntries: extractLastClaudeAssistantTextFromEntries,

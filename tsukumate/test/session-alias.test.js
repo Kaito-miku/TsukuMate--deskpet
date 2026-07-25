@@ -11,7 +11,7 @@ const {
   pruneExpiredSessionAliases,
   sanitizeSessionAlias,
   sessionAliasKey,
-} = require("../src/session-alias");
+} = require("../src/shared/sessions/session-alias");
 
 describe("session alias helpers", () => {
   it("routes null and local host through the same alias key", () => {

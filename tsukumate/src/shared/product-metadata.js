@@ -1,6 +1,6 @@
 "use strict";
 
-const pkg = require("../package.json");
+const pkg = require("../../package.json");
 
 const DEFAULT_UPSTREAM_LABEL = "MiniCPM-Desk-Pet";
 const DEFAULT_UPSTREAM_URL = "https://github.com/OpenBMB/" + DEFAULT_UPSTREAM_LABEL;

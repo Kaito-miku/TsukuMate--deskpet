@@ -19,8 +19,8 @@
 const fs = require("fs");
 const path = require("path");
 const { isPlainObject } = require("./theme-loader");
-const { normalizeShortcuts, getDefaultShortcuts } = require("./shortcut-actions");
-const { isValidDisplaySnapshot } = require("./work-area");
+const { normalizeShortcuts, getDefaultShortcuts } = require("./shared/settings/shortcut-actions");
+const { isValidDisplaySnapshot } = require("./shared/utils/work-area");
 const { normalizeRemoteSsh, getDefaults: getRemoteSshDefaults } = require("./remote-ssh-profile");
 const {
   cloneDefaultTelegramApproval,
@@ -35,15 +35,15 @@ const {
   UPDATE_DEFAULT_SECONDS,
   PERMISSION_DEFAULT_SECONDS,
   MAX_AUTO_CLOSE_SECONDS,
-} = require("./bubble-policy");
-const { normalizeSessionAliases } = require("./session-alias");
+} = require("./shared/ui/bubble-policy");
+const { normalizeSessionAliases } = require("./shared/sessions/session-alias");
 const {
   TEXT_SCALE_MIN,
   TEXT_SCALE_MAX,
   TEXT_SCALE_DEFAULT,
   normalizeTextScaleByDisplay,
-} = require("./text-scale");
-const { DEFAULT_THEME_ID } = require("./default-theme");
+} = require("./shared/utils/text-scale");
+const { DEFAULT_THEME_ID } = require("./shared/theme/default-theme");
 
 const CURRENT_VERSION = 11;
 const DEFAULT_INTEGRATION_INSTALLED_IDS = Object.freeze(["claude-code", "codex"]);

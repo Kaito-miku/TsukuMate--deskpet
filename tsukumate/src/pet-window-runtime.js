@@ -7,20 +7,20 @@ const {
   findMatchingDisplay,
   isPointInAnyWorkArea,
   SYNTHETIC_WORK_AREA,
-} = require("./work-area");
+} = require("./shared/utils/work-area");
 const {
   getThemeMarginBox,
   computeStableVisibleContentMargins,
   getLooseDragMargins,
   getRestClampMargins,
-} = require("./visible-margins");
+} = require("./shared/utils/visible-margins");
 const {
   createDragSnapshot,
   computeAnchoredDragBounds,
   computeFinalDragBounds: computeFinalDragBoundsRaw,
   needsFinalClampAdjustment: needsFinalClampAdjustmentRaw,
   materializeVirtualBounds: materializeVirtualBoundsRaw,
-} = require("./drag-position");
+} = require("./shared/utils/drag-position");
 
 const noop = () => {};
 const DEFAULT_CRASH_RELOAD_LIMIT = 5;

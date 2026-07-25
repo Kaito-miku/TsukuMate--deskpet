@@ -6,7 +6,7 @@ const {
   getDefaultShortcuts,
   parseAccelerator,
   isDangerousAccelerator,
-} = require("./shortcut-actions");
+} = require("./shared/settings/shortcut-actions");
 
 function getShortcutSnapshot(snapshot) {
   const defaults = getDefaultShortcuts();

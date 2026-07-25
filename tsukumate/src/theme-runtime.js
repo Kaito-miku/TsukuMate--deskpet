@@ -2,7 +2,7 @@
 
 const defaultFs = require("fs");
 const defaultPath = require("path");
-const { DEFAULT_THEME_ID } = require("./default-theme");
+const { DEFAULT_THEME_ID } = require("./shared/theme/default-theme");
 
 // Design invariant: this closure is the only active-theme owner. theme-loader
 // stays a stateless loader; legacy active facades must delegate here.

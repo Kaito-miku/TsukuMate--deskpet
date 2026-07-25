@@ -33,20 +33,21 @@ const fs = require("fs");
 const http = require("http");
 const os = require("os");
 const path = require("path");
+const { PRELOAD_ROOT } = require("./main/paths");
 const { validateConfig: validateApiConfig, requestJson: requestOpenAi, makeChatBody } = require("./openai-compatible-transport");
 const { runAppleMusicCommand } = require("./apple-music-control");
 const { buildTimeContext } = require("./time-context");
 const { normalizeProfiles, selectActiveProfile } = require("./persona-profiles");
 const { createScreenCaptureService } = require("./screen-capture");
-const { parseHistoryLines, paginateHistoryLines } = require("./chat-history-page");
+const { parseHistoryLines, paginateHistoryLines } = require("./shared/chat/chat-history-page");
 const {
   EMOTIONS,
   normalizeEmotionBlend,
   parseEmotionDecisionResponse,
   inferEmotionBlendFromText,
   inferMoodActionFromText,
-} = require("./chat-emotion-classifier");
-const { normalizeMoodDurationMinutes } = require("./chat-emotion-runtime");
+} = require("./shared/emotion/chat-emotion-classifier");
+const { normalizeMoodDurationMinutes } = require("./shared/emotion/chat-emotion-runtime");
 
 const isMac = process.platform === "darwin";
 const isWin = process.platform === "win32";
@@ -864,7 +865,7 @@ module.exports = function initMinicpmChat(ctx) {
   // sidecar errors (raised with a `minicpmI18nKey` annotation) and to
   // provide the chat renderer with its initial dictionary + classifier
   // few-shots over IPC.
-  const minicpmI18n = require("./minicpm-i18n");
+  const minicpmI18n = require("./shared/i18n/minicpm-i18n");
   const getLang = () => {
     try {
       if (ctx && typeof ctx.getLang === "function") {
@@ -2181,7 +2182,7 @@ module.exports = function initMinicpmChat(ctx) {
       ...(isLinux ? { type: LINUX_WINDOW_TYPE } : {}),
       ...(isMac ? { type: "panel" } : {}),
       webPreferences: {
-        preload: path.join(__dirname, "preload-minicpm-chat.js"),
+        preload: path.join(PRELOAD_ROOT, "preload-minicpm-chat.js"),
         contextIsolation: true,
         nodeIntegration: false,
       },
@@ -2793,7 +2794,7 @@ module.exports = function initMinicpmChat(ctx) {
       ...getWorkspaceBounds(), minWidth: 900, minHeight: 620, show: false,
       title: "TsukuMate 对话", backgroundColor: "#101115", autoHideMenuBar: true,
       webPreferences: {
-        preload: path.join(__dirname, "preload-chat-workspace.js"),
+        preload: path.join(PRELOAD_ROOT, "preload-chat-workspace.js"),
         contextIsolation: true, nodeIntegration: false, sandbox: true,
         additionalArguments: [`--theme-config=${JSON.stringify(themeConfig)}`],
       },

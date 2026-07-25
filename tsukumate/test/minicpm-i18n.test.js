@@ -3,7 +3,7 @@
 const { describe, it } = require("node:test");
 const assert = require("node:assert");
 
-const minicpm = require("../src/minicpm-i18n");
+const minicpm = require("../src/shared/i18n/minicpm-i18n");
 
 const SUPPORTED = minicpm.SUPPORTED_LANGS;
 
@@ -11,7 +11,7 @@ function placeholders(value) {
   return Array.from(String(value).matchAll(/\{[^}]+\}/g), (m) => m[0]).sort();
 }
 
-describe("minicpm-i18n", () => {
+describe("shared/i18n/minicpm-i18n", () => {
   it("declares the 5 supported UI languages", () => {
     assert.deepStrictEqual(SUPPORTED, ["en", "zh", "zh-TW", "ko", "ja"]);
   });

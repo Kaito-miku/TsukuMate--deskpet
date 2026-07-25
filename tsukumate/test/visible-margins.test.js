@@ -3,7 +3,7 @@ const assert = require("node:assert");
 const path = require("path");
 
 const themeLoader = require("../src/theme-loader");
-const hitGeometry = require("../src/hit-geometry");
+const hitGeometry = require("../src/shared/utils/hit-geometry");
 const {
   getThemeMarginBox,
   computeThemeAnchorRect,
@@ -11,7 +11,7 @@ const {
   computeStableVisibleContentMargins,
   getLooseDragMargins,
   getRestClampMargins,
-} = require("../src/visible-margins");
+} = require("../src/shared/utils/visible-margins");
 
 themeLoader.init(path.join(__dirname, "..", "src"));
 

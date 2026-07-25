@@ -4,8 +4,8 @@ const defaultFs = require("fs");
 const defaultPath = require("path");
 const { detectAgentInstallations: defaultDetectAgentInstallations } = require("./agent-installation-detector");
 const settingsThemeImporter = require("./settings-theme-importer");
-const productMetadata = require("./product-metadata");
-const { DEFAULT_THEME_ID } = require("./default-theme");
+const productMetadata = require("./shared/product-metadata");
+const { DEFAULT_THEME_ID } = require("./shared/theme/default-theme");
 
 const SOUND_OVERRIDE_ASSET_EXTS = new Set([".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac"]);
 const SOUND_OVERRIDE_DIALOG_STRINGS = {
