@@ -109,3 +109,21 @@ test("workspace keeps lifecycle state separate from Cubism diagnostic logs", () 
   assert.match(renderer, /let viewState = \{ content: "chat", drawer: null/);
   assert.match(renderer, /renderMessages\(\)/);
 });
+
+test("workspace navigation and Live2D columns stay fixed across section switches", () => {
+  const css = read("renderer/chat-workspace/chat-workspace-learning.css");
+  assert.match(css, /--drawer-column:0px/);
+  assert.match(css, /--live2d-column:340px/);
+  assert.match(css, /\.workspace\.drawer-open\{--drawer-column:250px\}/);
+  assert.match(css, /\.tool-rail\{grid-column:1;grid-row:1;position:relative;z-index:30/);
+  assert.match(css, /\.live2d-pane\{grid-column:4;grid-row:1;width:var\(--live2d-column\)/);
+  assert.match(css, /\.drawer\[aria-hidden="true"\]\{visibility:hidden/);
+});
+
+test("workspace Live2D framing caches neutral model-space bounds", () => {
+  const renderer = read("renderer/shared/live2d/live2d-cubism5-renderer.ts");
+  assert.match(renderer, /let rawBoundsCache: any = null/);
+  assert.match(renderer, /if \(!rawBoundsCache\)/);
+  assert.match(renderer, /projection\.transformY\(rawBoundsCache\.minY\)/);
+  assert.doesNotMatch(renderer, /boundsCache\.width !== width/);
+});

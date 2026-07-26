@@ -23616,7 +23616,7 @@
           model.loadAssets(modelDir, fileName);
           manager._models.push(model);
           if (config.workspaceFraming === "head-to-knees") {
-            let boundsCache = null;
+            let rawBoundsCache = null;
             manager.onUpdate = function() {
               const gl = this._subdelegate.getGl();
               CubismWebGLOffscreenManager.getInstance().beginFrameProcess(gl);
@@ -23628,15 +23628,15 @@
                   activeModel.getModelMatrix().setWidth(2);
                   projection.scale(1, width / height);
                 } else projection.scale(height / width, 1);
-                if (!boundsCache || boundsCache.width !== width || boundsCache.height !== height) {
+                if (!rawBoundsCache) {
                   const coreModel = activeModel.getModel();
                   const modelMatrix = activeModel.getModelMatrix();
                   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
                   for (let drawable = 0; drawable < coreModel.getDrawableCount(); drawable++) {
                     const positions = coreModel.getDrawableVertexPositions(drawable);
                     for (let i = 0; i + 1 < positions.length; i += 2) {
-                      const px = projection.transformX(modelMatrix.transformX(positions[i]));
-                      const py = projection.transformY(modelMatrix.transformY(positions[i + 1]));
+                      const px = modelMatrix.transformX(positions[i]);
+                      const py = modelMatrix.transformY(positions[i + 1]);
                       if (Number.isFinite(px) && Number.isFinite(py)) {
                         minX = Math.min(minX, px);
                         maxX = Math.max(maxX, px);
@@ -23645,10 +23645,16 @@
                       }
                     }
                   }
-                  boundsCache = { width, height, minX, maxX, minY, maxY };
+                  rawBoundsCache = { minX, maxX, minY, maxY };
                 }
-                if (Number.isFinite(boundsCache.minX) && boundsCache.maxX > boundsCache.minX && boundsCache.maxY > boundsCache.minY) {
-                  const camera = (0, import_live2d_workspace_camera.computeWorkspaceCamera)(boundsCache, height, currentConfig || {});
+                if (Number.isFinite(rawBoundsCache.minX) && rawBoundsCache.maxX > rawBoundsCache.minX && rawBoundsCache.maxY > rawBoundsCache.minY) {
+                  const projectedBounds = {
+                    minX: projection.transformX(rawBoundsCache.minX),
+                    maxX: projection.transformX(rawBoundsCache.maxX),
+                    minY: projection.transformY(rawBoundsCache.minY),
+                    maxY: projection.transformY(rawBoundsCache.maxY)
+                  };
+                  const camera = (0, import_live2d_workspace_camera.computeWorkspaceCamera)(projectedBounds, height, currentConfig || {});
                   if (camera) {
                     projection.scaleRelative(camera.fit, camera.fit);
                     projection.translateRelative(camera.translateX, camera.translateY);

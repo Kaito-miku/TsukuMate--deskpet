@@ -1,1 +1,26 @@
 .title-block{min-width:0}.title-line{display:flex;align-items:center;gap:7px}.title-line h1{max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.title-edit{padding:2px 5px;border:0;background:transparent;color:var(--muted);cursor:pointer}.title-line input{width:min(360px,34vw);padding:6px 9px;border:1px solid rgba(139,131,255,.5);border-radius:8px;background:#101116;color:#fff;outline:none}.header-actions{display:flex;gap:8px;margin-left:auto}.header-actions button{padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#242630;color:#d8d9df;cursor:pointer}.header-actions button:disabled,.composer button:disabled{opacity:.45;cursor:not-allowed}.connection-dot{margin-left:2px}.date-item strong,.date-item small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.date-item small{margin-top:4px;color:#737887;font-size:10px}.message{white-space:normal}.message-text{white-space:pre-wrap}.message.assistant{max-width:92%}
+
+/* Keep the navigation and Live2D viewport geometrically stable while page
+   content and drawers switch. A canvas resize used to change the character
+   framing, while a shrinking first column could clip the tool rail. */
+.workspace{
+  --tool-column:68px;
+  --drawer-column:0px;
+  --live2d-column:340px;
+  position:relative;
+  grid-template-columns:var(--tool-column) var(--drawer-column) minmax(0,1fr) var(--live2d-column)!important;
+  transition:none!important;
+}
+.workspace.drawer-open{--drawer-column:250px}
+.tool-rail{grid-column:1;grid-row:1;position:relative;z-index:30;min-width:var(--tool-column);height:100%;overflow:visible}
+.drawer{grid-column:2;grid-row:1;position:relative;z-index:20}
+.drawer[aria-hidden="true"]{visibility:hidden;pointer-events:none}
+.drawer[aria-hidden="false"]{visibility:visible}
+.content-pane{grid-column:3;grid-row:1;min-width:0;height:100%;overflow:hidden}
+.live2d-pane{grid-column:4;grid-row:1;width:var(--live2d-column);min-width:var(--live2d-column);height:100%;overflow:hidden;contain:layout paint}
+@media(max-width:1100px){
+  .workspace{--tool-column:60px;--live2d-column:300px}
+  .workspace.drawer-open{--drawer-column:0px}
+  .drawer{position:absolute;left:0;top:0;bottom:0;width:240px;box-shadow:18px 0 36px rgba(0,0,0,.35)}
+  .drawer header,.date-list{min-width:0;width:240px}
+}

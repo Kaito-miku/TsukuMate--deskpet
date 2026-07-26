@@ -171,7 +171,10 @@ async function configure(config: any) {
       // Fit the actual drawable bounds instead of guessing from the model's
       // canvas aspect ratio. The bottom 18% is intentionally outside the
       // default target frame, producing a stable head-to-knees composition.
-      let boundsCache: any = null;
+      // Cache neutral model-space bounds once. Re-reading drawable vertices
+      // after a drawer/resize captured whatever animated pose happened to be
+      // on screen and made the whole character jump vertically.
+      let rawBoundsCache: any = null;
       manager.onUpdate = function() {
         const gl = this._subdelegate.getGl();
         CubismWebGLOffscreenManager.getInstance().beginFrameProcess(gl);
@@ -183,25 +186,31 @@ async function configure(config: any) {
             activeModel.getModelMatrix().setWidth(2);
             projection.scale(1, width / height);
           } else projection.scale(height / width, 1);
-          if (!boundsCache || boundsCache.width !== width || boundsCache.height !== height) {
+          if (!rawBoundsCache) {
             const coreModel = activeModel.getModel();
             const modelMatrix = activeModel.getModelMatrix();
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
             for (let drawable = 0; drawable < coreModel.getDrawableCount(); drawable++) {
               const positions = coreModel.getDrawableVertexPositions(drawable);
               for (let i = 0; i + 1 < positions.length; i += 2) {
-                const px = projection.transformX(modelMatrix.transformX(positions[i]));
-                const py = projection.transformY(modelMatrix.transformY(positions[i + 1]));
+                const px = modelMatrix.transformX(positions[i]);
+                const py = modelMatrix.transformY(positions[i + 1]);
                 if (Number.isFinite(px) && Number.isFinite(py)) {
                   minX = Math.min(minX, px); maxX = Math.max(maxX, px);
                   minY = Math.min(minY, py); maxY = Math.max(maxY, py);
                 }
               }
             }
-            boundsCache = { width, height, minX, maxX, minY, maxY };
+            rawBoundsCache = { minX, maxX, minY, maxY };
           }
-          if (Number.isFinite(boundsCache.minX) && boundsCache.maxX > boundsCache.minX && boundsCache.maxY > boundsCache.minY) {
-            const camera = computeWorkspaceCamera(boundsCache, height, currentConfig || {});
+          if (Number.isFinite(rawBoundsCache.minX) && rawBoundsCache.maxX > rawBoundsCache.minX && rawBoundsCache.maxY > rawBoundsCache.minY) {
+            const projectedBounds = {
+              minX: projection.transformX(rawBoundsCache.minX),
+              maxX: projection.transformX(rawBoundsCache.maxX),
+              minY: projection.transformY(rawBoundsCache.minY),
+              maxY: projection.transformY(rawBoundsCache.maxY),
+            };
+            const camera = computeWorkspaceCamera(projectedBounds, height, currentConfig || {});
             if (camera) {
               projection.scaleRelative(camera.fit, camera.fit);
               projection.translateRelative(camera.translateX, camera.translateY);
