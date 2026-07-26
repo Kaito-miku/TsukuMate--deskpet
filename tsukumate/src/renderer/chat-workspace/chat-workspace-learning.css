@@ -38,8 +38,10 @@
 .conversation-nav-thumb{position:absolute;left:1px;right:1px;top:0;min-height:28px;border-radius:999px;background:rgba(213,210,255,.56);cursor:grab;transition:background .18s ease}
 .conversation-navigator.is-dragging .conversation-nav-thumb{cursor:grabbing;background:#c4bfff}
 .conversation-nav-markers{position:absolute;inset:0;pointer-events:none}
-.conversation-nav-marker{position:absolute;left:50%;z-index:2;width:6px;height:6px;margin:0;padding:0;transform:translate(-50%,-50%);border:1px solid rgba(255,255,255,.72);border-radius:50%;background:#8b83ff;box-shadow:0 0 0 1px rgba(15,15,21,.65);cursor:pointer;pointer-events:auto;opacity:.8;transition:transform .15s ease,opacity .15s ease}
-.conversation-nav-marker:hover,.conversation-nav-marker:focus-visible{transform:translate(-50%,-50%) scale(1.55);opacity:1;outline:none}
+/* User-message waypoints use the same quiet, vertical-pill language as
+   Google AI Studio: discoverable without turning the rail into dotted noise. */
+.conversation-nav-marker{position:absolute;left:50%;z-index:2;width:4px;height:13px;margin:0;padding:0;transform:translate(-50%,-50%);border:0;border-radius:999px;background:rgba(177,170,255,.76);box-shadow:0 0 0 3px rgba(13,14,19,.78),0 0 0 4px rgba(255,255,255,.06);cursor:pointer;pointer-events:auto;opacity:.68;transition:width .15s ease,height .15s ease,opacity .15s ease,background .15s ease,box-shadow .15s ease}
+.conversation-nav-marker:hover,.conversation-nav-marker:focus-visible{width:7px;height:19px;opacity:1;outline:none;background:#aea6ff;box-shadow:0 0 0 3px rgba(18,19,26,.9),0 0 0 4px rgba(174,166,255,.32),0 2px 9px rgba(0,0,0,.35)}
 .live2d-feedback{position:absolute;z-index:5;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:28px;text-align:center;color:#d6d3e8;background:rgba(18,19,25,.46);backdrop-filter:blur(2px);font-size:13px}
 .live2d-feedback button{padding:7px 12px;border:1px solid rgba(210,206,255,.35);border-radius:999px;background:rgba(139,131,255,.25);color:#fff;cursor:pointer}
 .diary-empty-state{display:flex;flex:1;align-items:center;justify-content:center;min-height:0;color:#8f94a5;font-size:15px}
