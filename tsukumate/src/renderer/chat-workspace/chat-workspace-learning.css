@@ -18,9 +18,32 @@
 .drawer[aria-hidden="false"]{visibility:visible}
 .content-pane{grid-column:3;grid-row:1;min-width:0;height:100%;overflow:hidden}
 .live2d-pane{grid-column:4;grid-row:1;width:var(--live2d-column);min-width:var(--live2d-column);height:100%;overflow:hidden;contain:layout paint}
+
+/* Conversation navigation stays inside the reading surface rather than
+   becoming another full-width control above the composer. */
+.chat-reading-area{position:relative;display:flex;flex:1;min-height:0}
+.chat-reading-area .chat-view{width:100%}
+.jump-bottom{position:absolute;z-index:8;right:34px;bottom:18px;width:auto!important;padding:8px 13px!important;border:1px solid rgba(225,222,255,.2)!important;border-radius:999px!important;background:rgba(35,35,49,.82)!important;box-shadow:0 8px 22px rgba(0,0,0,.28);backdrop-filter:blur(14px);color:#f0efff!important;font-size:12px;cursor:pointer;transition:opacity .18s ease,transform .18s ease}
+.jump-bottom:hover{background:rgba(91,82,185,.85)!important;transform:translateY(-1px)}
+.conversation-navigator{position:absolute;z-index:7;top:18px;right:9px;bottom:17px;display:flex;align-items:stretch;padding:0 4px;opacity:.6;transition:opacity .18s ease}
+.conversation-navigator:hover,.conversation-navigator.is-active,.conversation-navigator.is-dragging{opacity:1}
+.conversation-nav-track{position:relative;width:8px;min-height:50px;border-radius:999px;background:rgba(255,255,255,.1);cursor:pointer;outline:none;transition:width .18s ease,background .18s ease,box-shadow .18s ease}
+.conversation-navigator:hover .conversation-nav-track,.conversation-navigator.is-active .conversation-nav-track,.conversation-navigator.is-dragging .conversation-nav-track{width:13px;background:rgba(255,255,255,.17);box-shadow:0 0 0 1px rgba(255,255,255,.06)}
+.conversation-nav-track:focus-visible{box-shadow:0 0 0 2px rgba(139,131,255,.82)}
+.conversation-nav-thumb{position:absolute;left:1px;right:1px;top:0;min-height:28px;border-radius:999px;background:rgba(213,210,255,.56);cursor:grab;transition:background .18s ease}
+.conversation-navigator.is-dragging .conversation-nav-thumb{cursor:grabbing;background:#c4bfff}
+.conversation-nav-markers{position:absolute;inset:0;pointer-events:none}
+.conversation-nav-marker{position:absolute;left:50%;z-index:2;width:6px;height:6px;margin:0;padding:0;transform:translate(-50%,-50%);border:1px solid rgba(255,255,255,.72);border-radius:50%;background:#8b83ff;box-shadow:0 0 0 1px rgba(15,15,21,.65);cursor:pointer;pointer-events:auto;opacity:.8;transition:transform .15s ease,opacity .15s ease}
+.conversation-nav-marker:hover,.conversation-nav-marker:focus-visible{transform:translate(-50%,-50%) scale(1.55);opacity:1;outline:none}
+.live2d-feedback{position:absolute;z-index:5;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:28px;text-align:center;color:#d6d3e8;background:rgba(18,19,25,.46);backdrop-filter:blur(2px);font-size:13px}
+.live2d-feedback button{padding:7px 12px;border:1px solid rgba(210,206,255,.35);border-radius:999px;background:rgba(139,131,255,.25);color:#fff;cursor:pointer}
+.diary-empty-state{display:flex;flex:1;align-items:center;justify-content:center;min-height:0;color:#8f94a5;font-size:15px}
+.diary-view:has(.diary-empty-state:not([hidden])){align-items:stretch}
 @media(max-width:1100px){
   .workspace{--tool-column:60px;--live2d-column:300px}
   .workspace.drawer-open{--drawer-column:0px}
   .drawer{position:absolute;left:0;top:0;bottom:0;width:240px;box-shadow:18px 0 36px rgba(0,0,0,.35)}
   .drawer header,.date-list{min-width:0;width:240px}
+  .conversation-navigator{right:5px}
+  .jump-bottom{right:28px}
 }

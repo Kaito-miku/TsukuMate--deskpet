@@ -10,22 +10,25 @@ const read = (name) => fs.readFileSync(path.join(SRC, name), "utf8");
 const { paginateHistoryLines } = require("../../src/shared/chat/chat-history-page");
 const { computeWorkspaceCamera } = require("../../src/shared/live2d/live2d-workspace-camera");
 
-test("chat workspace ships a three-column chat/history/diary/Live2D shell", () => {
+test("chat workspace ships a three-column conversation/diary/Live2D shell", () => {
   const html = read("renderer/chat-workspace/chat-workspace.html");
   const css = read("renderer/chat-workspace/chat-workspace.css");
   assert.match(html, /class="tool-rail"/);
-  assert.match(html, /id="history-tool"/);
   assert.match(html, /id="diary-tool"/);
   assert.match(html, /id="chat-tool"/);
+  assert.doesNotMatch(html, /id="history-tool"/);
+  assert.match(html, /id="conversation-navigator"/);
+  assert.match(html, /id="diary-empty-state"/);
   assert.match(html, /id="live2d-stage"/);
   assert.match(css, /grid-template-columns:68px 0 minmax\(460px,1fr\) minmax\(280px,34%\)/);
   assert.match(css, /\.workspace\.drawer-open/);
 });
 
-test("workspace has a permanent chat return action and a dedicated Live2D camera fit", () => {
+test("workspace has a conversation-history action and a dedicated Live2D camera fit", () => {
   const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
   const chat = read("main/chat/minicpm-chat.js");
-  assert.match(renderer, /chat-tool.*returnToChat/);
+  assert.match(renderer, /chat-tool.*showConversationDrawer/);
+  assert.match(renderer, /showDiaryDrawer\([\s\S]*selectedDiary = null/);
   assert.match(chat, /workspaceFraming:\s*"head-to-knees"/);
   assert.match(read("renderer/chat-workspace/chat-workspace-screen.css"), /\[hidden\]\s*\{\s*display:\s*none\s*!important/);
 });
@@ -108,6 +111,20 @@ test("workspace keeps lifecycle state separate from Cubism diagnostic logs", () 
   assert.match(preload, /lastLive2dStatus\.phase/);
   assert.match(renderer, /let viewState = \{ content: "chat", drawer: null/);
   assert.match(renderer, /renderMessages\(\)/);
+  assert.match(renderer, /live2dHasVisibleFrame/);
+  assert.match(renderer, /detectLive2dFrame/);
+});
+
+test("workspace renders an accessible scroll navigator and floating latest-message control", () => {
+  const html = read("renderer/chat-workspace/chat-workspace.html");
+  const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
+  const css = read("renderer/chat-workspace/chat-workspace-learning.css");
+  assert.match(html, /aria-label="对话阅读导航"/);
+  assert.match(renderer, /conversation-nav-marker/);
+  assert.match(renderer, /updateConversationNavigator/);
+  assert.match(renderer, /scrollNavigatorTo/);
+  assert.match(css, /border-radius:999px!important/);
+  assert.match(css, /\.conversation-nav-track/);
 });
 
 test("workspace navigation and Live2D columns stay fixed across section switches", () => {
