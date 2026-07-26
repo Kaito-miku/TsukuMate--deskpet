@@ -25,7 +25,7 @@
 // has no torch / transformers / peft dependency and ships as a single
 // binary per platform alongside llama-server.
 
-const { BrowserWindow, ipcMain, screen, shell, Menu, app, safeStorage, desktopCapturer, systemPreferences } = require("electron");
+const { BrowserWindow, ipcMain, screen, shell, Menu, app, safeStorage, desktopCapturer, systemPreferences, dialog, nativeImage } = require("electron");
 const { spawn, execFile } = require("child_process");
 const { promisify } = require("util");
 const execFileAsync = promisify(execFile);
@@ -39,7 +39,11 @@ const { runAppleMusicCommand } = require("../integrations/apple-music/apple-musi
 const { buildTimeContext } = require("./time-context");
 const { normalizeProfiles, selectActiveProfile } = require("./persona-profiles");
 const { createScreenCaptureService } = require("./screen-capture");
-const { parseHistoryLines, paginateHistoryLines } = require("../../shared/chat/chat-history-page");
+const { paginateHistoryLines } = require("../../shared/chat/chat-history-page");
+const { parseRichStudyCards, studyCardMode, studyCardSystemPrompt } = require("../../shared/chat/rich-study-card");
+const { createConversationStore } = require("./conversation-store");
+const { createStudyAttachmentService } = require("./study-attachments");
+const { parseGeneratedTitle, buildTitlePrompt } = require("./conversation-title");
 const {
   EMOTIONS,
   normalizeEmotionBlend,
@@ -900,6 +904,7 @@ module.exports = function initMinicpmChat(ctx) {
     try { return path.join(app.getPath("userData"), "chat-history"); }
     catch { return path.join(os.tmpdir(), "minicpm-chat-history"); }
   })();
+  const conversationStore = createConversationStore(chatHistoryDir);
   const diaryDir = (() => {
     try { return path.join(app.getPath("userData"), "daily-diaries"); }
     catch { return path.join(os.tmpdir(), "minicpm-daily-diaries"); }
@@ -2706,9 +2711,23 @@ module.exports = function initMinicpmChat(ctx) {
 
   // ── Full chat workspace ───────────────────────────────────────────────
   const DATE_ID_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const initialConversation = conversationStore.list().find((item) => !item.legacy) || conversationStore.create();
+  let workspaceSession = {
+    conversation: initialConversation,
+    messages: conversationStore.readMessages(initialConversation.id),
+    generating: false,
+    requestId: null,
+  };
+  // The compact legacy bubble has its own transient renderer history. Rich
+  // cards and attachment bodies are deliberately never mirrored into it.
   let sharedSession = { date: localDay(), messages: [], generating: false, requestId: null };
   let sharedSessionController = null;
   let workspaceConnectionState = "configured";
+  let titleController = null;
+  const studyAttachments = createStudyAttachmentService({
+    dialog, shell, nativeImage, store: conversationStore,
+    getWindow: () => workspace && !workspace.isDestroyed() ? workspace : null,
+  });
 
   function readHistoryLines(day) {
     if (!DATE_ID_RE.test(String(day || ""))) return [];
@@ -2722,29 +2741,26 @@ module.exports = function initMinicpmChat(ctx) {
     return paginateHistoryLines(day, lines, before, requestedLimit);
   }
 
-  function readHistoryContext(day) {
-    const lines = readHistoryLines(day);
-    const start = Math.max(0, lines.length - 240);
-    return parseHistoryLines(day, lines.slice(start), start);
-  }
-
-  sharedSession.messages = readHistoryContext(sharedSession.date);
-
   function publicSharedSession() {
     return {
-      date: sharedSession.date,
-      generating: sharedSession.generating,
+      conversation: { ...workspaceSession.conversation, generating: workspaceSession.generating },
+      conversationId: workspaceSession.conversation.id,
+      date: workspaceSession.conversation.legacy ? workspaceSession.conversation.id.slice(7) : null,
+      generating: workspaceSession.generating,
       connectionState: workspaceConnectionState,
-      // Rendering starts with the latest page; the model still keeps the
-      // larger 240-message context and older display pages load on demand.
-      messages: sharedSession.messages.slice(-100).map((message) => ({ ...message })),
+      messages: workspaceSession.messages.map((message) => ({ ...message })),
     };
   }
 
   function broadcastSharedSession() {
     const snapshot = publicSharedSession();
     if (workspace && !workspace.isDestroyed()) workspace.webContents.send("chat-workspace:session", snapshot);
-    if (bubble && !bubble.isDestroyed()) bubble.webContents.send("minicpm:shared-session", snapshot);
+    if (bubble && !bubble.isDestroyed()) {
+      bubble.webContents.send("minicpm:shared-session", {
+        ...snapshot,
+        messages: snapshot.messages.map(({ richCards, attachments, ...message }) => message),
+      });
+    }
   }
 
   function listDatedFiles(directory, extension) {
@@ -2808,7 +2824,7 @@ module.exports = function initMinicpmChat(ctx) {
       try { workspace.webContents.send("chat-emotion", ctx.getChatEmotion && ctx.getChatEmotion()); } catch {}
     });
     workspace.on("closed", () => {
-      try { if (workspaceSenderId != null) discardScreenCapturesForSender(workspaceSenderId); } catch {}
+      try { if (workspaceSenderId != null) studyAttachments.discardForSender(workspaceSenderId); } catch {}
       workspaceSenderId = null;
       workspace = null;
       if (!shuttingDown && !workspacePetWasHidden && typeof ctx.setPetHidden === "function") ctx.setPetHidden(false);
@@ -2834,24 +2850,69 @@ module.exports = function initMinicpmChat(ctx) {
     return true;
   }
 
-  async function sendWorkspaceMessage(text, screenCaptureToken, senderId) {
-    const clean = String(text || "").trim().slice(0, 16000);
-    if (!clean) return { ok: false, error: "消息不能为空" };
-    if (sharedSession.generating) return { ok: false, error: "上一条回复仍在生成" };
-    const screenImageDataUrl = screenCaptureToken ? takeScreenCapture(screenCaptureToken, senderId) : null;
-    if (screenCaptureToken && !screenImageDataUrl) return { ok: false, error: tr("chatScreenCaptureExpired") };
-    const user = { id: `user-${Date.now()}`, role: "user", content: clean, timestamp: new Date().toISOString() };
-    const assistant = { id: `assistant-${Date.now()}`, role: "assistant", content: "", timestamp: new Date().toISOString(), streaming: true };
-    sharedSession.messages.push(user, assistant);
-    if (sharedSession.messages.length > 240) sharedSession.messages.splice(0, sharedSession.messages.length - 240);
-    sharedSession.generating = true;
-    appendChatHistory({ ...user, date: sharedSession.date });
-    broadcastSharedSession();
-    const controller = new AbortController(); sharedSessionController = controller;
-    void classifyChatEmotion(sharedSession.messages, user.id).catch(() => {});
+  function messagesAfterBoundary(messages) {
+    const list = Array.isArray(messages) ? messages : [];
+    let start = 0;
+    for (let index = list.length - 1; index >= 0; index -= 1) {
+      if (list[index] && list[index].role === "context-boundary") { start = index + 1; break; }
+    }
+    const context = list.slice(start).filter((message) => message && ["user", "assistant"].includes(message.role) && !message.streaming).slice(-240);
+    if (context[0] && context[0].role === "assistant") context.shift();
+    return context;
+  }
+
+  function maybeGenerateConversationTitle(user, attachments) {
+    const conversationId = workspaceSession.conversation.id;
+    const current = conversationStore.readMeta(conversationId);
+    if (!current || current.titleSource !== "placeholder" || current.titleGenerationAttempts >= 2) return;
+    conversationStore.incrementTitleAttempt(conversationId);
+    if (titleController) titleController.abort();
+    const controller = new AbortController(); titleController = controller;
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const firstUser = workspaceSession.messages.find((message) => message && message.role === "user") || user;
+    const titleAttachments = Array.isArray(firstUser.attachments) ? firstUser.attachments : attachments;
     setImmediate(async () => {
       try {
-        await remoteCompletion({ messages: sharedSession.messages.filter((m) => !m.streaming).map(({ role, content }) => ({ role, content })), screenImageDataUrl, stream: true }, (frame) => {
+        const result = await remoteCompletion({
+          messages: [{ role: "user", content: buildTitlePrompt(firstUser.content, titleAttachments.map((item) => item.name), getLang()) }],
+          includeMemory: false, stream: false, temperature: 0, max_tokens: 24,
+          system: "You generate only a short JSON conversation title. Do not answer the user's request.",
+        }, null, controller.signal);
+        const title = parseGeneratedTitle(result && result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content, getLang());
+        const latest = conversationStore.readMeta(conversationId);
+        if (!title || !latest || latest.titleSource !== "placeholder" || workspaceSession.conversation.id !== conversationId) return;
+        workspaceSession.conversation = conversationStore.updateTitle(conversationId, title, "ai");
+        if (workspace && !workspace.isDestroyed()) workspace.setTitle(`${title} · TsukuMate`);
+        broadcastSharedSession();
+      } catch {} finally { clearTimeout(timer); if (titleController === controller) titleController = null; }
+    });
+  }
+
+  async function sendWorkspaceMessage(text, attachmentIds, senderId) {
+    const clean = String(text || "").trim().slice(0, 16000);
+    if (!clean) return { ok: false, error: "消息不能为空" };
+    if (workspaceSession.generating) return { ok: false, error: "上一条回复仍在生成" };
+    let attachments;
+    try { attachments = studyAttachments.commit(workspaceSession.conversation.id, attachmentIds, senderId); }
+    catch (error) { return { ok: false, error: String(error && error.message || error) }; }
+    const user = { id: `user-${Date.now()}`, role: "user", content: clean, attachments, timestamp: new Date().toISOString() };
+    const assistant = { id: `assistant-${Date.now()}`, role: "assistant", content: "", timestamp: new Date().toISOString(), streaming: true };
+    workspaceSession.messages.push(user, assistant);
+    workspaceSession.generating = true;
+    conversationStore.append(workspaceSession.conversation.id, user);
+    broadcastSharedSession();
+    const controller = new AbortController(); sharedSessionController = controller;
+    void classifyChatEmotion(workspaceSession.messages, user.id).catch(() => {});
+    maybeGenerateConversationTitle(user, attachments);
+    setImmediate(async () => {
+      try {
+        const context = messagesAfterBoundary(workspaceSession.messages);
+        const modelMessages = studyAttachments.buildModelContent(workspaceSession.conversation.id, context);
+        await remoteCompletion({
+          messages: modelMessages,
+          system: studyCardSystemPrompt(studyCardMode(clean)),
+          stream: true,
+        }, (frame) => {
           if (frame && frame.event === "delta") {
             assistant.content += String(frame.content || frame.reasoning_content || "");
             broadcastSharedSession();
@@ -2859,14 +2920,17 @@ module.exports = function initMinicpmChat(ctx) {
         }, controller.signal);
         assistant.streaming = false;
         workspaceConnectionState = "available";
-        if (assistant.content.trim()) appendChatHistory({ ...assistant, date: sharedSession.date });
+        const parsed = parseRichStudyCards(assistant.content);
+        assistant.content = parsed.content;
+        if (parsed.richCards.length) assistant.richCards = parsed.richCards;
+        if (assistant.content.trim() || assistant.richCards) conversationStore.append(workspaceSession.conversation.id, assistant);
       } catch (error) {
         assistant.streaming = false;
         assistant.error = true;
         workspaceConnectionState = "error";
         assistant.content = assistant.content || `请求失败：${localizeError(error)}`;
       } finally {
-        sharedSession.generating = false; sharedSessionController = null; broadcastSharedSession();
+        workspaceSession.generating = false; sharedSessionController = null; broadcastSharedSession();
       }
     });
     return { ok: true };
@@ -2883,33 +2947,64 @@ module.exports = function initMinicpmChat(ctx) {
       return { configured, state: configured ? workspaceConnectionState : "unconfigured" };
     },
     "chat-workspace:send": async (event, payload = {}) => isWorkspaceSender(event.sender)
-      ? sendWorkspaceMessage(payload.text, payload.screenCaptureToken, event.sender.id)
+      ? sendWorkspaceMessage(payload.text, payload.attachmentIds, event.sender.id)
       : { ok: false, error: "Invalid workspace sender" },
     "chat-workspace:cancel": async (event) => {
       if (!isWorkspaceSender(event.sender)) return { ok: false };
       if (sharedSessionController) sharedSessionController.abort();
       return { ok: true };
     },
-    "chat-workspace:screen-list": async (event) => {
-      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
-      try { return { ok: true, sources: await screenCapture.list() }; }
-      catch (error) { return { ok: false, error: screenCaptureErrorMessage(error), permissionRequired: screenCaptureNeedsPermission(error) }; }
+    "chat-workspace:create-conversation": async (event) => {
+      if (!isWorkspaceSender(event.sender) || workspaceSession.generating) return { ok: false, error: "当前回复结束后再新建对话" };
+      const conversation = conversationStore.create();
+      workspaceSession = { conversation, messages: [], generating: false, requestId: null };
+      if (workspace && !workspace.isDestroyed()) workspace.setTitle("新对话 · TsukuMate");
+      broadcastSharedSession();
+      return { ok: true, conversation };
     },
-    "chat-workspace:screen-take": async (event, payload = {}) => {
-      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
-      try { return { ok: true, ...storeScreenCapture(event.sender.id, await screenCapture.capture(payload.sourceId)) }; }
-      catch (error) { return { ok: false, error: screenCaptureErrorMessage(error), permissionRequired: screenCaptureNeedsPermission(error) }; }
+    "chat-workspace:list-conversations": async (event) => isWorkspaceSender(event.sender)
+      ? { ok: true, conversations: conversationStore.list() } : { ok: false, conversations: [] },
+    "chat-workspace:load-conversation": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || workspaceSession.generating) return { ok: false, error: "当前回复结束后不能切换" };
+      const id = String(payload.id || "");
+      const legacyMatch = id.match(/^legacy-(\d{4}-\d{2}-\d{2})$/);
+      const conversation = legacyMatch
+        ? conversationStore.list().find((item) => item.id === id)
+        : conversationStore.readMeta(id);
+      if (!conversation) return { ok: false, error: "对话不存在" };
+      workspaceSession = { conversation, messages: conversationStore.readMessages(id), generating: false, requestId: null };
+      if (workspace && !workspace.isDestroyed()) workspace.setTitle(`${conversation.title} · TsukuMate`);
+      broadcastSharedSession();
+      return { ok: true, session: publicSharedSession() };
     },
-    "chat-workspace:screen-discard": async (event, payload = {}) => ({
-      ok: isWorkspaceSender(event.sender) && discardScreenCapture(payload.token, event.sender.id),
+    "chat-workspace:clear-context": async (event) => {
+      if (!isWorkspaceSender(event.sender) || workspaceSession.generating) return { ok: false, error: "当前回复结束后再清除上下文" };
+      const boundary = { id: `boundary-${Date.now()}`, role: "context-boundary", content: "已清除此前对话上下文", timestamp: new Date().toISOString() };
+      workspaceSession.messages.push(boundary);
+      conversationStore.append(workspaceSession.conversation.id, boundary);
+      workspaceSession.conversation = conversationStore.readMeta(workspaceSession.conversation.id) || workspaceSession.conversation;
+      broadcastSharedSession();
+      return { ok: true };
+    },
+    "chat-workspace:update-title": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || workspaceSession.conversation.legacy) return { ok: false, error: "旧版记录不能重命名" };
+      const title = conversationStore.cleanTitle(payload.title);
+      if (!title) return { ok: false, error: "标题不能为空" };
+      if (titleController) titleController.abort();
+      workspaceSession.conversation = conversationStore.updateTitle(workspaceSession.conversation.id, title, "user");
+      if (workspace && !workspace.isDestroyed()) workspace.setTitle(`${title} · TsukuMate`);
+      broadcastSharedSession();
+      return { ok: true, conversation: workspaceSession.conversation };
+    },
+    "chat-workspace:select-attachments": async (event) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      return studyAttachments.select(workspaceSession.conversation.id, event.sender.id);
+    },
+    "chat-workspace:discard-attachment": async (event, payload = {}) => ({
+      ok: isWorkspaceSender(event.sender) && studyAttachments.discard(workspaceSession.conversation.id, payload.id, event.sender.id),
     }),
-    "chat-workspace:screen-settings": async (event) => {
-      if (!isWorkspaceSender(event.sender) || !isMac) return { ok: false };
-      try {
-        await shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture");
-        return { ok: true };
-      } catch { return { ok: false }; }
-    },
+    "chat-workspace:open-attachment": async (event, payload = {}) => isWorkspaceSender(event.sender)
+      ? studyAttachments.open(workspaceSession.conversation.id, payload.id) : { ok: false },
     "chat-workspace:reload-live2d": async (event) => {
       if (!isWorkspaceSender(event.sender)) return { ok: false };
       const base = typeof ctx.getPetRendererConfig === "function" ? ctx.getPetRendererConfig() : {};
@@ -2919,16 +3014,10 @@ module.exports = function initMinicpmChat(ctx) {
       return { ok: true };
     },
     "chat-workspace:list-history": async (event) => isWorkspaceSender(event.sender)
-      ? { ok: true, dates: Array.from(new Set([sharedSession.date, localDay(), ...listDatedFiles(chatHistoryDir, ".jsonl")])).sort().reverse() }
+      ? { ok: true, dates: listDatedFiles(chatHistoryDir, ".jsonl") }
       : { ok: false, dates: [] },
     "chat-workspace:load-history": async (event, payload = {}) => {
       if (!isWorkspaceSender(event.sender) || !DATE_ID_RE.test(String(payload.date || ""))) return { ok: false, error: "Invalid date" };
-      const switchingDate = payload.date !== sharedSession.date && (payload.before == null || payload.before === "");
-      if (switchingDate && sharedSession.generating) return { ok: false, error: "请先停止当前回复" };
-      if (switchingDate) {
-        sharedSession = { date: payload.date, messages: readHistoryContext(payload.date), generating: false, requestId: null };
-        broadcastSharedSession();
-      }
       return { ok: true, date: payload.date, ...readHistoryPage(payload.date, payload.before, payload.limit) };
     },
     "chat-workspace:list-diaries": async (event) => isWorkspaceSender(event.sender)

@@ -2,6 +2,13 @@
 
 This project includes third-party materials.
 
+## UniStudy rich-content renderer
+
+The safe HTML/CSS preview structure in `src/renderer/shared/rich-content/`
+is adapted from the UniStudy project and has been modified to use a
+scriptless, network-isolated iframe. UniStudy is distributed under the MIT
+License. Copyright remains with the UniStudy contributors.
+
 ## OpenClaw Pixel Lobster Icon
 
 `assets/icons/agents/openclaw.svg` is adapted from OpenClaw's

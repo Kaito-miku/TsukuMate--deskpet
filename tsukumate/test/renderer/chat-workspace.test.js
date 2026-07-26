@@ -61,13 +61,15 @@ test("history pagination exposes every line beyond the old 240-message cap with 
   assert.equal(seen[349].id, "2026-07-25-349");
 });
 
-test("workspace preload exposes only constrained chat, date and diary operations", () => {
+test("workspace preload exposes only constrained conversation, attachment and diary operations", () => {
   const preload = read("preload/preload-chat-workspace.js");
   assert.match(preload, /chat-workspace:list-history/);
   assert.match(preload, /chat-workspace:load-diary/);
   assert.match(preload, /chat-workspace:save-diary/);
-  assert.match(preload, /chat-workspace:screen-list/);
-  assert.match(preload, /chat-workspace:screen-discard/);
+  assert.match(preload, /chat-workspace:create-conversation/);
+  assert.match(preload, /chat-workspace:select-attachments/);
+  assert.match(preload, /chat-workspace:discard-attachment/);
+  assert.doesNotMatch(preload, /chat-workspace:screen-list/);
   assert.doesNotMatch(preload, /require\("fs"\)/);
   assert.doesNotMatch(preload, /openPath/);
 });
@@ -88,14 +90,15 @@ test("workspace history and diary IPC reject arbitrary paths", () => {
   assert.match(chat, /fs\.renameSync\(temp, target\)/);
 });
 
-test("workspace screen capture remains tokenized and one-shot", () => {
+test("workspace replaces screen capture with tokenized learning attachments", () => {
   const html = read("renderer/chat-workspace/chat-workspace.html");
   const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
   const chat = read("main/chat/minicpm-chat.js");
-  assert.match(html, /id="screen-attachment"/);
-  assert.match(renderer, /screenCaptureToken: token/);
-  assert.match(chat, /takeScreenCapture\(screenCaptureToken, senderId\)/);
-  assert.doesNotMatch(renderer, /screenImageDataUrl/);
+  assert.match(html, /id="attachment-button"/);
+  assert.match(renderer, /attachmentIds: ids/);
+  assert.match(chat, /studyAttachments\.commit/);
+  assert.doesNotMatch(renderer, /screenImageDataUrl|screenCaptureToken/);
+  assert.match(chat, /minicpm:screen-capture-list/);
 });
 
 test("workspace keeps lifecycle state separate from Cubism diagnostic logs", () => {
@@ -103,6 +106,6 @@ test("workspace keeps lifecycle state separate from Cubism diagnostic logs", () 
   const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
   assert.match(preload, /lifecycleEvent/);
   assert.match(preload, /lastLive2dStatus\.phase/);
-  assert.match(renderer, /const viewState = \{ content: "chat", drawer: null/);
-  assert.match(renderer, /mergeMessages\(session\.messages\)/);
+  assert.match(renderer, /let viewState = \{ content: "chat", drawer: null/);
+  assert.match(renderer, /renderMessages\(\)/);
 });

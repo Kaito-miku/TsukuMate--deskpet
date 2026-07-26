@@ -1,269 +1,142 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-let session = { date: "", messages: [], generating: false };
-const viewState = { content: "chat", drawer: null, selectedHistoryDate: "", selectedDiaryDate: "" };
-let selectedDiary = "";
+const api = window.chatWorkspace;
+let session = { messages: [], generating: false, conversation: null };
+let pendingAttachments = [];
+let selectedDiary = null;
 let diaryOriginal = "";
-let pendingScreenCapture = null;
-let displayedDate = "";
-let historyCursor = null;
-let historyHasMore = false;
-let historyLoading = false;
-const messageNodes = new Map();
+let viewState = { content: "chat", drawer: null };
+const cardCleanups = [];
 
-function isNearBottom() {
-  const view = $("chat-view");
-  return view.scrollHeight - view.scrollTop - view.clientHeight < 80;
+function cleanupCards() { while (cardCleanups.length) { try { cardCleanups.pop()(); } catch {} } }
+function nearBottom() { const view = $("chat-view"); return view.scrollHeight - view.scrollTop - view.clientHeight < 90; }
+function scrollToLatest(behavior = "auto") { $("chat-view").scrollTo({ top: $("chat-view").scrollHeight, behavior }); $("jump-bottom").hidden = true; }
+function updateJumpBottom() { $("jump-bottom").hidden = nearBottom(); }
+function renderAttachment(attachment, interactive = false) {
+  const chip = document.createElement("button"); chip.type = "button"; chip.className = "attachment-chip";
+  chip.textContent = `${attachment.kind === "image" ? "🖼" : "📄"} ${attachment.name}`;
+  if (interactive) {
+    const remove = document.createElement("span"); remove.textContent = " ×"; chip.append(remove);
+    chip.onclick = async () => {
+      await api.discardAttachment(attachment.id);
+      pendingAttachments = pendingAttachments.filter((item) => item.id !== attachment.id);
+      renderPendingAttachments();
+    };
+  } else chip.onclick = () => api.openAttachment(attachment.id);
+  return chip;
 }
-
-function updateJumpBottom() {
-  const view = $("chat-view");
-  $("jump-bottom").hidden = viewState.content !== "chat" || isNearBottom();
-}
-
-function scrollToLatest(behavior = "auto") {
-  const view = $("chat-view");
-  view.scrollTo({ top: view.scrollHeight, behavior });
-  requestAnimationFrame(updateJumpBottom);
-}
-
-function createMessageNode(message) {
-  const node = document.createElement("div");
-  node.dataset.messageId = message.id;
-  updateMessageNode(node, message);
-  return node;
-}
-
-function updateMessageNode(node, message) {
-  node.className = `message ${message.role}${message.streaming ? " streaming" : ""}${message.error ? " error" : ""}`;
-  if (node.textContent !== (message.content || "")) node.textContent = message.content || "";
-}
-
-function updateEmptyState() {
-  const root = $("messages");
-  let empty = root.querySelector(".chat-empty");
-  if (!messageNodes.size && !empty) {
-    empty = document.createElement("div");
-    empty.className = "chat-empty";
-    empty.innerHTML = "<strong>还没有对话</strong><span>在下方输入消息，今天的内容会自动保存在本地。</span>";
-    root.appendChild(empty);
-  } else if (messageNodes.size && empty) empty.remove();
-}
-
-function resetMessages(date, messages) {
-  const root = $("messages"); root.innerHTML = ""; messageNodes.clear(); displayedDate = date || "";
-  for (const message of messages || []) {
-    const node = document.createElement("div");
-    node.dataset.messageId = message.id; updateMessageNode(node, message);
-    messageNodes.set(message.id, node);
-    root.appendChild(node);
+function renderMessages() {
+  const follow = nearBottom(); cleanupCards();
+  const root = $("messages"); root.replaceChildren();
+  if (!session.messages.length) {
+    const empty = document.createElement("div"); empty.className = "chat-empty";
+    empty.innerHTML = "<strong>从一个问题开始</strong><span>上传讲义、PDF、文档或图片，也可以要求 TsukuMate 用学习卡片整理。</span>";
+    root.append(empty); return;
   }
-  updateEmptyState();
-}
-
-function mergeMessages(messages, { prepend = false } = {}) {
-  const root = $("messages");
-  const view = $("chat-view");
-  const oldHeight = view.scrollHeight;
-  const fragment = document.createDocumentFragment();
-  for (const message of messages || []) {
-    const existing = messageNodes.get(message.id);
-    if (existing) { updateMessageNode(existing, message); continue; }
-    const node = createMessageNode(message); messageNodes.set(message.id, node);
-    if (prepend) fragment.appendChild(node); else root.appendChild(node);
+  for (const message of session.messages) {
+    if (message.role === "context-boundary") {
+      const boundary = document.createElement("div"); boundary.className = "context-boundary"; boundary.textContent = "已清除此处之前的对话上下文"; root.append(boundary); continue;
+    }
+    const row = document.createElement("article"); row.className = `message ${message.role}${message.streaming ? " streaming" : ""}${message.error ? " error" : ""}`;
+    const text = document.createElement("div"); text.className = "message-text"; text.textContent = message.content || (message.streaming ? "" : ""); row.append(text);
+    if (Array.isArray(message.attachments) && message.attachments.length) {
+      const list = document.createElement("div"); list.className = "message-attachments";
+      for (const attachment of message.attachments) list.append(renderAttachment(attachment)); row.append(list);
+    }
+    if (message.role === "assistant" && Array.isArray(message.richCards) && window.TsukuMateRichContent) {
+      const cards = document.createElement("div"); cards.className = "study-card-list"; row.append(cards);
+      for (const card of message.richCards.slice(0, 3)) cardCleanups.push(window.TsukuMateRichContent.renderCard(cards, card));
+    }
+    root.append(row);
   }
-  if (prepend && fragment.childNodes.length) root.insertBefore(fragment, root.firstChild);
-  updateEmptyState();
-  if (prepend) requestAnimationFrame(() => { view.scrollTop += view.scrollHeight - oldHeight; });
+  if (follow) requestAnimationFrame(() => scrollToLatest()); else updateJumpBottom();
 }
-
-function renderSessionMeta() {
-  $("send-status").textContent = session.generating ? "AI 正在回复…" : `当前对话：${session.date || "今天"}`;
-  $("cancel").hidden = !session.generating; $("send").disabled = !!session.generating;
+function renderSession(value) {
+  session = value || session;
+  const conversation = session.conversation || {};
+  $("page-title").textContent = conversation.title || "新对话";
+  $("title-edit").hidden = !!conversation.legacy || viewState.content === "diary";
+  $("send-status").textContent = session.generating ? "正在回复…" : "准备就绪";
+  $("cancel").hidden = !session.generating;
+  for (const id of ["send", "attachment-button", "new-conversation", "clear-context"]) $(id).disabled = !!session.generating;
+  renderMessages();
 }
-
-function applySession(next) {
-  if (!next) return;
-  const follow = isNearBottom();
-  const changedDate = displayedDate !== next.date;
-  session = { ...session, ...next };
-  if (changedDate) resetMessages(session.date, session.messages);
-  else mergeMessages(session.messages);
-  renderSessionMeta();
-  requestAnimationFrame(() => { if (changedDate || follow) scrollToLatest(); else updateJumpBottom(); });
-  setConnectionState(session.connectionState);
+function renderPendingAttachments() {
+  const root = $("attachment-list"); root.replaceChildren(); root.hidden = !pendingAttachments.length;
+  for (const attachment of pendingAttachments) root.append(renderAttachment(attachment, true));
 }
-
-function renderViewState() {
+async function discardPendingAttachments() {
+  const current = pendingAttachments; pendingAttachments = []; renderPendingAttachments();
+  await Promise.all(current.map((item) => api.discardAttachment(item.id).catch(() => {})));
+}
+function renderView() {
   const diary = viewState.content === "diary";
-  $("chat-view").hidden = diary; $("composer").hidden = diary; $("diary-view").hidden = !diary;
-  $("back-button").hidden = !diary; $("page-title").textContent = diary ? (selectedDiary || "日记") : "与 TsukuMate 对话";
-  $("page-subtitle").textContent = diary ? "Markdown 日记会保存在本地" : "今天的对话会自动保存在本地";
+  $("diary-view").hidden = !diary; $("chat-view").hidden = diary; $("composer").hidden = diary; $("jump-bottom").hidden = diary || nearBottom();
+  $("back-button").hidden = !diary; $("drawer").setAttribute("aria-hidden", String(!viewState.drawer));
   document.querySelector(".workspace").classList.toggle("drawer-open", !!viewState.drawer);
-  $("drawer").setAttribute("aria-hidden", String(!viewState.drawer));
   document.querySelectorAll(".tool").forEach((node) => node.classList.remove("active"));
   $(viewState.drawer === "history" ? "history-tool" : viewState.drawer === "diary" ? "diary-tool" : "chat-tool").classList.add("active");
-  updateJumpBottom();
-  if (!diary) requestAnimationFrame(updateJumpBottom);
-}
-function closeDrawer() {
-  viewState.drawer = null; renderViewState();
-}
-async function returnToChat() {
-  if (!(await confirmDiaryDiscard())) return;
-  viewState.content = "chat"; viewState.drawer = null; renderViewState();
-  $("prompt").focus();
-}
-async function fillDrawer(kind) {
-  if (!(await confirmDiaryDiscard())) return;
-  viewState.drawer = kind; renderViewState();
-  $("drawer-title").textContent = kind === "history" ? "聊天历史" : "日记";
-  const root = $("date-list"); root.innerHTML = '<div class="drawer-status">正在加载…</div>';
-  const result = kind === "history" ? await chatWorkspace.listHistory() : await chatWorkspace.listDiaries();
-  root.innerHTML = "";
-  if (!result || !result.ok) { root.innerHTML = `<div class="drawer-status error">${result && result.error || "读取失败"}</div>`; return; }
-  if (!(result.dates || []).length) { root.innerHTML = '<div class="drawer-status">暂无记录</div>'; return; }
-  for (const date of result.dates || []) {
-    const button = document.createElement("button"); button.className = "date-item"; button.textContent = date;
-    button.classList.toggle("active", date === (kind === "history" ? viewState.selectedHistoryDate : viewState.selectedDiaryDate));
-    button.onclick = async () => {
-      if (kind === "history") await loadHistoryDate(date);
-      else await loadDiaryDate(date);
-    }; root.appendChild(button);
-  }
-}
-async function loadHistoryDate(date) {
-  if (historyLoading) return;
-  historyLoading = true; viewState.selectedHistoryDate = date;
-  const result = await chatWorkspace.loadHistory(date, { limit: 100 });
-  historyLoading = false;
-  if (!result || !result.ok) { $("send-status").textContent = result && result.error || "历史读取失败"; return; }
-  session = { ...session, date, generating: false, messages: result.messages || [] };
-  resetMessages(date, result.messages || []);
-  historyCursor = result.nextCursor; historyHasMore = !!result.hasMore;
-  viewState.content = "chat"; renderViewState(); renderSessionMeta();
-  document.querySelectorAll(".date-item").forEach((node) => node.classList.toggle("active", node.textContent === date));
-  requestAnimationFrame(() => scrollToLatest());
-}
-async function loadMoreHistory() {
-  if (!historyHasMore || historyLoading || !viewState.selectedHistoryDate) return;
-  historyLoading = true;
-  const result = await chatWorkspace.loadHistory(viewState.selectedHistoryDate, { before: historyCursor, limit: 100 });
-  historyLoading = false;
-  if (!result || !result.ok) return;
-  mergeMessages(result.messages || [], { prepend: true });
-  historyCursor = result.nextCursor; historyHasMore = !!result.hasMore;
-}
-async function loadDiaryDate(date) {
-  if (!(await confirmDiaryDiscard())) return;
-  const loaded = await chatWorkspace.loadDiary(date);
-  if (!loaded || !loaded.ok) { $("diary-status").textContent = loaded && loaded.error || "日记读取失败"; return; }
-  viewState.selectedDiaryDate = date; selectedDiary = date; diaryOriginal = loaded.content || "";
-  $("diary-editor").value = diaryOriginal; $("diary-status").textContent = "";
-  viewState.content = "diary"; renderViewState();
-  document.querySelectorAll(".date-item").forEach((node) => node.classList.toggle("active", node.textContent === date));
 }
 async function confirmDiaryDiscard() { return viewState.content !== "diary" || $("diary-editor").value === diaryOriginal || confirm("日记有未保存修改，确定放弃吗？"); }
-async function discardScreenCapture() {
-  const capture = pendingScreenCapture;
-  pendingScreenCapture = null;
-  $("screen-attachment").hidden = true;
-  $("screen-preview").removeAttribute("src");
-  if (capture && capture.token) await chatWorkspace.discardScreenCapture(capture.token).catch(() => {});
+async function returnToChat() { if (!(await confirmDiaryDiscard())) return; viewState = { content: "chat", drawer: null }; renderView(); $("prompt").focus(); }
+async function showConversationDrawer() {
+  if (!(await confirmDiaryDiscard())) return; viewState = { content: "chat", drawer: "history" }; renderView();
+  $("drawer-title").textContent = "对话"; const root = $("date-list"); root.innerHTML = '<div class="drawer-status">正在加载…</div>';
+  const result = await api.listConversations(); root.replaceChildren();
+  if (!result || !result.ok) { root.innerHTML = '<div class="drawer-status error">读取失败</div>'; return; }
+  for (const item of result.conversations || []) {
+    const button = document.createElement("button"); button.className = "date-item"; button.disabled = !!session.generating;
+    button.classList.toggle("active", item.id === session.conversationId); button.innerHTML = `<strong></strong><small></small>`;
+    button.querySelector("strong").textContent = item.title; button.querySelector("small").textContent = item.legacy ? "旧版记录" : new Date(item.updatedAt).toLocaleString();
+    button.onclick = async () => { await discardPendingAttachments(); const loaded = await api.loadConversation(item.id); if (!loaded.ok) $("send-status").textContent = loaded.error || "切换失败"; };
+    root.append(button);
+  }
+}
+async function showDiaryDrawer() {
+  if (!(await confirmDiaryDiscard())) return; viewState.drawer = "diary"; renderView(); $("drawer-title").textContent = "日记";
+  const root = $("date-list"); root.innerHTML = '<div class="drawer-status">正在加载…</div>';
+  const result = await api.listDiaries(); root.replaceChildren();
+  for (const date of result && result.dates || []) { const button = document.createElement("button"); button.className = "date-item"; button.textContent = date; button.onclick = () => loadDiary(date); root.append(button); }
+}
+async function loadDiary(date) {
+  if (!(await confirmDiaryDiscard())) return; const result = await api.loadDiary(date); if (!result.ok) return;
+  selectedDiary = date; diaryOriginal = result.content || ""; $("diary-editor").value = diaryOriginal; $("diary-status").textContent = "";
+  viewState.content = "diary"; renderView();
 }
 async function send() {
-  const text = $("prompt").value.trim();
-  if (!text || session.generating) return;
-  const token = pendingScreenCapture && pendingScreenCapture.token;
-  pendingScreenCapture = null;
-  $("screen-attachment").hidden = true;
-  $("screen-preview").removeAttribute("src");
-  const result = await chatWorkspace.send({ text, screenCaptureToken: token });
-  if (result.ok) $("prompt").value = "";
-  else {
-    $("send-status").textContent = result.error || "发送失败";
-    if (token) await chatWorkspace.discardScreenCapture(token).catch(() => {});
-  }
+  const text = $("prompt").value.trim(); if (!text || session.generating) return;
+  const ids = pendingAttachments.map((item) => item.id);
+  const result = await api.send({ text, attachmentIds: ids });
+  if (result.ok) { pendingAttachments = []; renderPendingAttachments(); $("prompt").value = ""; }
+  else $("send-status").textContent = result.error || "发送失败";
 }
-async function showScreenPicker() {
-  $("screen-picker").hidden = false;
-  $("screen-picker-status").textContent = "正在获取显示器…";
-  $("screen-source-list").innerHTML = "";
-  const result = await chatWorkspace.listScreenSources();
-  if (!result || !result.ok) {
-    $("screen-picker-status").textContent = (result && result.error) || "无法读取屏幕";
-    if (result && result.permissionRequired) {
-      const settings = document.createElement("button");
-      settings.textContent = "打开屏幕录制权限设置";
-      settings.onclick = () => chatWorkspace.openScreenRecordingSettings();
-      $("screen-source-list").appendChild(settings);
-    }
-    return;
-  }
-  $("screen-picker-status").textContent = "截图只会用于下一条消息，不会保存到本地。";
-  for (const source of result.sources || []) {
-    const button = document.createElement("button");
-    button.className = "screen-source";
-    button.type = "button";
-    const image = document.createElement("img"); image.src = source.previewDataUrl; image.alt = "";
-    const label = document.createElement("span"); label.textContent = source.name;
-    button.append(image, label);
-    button.onclick = async () => {
-      const captured = await chatWorkspace.captureScreen(source.id);
-      if (!captured || !captured.ok) { $("screen-picker-status").textContent = captured && captured.error || "截取失败"; return; }
-      await discardScreenCapture();
-      pendingScreenCapture = { token: captured.token, previewDataUrl: captured.previewDataUrl };
-      $("screen-preview").src = captured.previewDataUrl;
-      $("screen-attachment").hidden = false;
-      $("screen-picker").hidden = true;
-      $("prompt").focus();
-    };
-    $("screen-source-list").appendChild(button);
-  }
+async function editTitle() {
+  const input = $("title-input"); input.value = session.conversation && session.conversation.title || ""; $("page-title").hidden = true; $("title-edit").hidden = true; input.hidden = false; input.focus(); input.select();
 }
-$("send").onclick = send; $("cancel").onclick = () => chatWorkspace.cancel();
-$("screen-button").onclick = showScreenPicker;
-$("screen-picker-close").onclick = () => { $("screen-picker").hidden = true; };
-$("screen-remove").onclick = discardScreenCapture;
+async function finishTitle(save) {
+  const input = $("title-input"); if (input.hidden) return;
+  if (save && input.value.trim()) { const result = await api.updateTitle(input.value); if (!result.ok) $("send-status").textContent = result.error || "标题保存失败"; }
+  input.hidden = true; $("page-title").hidden = false; $("title-edit").hidden = !!(session.conversation && session.conversation.legacy);
+}
+
+$("send").onclick = send; $("cancel").onclick = () => api.cancel();
+$("attachment-button").onclick = async () => { const result = await api.selectAttachments(); if (result && result.ok) { pendingAttachments.push(...(result.attachments || [])); renderPendingAttachments(); } else $("send-status").textContent = result && result.error || "附件读取失败"; };
+$("new-conversation").onclick = async () => { if (session.generating) return; if (($("prompt").value.trim() || pendingAttachments.length) && !confirm("放弃尚未发送的内容并新建对话吗？")) return; await discardPendingAttachments(); await api.createConversation(); viewState = { content: "chat", drawer: null }; renderView(); };
+$("clear-context").onclick = async () => { if (!session.generating && confirm("保留记录，但让后续回复不再使用此处之前的对话？")) await api.clearContext(); };
+$("title-edit").onclick = editTitle; $("title-input").onblur = () => finishTitle(true); $("title-input").onkeydown = (event) => { if (event.key === "Enter") { event.preventDefault(); finishTitle(true); } if (event.key === "Escape") { event.preventDefault(); finishTitle(false); } };
 $("prompt").addEventListener("keydown", (event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); send(); } });
-$("history-tool").onclick = () => fillDrawer("history"); $("diary-tool").onclick = () => fillDrawer("diary");
-$("chat-tool").onclick = returnToChat;
-$("drawer-close").onclick = closeDrawer;
-$("jump-bottom").onclick = () => scrollToLatest("smooth");
-$("chat-view").addEventListener("scroll", () => { updateJumpBottom(); if ($("chat-view").scrollTop < 80) void loadMoreHistory(); }, { passive: true });
-$("back-button").onclick = returnToChat;
-$("diary-save").onclick = async () => { if (!selectedDiary) return; const value = $("diary-editor").value; const result = await chatWorkspace.saveDiary(selectedDiary, value); if (result.ok) { diaryOriginal = value; $("diary-status").textContent = "已保存"; } else $("diary-status").textContent = result.error || "保存失败"; };
-$("diary-generate").onclick = async () => { if (!selectedDiary || !confirm("重新生成会覆盖当前日记，确定继续吗？")) return; const result = await chatWorkspace.generateDiary(selectedDiary); if (result.ok) { const loaded = await chatWorkspace.loadDiary(selectedDiary); diaryOriginal = loaded.content || ""; $("diary-editor").value = diaryOriginal; $("diary-status").textContent = "已重新生成"; } else $("diary-status").textContent = result.error || "生成失败"; };
-$("diary-folder").onclick = () => chatWorkspace.openDiaryFolder();
-chatWorkspace.onSession(applySession); chatWorkspace.getSession().then(applySession);
-renderViewState();
-chatWorkspace.getConnectionStatus().then((status) => setConnectionState(status && status.state, status && status.configured));
+$("history-tool").onclick = showConversationDrawer; $("diary-tool").onclick = showDiaryDrawer; $("chat-tool").onclick = returnToChat; $("drawer-close").onclick = () => { viewState.drawer = null; renderView(); }; $("back-button").onclick = returnToChat;
+$("jump-bottom").onclick = () => scrollToLatest("smooth"); $("chat-view").addEventListener("scroll", updateJumpBottom, { passive: true });
+$("diary-save").onclick = async () => { if (!selectedDiary) return; const result = await api.saveDiary(selectedDiary, $("diary-editor").value); if (result.ok) { diaryOriginal = $("diary-editor").value; $("diary-status").textContent = "已保存"; } };
+$("diary-generate").onclick = async () => { if (!selectedDiary || !confirm("重新生成会覆盖当前日记，确定吗？")) return; const result = await api.generateDiary(selectedDiary); if (result.ok) await loadDiary(selectedDiary); };
+$("diary-folder").onclick = () => api.openDiaryFolder();
+
+api.onSession(renderSession); api.getSession().then(renderSession); renderView();
+api.getConnectionStatus().then((status) => setConnectionState(status && status.state, status && status.configured));
+function setConnectionState(state, configured = true) { const dot = document.querySelector(".connection-dot"); const safe = !configured ? "unconfigured" : (["available", "error", "configured"].includes(state) ? state : "configured"); dot.dataset.state = safe; }
 const emotionNames = { calm: "平静", focused: "专注", happy: "开心", shy: "害羞", surprised: "惊讶", sleepy: "困倦", sad: "难过", annoyed: "轻微不满" };
-window.electronAPI.onChatEmotion((value) => {
-  const blend = value && value.display ? value.display : value;
-  const primary = blend && blend.primary || "calm";
-  const secondary = blend && blend.secondary;
-  $("emotion-pill").textContent = secondary
-    ? `${emotionNames[primary] || primary} · ${emotionNames[secondary] || secondary}`
-    : (emotionNames[primary] || primary);
-});
-function setConnectionState(state, configured = true) {
-  const dot = document.querySelector(".connection-dot");
-  const safe = !configured ? "unconfigured" : (["available", "error", "configured"].includes(state) ? state : "configured");
-  dot.dataset.state = safe;
-  dot.title = safe === "available" ? "API 连接可用" : safe === "error" ? "API 连接异常" : safe === "unconfigured" ? "API 尚未配置" : "API 已配置，等待连接";
-}
-window.electronAPI.onLive2dStatus((status) => {
-  const pane = document.querySelector(".live2d-pane");
-  const phase = String(status && status.phase || "loading");
-  pane.classList.toggle("live2d-ready", phase === "ready");
-  pane.classList.toggle("live2d-error", phase === "error" || phase === "disabled");
-  if (phase === "loading") $("live2d-feedback-text").textContent = "正在加载 Live2D…";
-  if (phase === "recovering") $("live2d-feedback-text").textContent = "正在恢复 Live2D 画布…";
-  if (phase === "error") $("live2d-feedback-text").textContent = "Live2D 加载失败，可以尝试重新加载。";
-  if (phase === "disabled") $("live2d-feedback-text").textContent = "当前没有可用的 Live2D 模型。";
-  $("live2d-retry").hidden = !(phase === "error" || phase === "disabled");
-});
-$("live2d-retry").onclick = () => chatWorkspace.reloadLive2d();
-window.addEventListener("beforeunload", (event) => { if (pendingScreenCapture) void chatWorkspace.discardScreenCapture(pendingScreenCapture.token); if (viewState.content === "diary" && $("diary-editor").value !== diaryOriginal) { event.preventDefault(); event.returnValue = ""; } });
+window.electronAPI.onChatEmotion((value) => { const blend = value && value.display ? value.display : value; const p = blend && blend.primary || "calm"; const s = blend && blend.secondary; $("emotion-pill").textContent = s ? `${emotionNames[p] || p} · ${emotionNames[s] || s}` : emotionNames[p] || p; });
+window.electronAPI.onLive2dStatus((status) => { const pane = document.querySelector(".live2d-pane"); const phase = String(status && status.phase || "loading"); pane.classList.toggle("live2d-ready", phase === "ready"); pane.classList.toggle("live2d-error", phase === "error" || phase === "disabled"); $("live2d-feedback-text").textContent = phase === "error" ? "Live2D 加载失败，可以尝试重新加载。" : phase === "disabled" ? "当前没有可用的 Live2D 模型。" : phase === "recovering" ? "正在恢复 Live2D 画布…" : "正在加载 Live2D…"; $("live2d-retry").hidden = !(phase === "error" || phase === "disabled"); });
+$("live2d-retry").onclick = () => api.reloadLive2d();
+window.addEventListener("beforeunload", (event) => { discardPendingAttachments(); cleanupCards(); if (viewState.content === "diary" && $("diary-editor").value !== diaryOriginal) { event.preventDefault(); event.returnValue = ""; } });
