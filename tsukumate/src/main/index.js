@@ -3774,17 +3774,22 @@ if (!gotTheLock) {
   app.quit();
 } else {
   app.on("second-instance", (_event, commandLine) => {
-    if (petWindowRuntime.isPetHidden()) {
-      prepManualPetVisibility();
-      petWindowRuntime.setPetHidden(false);
+    const workspaceOpen = !!(_minicpmChat && typeof _minicpmChat.isWorkspaceOpen === "function" && _minicpmChat.isWorkspaceOpen());
+    if (workspaceOpen) {
+      _minicpmChat.focusWorkspace();
     } else {
-      if (win) {
-        win.showInactive();
-        keepOutOfTaskbar(win);
-      }
-      if (hitWin && !hitWin.isDestroyed()) {
-        hitWin.showInactive();
-        keepOutOfTaskbar(hitWin);
+      if (petWindowRuntime.isPetHidden()) {
+        prepManualPetVisibility();
+        petWindowRuntime.setPetHidden(false);
+      } else {
+        if (win) {
+          win.showInactive();
+          keepOutOfTaskbar(win);
+        }
+        if (hitWin && !hitWin.isDestroyed()) {
+          hitWin.showInactive();
+          keepOutOfTaskbar(hitWin);
+        }
       }
     }
     if (shouldOpenSettingsWindowFromArgv(commandLine)) {
@@ -3912,6 +3917,7 @@ if (!gotTheLock) {
         isMac,
         app,
         getShowDock: () => showDock,
+        isWorkspaceOpen: () => !!(_minicpmChat && typeof _minicpmChat.isWorkspaceOpen === "function" && _minicpmChat.isWorkspaceOpen()),
         isPetHidden: () => petWindowRuntime.isPetHidden(),
         setPetHidden: (hidden) => petWindowRuntime.setPetHidden(hidden),
       });

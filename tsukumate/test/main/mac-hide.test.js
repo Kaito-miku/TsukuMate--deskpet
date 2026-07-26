@@ -32,6 +32,7 @@ function makeHarness(opts = {}) {
     isMac: opts.isMac !== false,
     app: fakeApp,
     getShowDock: opts.getShowDock || (() => true),
+    isWorkspaceOpen: opts.isWorkspaceOpen || (() => false),
     isPetHidden: opts.isPetHidden || (() => false),
     setPetHidden,
     setInterval: setIntervalFn,
@@ -118,6 +119,13 @@ describe("mac-hide controller (#416)", () => {
 
   it("onActivate does not restore when the Dock is hidden", () => {
     const h = makeHarness({ isPetHidden: () => true, getShowDock: () => false });
+    h.ctrl.start();
+    h.ctrl.onActivate();
+    assert.deepEqual(h.calls, []);
+  });
+
+  it("onActivate keeps the pet hidden while the full chat workspace is open", () => {
+    const h = makeHarness({ isPetHidden: () => true, isWorkspaceOpen: () => true });
     h.ctrl.start();
     h.ctrl.onActivate();
     assert.deepEqual(h.calls, []);

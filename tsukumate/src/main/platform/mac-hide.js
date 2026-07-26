@@ -28,6 +28,9 @@ function createMacHideController(options = {}) {
   const isMac = options.isMac != null ? !!options.isMac : process.platform === "darwin";
   const app = options.app || null;
   const getShowDock = options.getShowDock || (() => true);
+  // A full workspace deliberately hides the desktop pet. Dock activation must
+  // focus that workspace, not reinterpret the hidden pet as a request to show.
+  const isWorkspaceOpen = options.isWorkspaceOpen || (() => false);
   const isPetHidden = options.isPetHidden || (() => false);
   const setPetHidden = options.setPetHidden
     || (() => ({ applied: false, deferred: false, changed: false }));
@@ -121,6 +124,7 @@ function createMacHideController(options = {}) {
   //    click as an explicit "come back" and restore it.
   function onActivate() {
     if (!isMac) return;
+    if (isWorkspaceOpen()) return;
     if (appIsHidden()) {
       try { app.show(); } catch (_) {}
       return;
