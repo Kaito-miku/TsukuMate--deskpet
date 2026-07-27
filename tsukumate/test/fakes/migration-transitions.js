@@ -17,7 +17,7 @@ const {
   EVENTS,
   SIDE_EFFECTS,
   ERROR_CODES,
-} = require("../../src/telegram-migration-state");
+} = require("../../src/main/integrations/telegram/telegram-migration-state");
 
 const fullLegacyFiles = {
   hasLegacyEnvFile: true,

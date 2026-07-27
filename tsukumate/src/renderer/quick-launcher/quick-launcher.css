@@ -1,0 +1,74 @@
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+  --ink: #fff;
+  --muted: rgba(235, 235, 245, .60);
+  --panel: rgba(28, 28, 30, .94);
+  --card: rgba(255, 255, 255, .08);
+}
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; background: transparent; overflow: hidden; }
+body { padding: 9px; }
+.launcher {
+  position: relative;
+  width: 100%; height: 100%; padding: 16px; display: grid;
+  grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 10px;
+  border: 1px solid rgba(255,255,255,.13); border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 1px 2px rgba(0,0,0,.1), 0 5px 14px rgba(0,0,0,.12), 0 14px 30px rgba(0,0,0,.08);
+  backdrop-filter: blur(20px) saturate(145%);
+  overflow: hidden;
+}
+button {
+  position: relative;
+  appearance: none; border: 0; border-radius: 8px;
+  background: var(--card);
+  color: var(--ink); display: flex; flex-direction: column; align-items: flex-start;
+  justify-content: center; gap: 3px; padding: 14px;
+  cursor: pointer;
+  box-shadow: inset 0 1px rgba(255,255,255,.06);
+  backdrop-filter: blur(20px);
+  transition: transform .16s cubic-bezier(.25,1,.5,1), border-color .16s cubic-bezier(.25,1,.5,1), background .16s cubic-bezier(.25,1,.5,1), box-shadow .16s cubic-bezier(.25,1,.5,1);
+}
+button:hover {
+  outline: none;
+  background: rgba(255,255,255,.14);
+  box-shadow: inset 0 1px rgba(255,255,255,.10), 0 10px 24px rgba(0,0,0,.22);
+  transform: translateY(-2px) scale(1.012);
+}
+button:focus { outline: none; }
+button:focus-visible {
+  outline: 2px solid rgba(255,255,255,.72);
+  outline-offset: -3px;
+}
+button:active { transform: translateY(0) scale(.975); background: rgba(119,199,216,.18); }
+.icon {
+  width: 31px; height: 31px; margin-bottom: 5px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 19px; line-height: 1; font-weight: 500;
+  background: linear-gradient(145deg, #1797ff, #5e5ce6);
+  box-shadow: inset 0 1px rgba(255,255,255,.24), 0 4px 10px rgba(0,0,0,.18);
+}
+.label { font-size: 15px; line-height: 1.2; font-weight: 680; letter-spacing: .02em; white-space: nowrap; }
+.hint { color: var(--muted); font-size: 10px; line-height: 1.25; font-weight: 500; white-space: nowrap; }
+button[data-action="dnd"] .icon,
+button[data-action="settings"] .icon,
+button[data-action="close"] .icon {
+  color: #fff;
+  background: linear-gradient(145deg, #1797ff, #5e5ce6);
+  box-shadow: inset 0 1px rgba(255,255,255,.24), 0 4px 10px rgba(0,0,0,.18);
+}
+button[data-action="chat"]:hover { background: #0a84ff; }
+button[data-action="dnd"]:hover { background: #5e5ce6; }
+button[data-action="dnd"][aria-pressed="true"] { background: #5e5ce6; }
+button[data-action="settings"]:hover { background: #3a3a3c; }
+button[data-action="close"]:hover { background: rgba(255,255,255,.18); }
+button:hover .hint,
+button[data-action="dnd"][aria-pressed="true"] .hint { color: rgba(255,255,255,.76); }
+
+@media (prefers-reduced-motion: reduce) { button { transition: none; } }
+
+/* A compact macOS-style action palette: quiet material, one brand tint. */
+:root{color-scheme:light dark;--ink:var(--tm-text);--muted:var(--tm-secondary);--panel:var(--tm-surface);--card:var(--tm-fill)}
+.launcher{padding:14px;border-color:var(--tm-hairline);border-radius:var(--tm-radius-window);background:linear-gradient(135deg,var(--tm-glass-highlight),transparent 35%),var(--tm-surface);box-shadow:var(--tm-shadow);backdrop-filter:blur(var(--tm-glass-blur)) saturate(145%)}
+button{border-radius:var(--tm-radius);background:var(--tm-fill);color:var(--tm-text);box-shadow:none;transition:background var(--tm-transition),transform var(--tm-transition)}button:hover{background:var(--tm-fill-hover);box-shadow:none;transform:none}button:active{transform:scale(.98);background:var(--tm-tint-soft)}button:focus-visible{outline:2px solid var(--tm-tint);outline-offset:-3px}.icon,button[data-action="dnd"] .icon,button[data-action="settings"] .icon,button[data-action="close"] .icon{background:var(--tm-tint-soft);color:var(--tm-tint);box-shadow:none}.label{font-family:var(--tm-font-display);font-weight:600}.hint{color:var(--tm-secondary)}button[data-action="chat"]:hover,button[data-action="dnd"]:hover,button[data-action="settings"]:hover,button[data-action="close"]:hover{background:var(--tm-fill-hover)}

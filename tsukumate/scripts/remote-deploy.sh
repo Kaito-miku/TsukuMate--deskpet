@@ -210,7 +210,7 @@ echo "  [OK] Files copied to ~/.claude/hooks/"
 
 # ── Write host prefix ──
 
-# Mirror the Node-side schema blacklist (src/remote-ssh-profile.js
+# Mirror the Node-side schema blacklist (src/main/integrations/remote-ssh/remote-ssh-profile.js
 # HOST_PREFIX_FORBIDDEN_RE) so the CLI path can't write a prefix the UI would
 # refuse. Reject control chars + ' " ` $ \ ! before doing anything remote.
 if [ -n "$HOST_PREFIX" ]; then

@@ -18,8 +18,8 @@
 
 const fs = require("fs");
 const path = require("path");
-const themeLoader = require("../src/theme-loader");
-const { VARIANT_ALLOWED_KEYS } = require("../src/theme-variants");
+const themeLoader = require("../src/main/theme/theme-loader");
+const { VARIANT_ALLOWED_KEYS } = require("../src/shared/theme/theme-variants");
 
 // ── Colors (ANSI) ──
 const R = "\x1b[31m";  // red

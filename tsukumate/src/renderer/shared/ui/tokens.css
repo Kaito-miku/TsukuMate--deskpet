@@ -1,0 +1,56 @@
+/* TsukuMate visual foundation — system-adaptive Liquid Glass, with a quiet blue tint. */
+:root {
+  color-scheme: light dark;
+  --tm-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  --tm-font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  --tm-tint: #0071e3;
+  --tm-tint-hover: #0077ed;
+  --tm-tint-soft: rgba(0, 113, 227, .14);
+  --tm-blue: #007aff; --tm-green: #34c759; --tm-orange: #ff9f0a; --tm-red: #ff3b30;
+  --tm-bg: #f5f5f7;
+  --tm-surface: rgba(255, 255, 255, .7);
+  --tm-surface-solid: #fff;
+  --tm-elevated: rgba(255, 255, 255, .88);
+  --tm-sidebar: rgba(255, 255, 255, .7);
+  --tm-glass-highlight: rgba(255, 255, 255, .52);
+  --tm-text: #1d1d1f;
+  --tm-secondary: rgba(60, 60, 67, .76);
+  --tm-tertiary: rgba(60, 60, 67, .56);
+  --tm-separator: rgba(60, 60, 67, .18);
+  --tm-hairline: rgba(60, 60, 67, .12);
+  --tm-fill: rgba(120, 120, 128, .14);
+  --tm-fill-hover: rgba(120, 120, 128, .22);
+  --tm-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 5px 14px rgba(33, 54, 88, .09), 0 14px 30px rgba(33, 54, 88, .05);
+  --tm-radius-sm: 8px;
+  --tm-radius: 8px;
+  --tm-radius-lg: 16px;
+  --tm-radius-xl: 16px;
+  --tm-radius-window: 16px;
+  --tm-radius-control: 8px;
+  --tm-radius-pill: 999px;
+  --tm-glass-blur: 20px;
+  --tm-focus: 0 0 0 3px rgba(0, 113, 227, .28);
+  --tm-ease: cubic-bezier(.25, 1, .5, 1);
+  --tm-ease-fluid: var(--tm-ease);
+  --tm-ease-emphasized: var(--tm-ease);
+  --tm-transition: 180ms var(--tm-ease);
+  --tm-glass-background: radial-gradient(ellipse 70% 58% at 5% -12%, rgba(0,113,227,.12), transparent 70%), radial-gradient(ellipse 58% 54% at 104% 108%, rgba(90,200,250,.12), transparent 68%), linear-gradient(135deg, rgba(255,255,255,.6), rgba(235,239,250,.3));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tm-tint: #0a84ff; --tm-tint-hover: #409cff; --tm-tint-soft: rgba(10,132,255,.22);
+    --tm-bg: #1c1c1e; --tm-surface: rgba(30,30,30,.7); --tm-surface-solid: #2c2c2e;
+    --tm-elevated: rgba(44,44,46,.9); --tm-sidebar: rgba(30,30,30,.7); --tm-glass-highlight: rgba(255,255,255,.1);
+    --tm-text: #f5f5f7; --tm-secondary: rgba(235,235,245,.76); --tm-tertiary: rgba(235,235,245,.52);
+    --tm-separator: rgba(235,235,245,.15); --tm-hairline: rgba(235,235,245,.13);
+    --tm-fill: rgba(120,120,128,.3); --tm-fill-hover: rgba(120,120,128,.42);
+    --tm-shadow: 0 1px 2px rgba(0,0,0,.24), 0 5px 14px rgba(0,0,0,.2), 0 14px 30px rgba(0,0,0,.14);
+    --tm-glass-background: radial-gradient(ellipse 70% 58% at 5% -12%, rgba(10,132,255,.16), transparent 70%), radial-gradient(ellipse 58% 54% at 104% 108%, rgba(90,200,250,.08), transparent 68%), linear-gradient(135deg, rgba(44,44,46,.62), rgba(28,28,30,.38));
+  }
+}
+
+* { -webkit-font-smoothing: antialiased; }
+button, input, textarea, select { font: inherit; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: none; box-shadow: var(--tm-focus); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 1ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; } }

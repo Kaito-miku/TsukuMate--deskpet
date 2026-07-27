@@ -28,7 +28,7 @@ const DEFAULT_HOOK_DEBUG_MAX_BYTES = 256 * 1024;
 //  2. PostToolUse → UserPromptSubmit self-submit (~900-1000ms) is the
 //     agentic-loop tool-result feedback, NOT user input. It used to flash
 //     "thinking" between working and idle. The server-side filter in
-//     `src/state.js#updateSession` (lastBoundaryAt + 2s window) drops these
+//     `src/main/core/state.js#updateSession` (lastBoundaryAt + 2s window) drops these
 //     synthetic events, so Stop can stay on "attention" and play the happy
 //     end-of-turn animation. SessionEnd → sleeping handles true session end.
 const EVENT_TO_STATE = {
