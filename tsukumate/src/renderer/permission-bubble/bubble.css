@@ -2,7 +2,7 @@
 
 /* ── Theme variables ── */
 :root {
-  --ease-spring: var(--ease-spring);
+  --ease-spring: cubic-bezier(.25, 1, .5, 1);
   --card-bg: #ffffff;
   --card-border: rgba(0, 0, 0, 0.08);
   --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -442,7 +442,7 @@ body { padding: 6px; }
   right: 14px;
   opacity: 0;
   transform: translateX(-4px);
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(.25,1,.5,1);
   color: var(--sug-arrow);
 }
 .btn-suggestion:hover:not(:disabled) {
@@ -494,3 +494,7 @@ body { padding: 6px; }
 .plan-feedback-actions .btn {
   flex: 1;
 }
+
+/* Permission surface follows the same material hierarchy as the workspace. */
+:root{--bg:var(--tm-bg);--panel-bg:var(--tm-surface-solid);--text-primary:var(--tm-text);--text-secondary:var(--tm-secondary);--border:var(--tm-hairline);--accent:var(--tm-tint);--accent-hover:var(--tm-tint-hover);--danger:var(--tm-red)}
+html,body{font-family:var(--tm-font);background:transparent}.card{background:var(--tm-surface);border-color:var(--tm-hairline);border-radius:var(--tm-radius-window);box-shadow:var(--tm-shadow);backdrop-filter:blur(var(--tm-glass-blur)) saturate(145%)}.header-title{font-family:var(--tm-font-display)}.command-block{border-color:var(--tm-hairline);background:var(--tm-fill);border-radius:var(--tm-radius-control)}.btn{border-radius:var(--tm-radius-control);transition:background var(--tm-transition),transform var(--tm-transition)}.btn:hover{transform:translateY(-1px)}.btn-allow{background:var(--tm-tint);border-color:var(--tm-tint)}.btn-allow:hover{background:var(--tm-tint-hover)}.btn-deny{border-color:var(--tm-hairline);background:var(--tm-fill);color:var(--tm-text)}.btn-deny:hover{background:var(--tm-fill-hover)}

@@ -25,7 +25,7 @@
 // has no torch / transformers / peft dependency and ships as a single
 // binary per platform alongside llama-server.
 
-const { BrowserWindow, ipcMain, screen, shell, Menu, app, safeStorage, desktopCapturer, systemPreferences, dialog, nativeImage } = require("electron");
+const { BrowserWindow, ipcMain, screen, shell, Menu, app, safeStorage, desktopCapturer, systemPreferences, dialog, nativeImage, nativeTheme } = require("electron");
 const { spawn, execFile } = require("child_process");
 const { promisify } = require("util");
 const execFileAsync = promisify(execFile);
@@ -43,6 +43,7 @@ const { paginateHistoryLines } = require("../../shared/chat/chat-history-page");
 const { parseRichStudyCards, studyCardMode, studyCardSystemPrompt } = require("../../shared/chat/rich-study-card");
 const { createConversationStore } = require("./conversation-store");
 const { createStudyAttachmentService } = require("./study-attachments");
+const { createLearningService } = require("./learning-service");
 const { parseGeneratedTitle, buildTitlePrompt } = require("./conversation-title");
 const {
   EMOTIONS,
@@ -904,6 +905,10 @@ module.exports = function initMinicpmChat(ctx) {
     try { return path.join(app.getPath("userData"), "chat-history"); }
     catch { return path.join(os.tmpdir(), "minicpm-chat-history"); }
   })();
+  const learningDir = (() => {
+    try { return path.join(app.getPath("userData"), "learning"); }
+    catch { return path.join(os.tmpdir(), "tsukumate-learning"); }
+  })();
   const conversationStore = createConversationStore(chatHistoryDir);
   const diaryDir = (() => {
     try { return path.join(app.getPath("userData"), "daily-diaries"); }
@@ -1429,6 +1434,22 @@ module.exports = function initMinicpmChat(ctx) {
       api_key_configured: !!active.keyConfigured,
     };
   }
+  function cleanServiceUrl(value) {
+    const raw = String(value || "").trim(); if (!raw) return "";
+    const parsed = new URL(raw); if (!/^https?:$/.test(parsed.protocol)) throw new Error("服务地址必须是 HTTP 或 HTTPS URL"); return parsed.toString();
+  }
+  function getLearningConfig({ includeSecrets = false } = {}) {
+    const raw = readMinicpmPrefsRaw(); const provider = ["none", "tavily", "searxng"].includes(raw.learning_search_provider) ? raw.learning_search_provider : "none";
+    const value = { embeddingEndpoint: String(raw.learning_embedding_endpoint || ""), embeddingModel: String(raw.learning_embedding_model || ""), embeddingKeyConfigured: !!readApiKey("learning-embedding"), searchProvider: provider, searchEndpoint: String(raw.learning_search_endpoint || ""), searchKeyConfigured: !!readApiKey("learning-search") };
+    return includeSecrets ? { ...value, embeddingKey: readApiKey("learning-embedding") || "", searchKey: readApiKey("learning-search") || "" } : value;
+  }
+  function saveLearningConfig(input = {}) {
+    const provider = ["none", "tavily", "searxng"].includes(input.searchProvider) ? input.searchProvider : "none";
+    const patch = { learning_embedding_endpoint: input.embeddingEndpoint ? cleanServiceUrl(input.embeddingEndpoint) : "", learning_embedding_model: String(input.embeddingModel || "").trim().slice(0, 128), learning_search_provider: provider, learning_search_endpoint: input.searchEndpoint ? cleanServiceUrl(input.searchEndpoint) : "" };
+    if (typeof input.embeddingKey === "string" && input.embeddingKey.trim()) writeApiKey(input.embeddingKey.trim(), "learning-embedding");
+    if (typeof input.searchKey === "string" && input.searchKey.trim()) writeApiKey(input.searchKey.trim(), "learning-search");
+    mergeMinicpmPrefs(patch); return getLearningConfig();
+  }
   function isApiMode() { return true; }
   function saveApiProfiles(input) {
     const raw = readMinicpmPrefsRaw();
@@ -1793,13 +1814,35 @@ module.exports = function initMinicpmChat(ctx) {
   function localDay(now = new Date()) {
     return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
   }
+  function readDailyDiaryRecords(day) {
+    const records = [];
+    const addRecord = (entry) => {
+      if (!entry || !["user", "assistant"].includes(entry.role) || !String(entry.content || "").trim()) return;
+      const timestamp = new Date(entry.timestamp || 0);
+      if (Number.isNaN(timestamp.getTime()) || localDay(timestamp) !== day) return;
+      records.push({ timestamp: timestamp.toISOString(), role: entry.role, content: String(entry.content).trim() });
+    };
+    // Keep the original date-based JSONL history compatible with the new
+    // multi-session store: a daily diary must include both interfaces.
+    try { fs.readFileSync(path.join(chatHistoryDir, `${day}.jsonl`), "utf8").split(/\r?\n/).filter(Boolean).forEach((line) => { try { addRecord(JSON.parse(line)); } catch {} }); } catch {}
+    for (const conversation of conversationStore.list()) {
+      if (conversation.legacy) continue;
+      for (const message of conversationStore.readMessages(conversation.id)) addRecord(message);
+    }
+    return records.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  }
+  function writeDiaryAtomically(file, content) {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const temp = `${file}.tmp-${process.pid}-${Date.now()}`;
+    fs.writeFileSync(temp, content, "utf8");
+    fs.renameSync(temp, file);
+  }
   async function generateDailyDiary(day = localDay(), force = false) {
     const config = getInferenceConfig();
     if (!isApiMode() || !config.diary_enabled) return { ok: false, skipped: true };
     const outputPath = path.join(diaryDir, `${day}.md`);
     if (!force && fs.existsSync(outputPath)) return { ok: true, skipped: true };
-    let raw = "";
-    try { raw = fs.readFileSync(path.join(chatHistoryDir, `${day}.jsonl`), "utf8"); } catch {}
+    const raw = readDailyDiaryRecords(day).map((entry) => JSON.stringify(entry)).join("\n");
     if (!raw.trim()) return { ok: true, skipped: true };
     const result = await remoteCompletion({
       messages: [{ role: "user", content: `Create a concise daily diary in Markdown from these chat records. Preserve durable preferences, commitments, and important context. Do not invent facts.\n\n${raw.slice(0, 14000)}` }],
@@ -1807,26 +1850,18 @@ module.exports = function initMinicpmChat(ctx) {
     });
     const content = String(result && result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content || "").trim();
     if (!content) return { ok: false, error: "Empty diary response" };
-    fs.mkdirSync(diaryDir, { recursive: true });
-    fs.writeFileSync(outputPath, `# ${day}\n\n${content}\n`, "utf8");
-    fs.writeFileSync(diaryStatePath, JSON.stringify({ generated_day: day, generated_at: new Date().toISOString() }, null, 2), "utf8");
+    writeDiaryAtomically(outputPath, `# ${day}\n\n${content}\n`);
+    writeDiaryAtomically(diaryStatePath, JSON.stringify({ generated_day: day, generated_at: new Date().toISOString() }, null, 2));
     diaryMemoryCache.at = 0;
     return { ok: true, day };
   }
   async function catchUpDailyDiary() {
     if (!isApiMode()) return;
-    let candidates = [];
-    try {
-      const today = localDay();
-      candidates = fs.readdirSync(chatHistoryDir)
-        .filter((n) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(n))
-        .map((n) => n.slice(0, -6))
-        .filter((day) => day < today && !fs.existsSync(path.join(diaryDir, `${day}.md`)))
-        .sort();
-    } catch {}
-    // One catch-up per launch avoids a burst of API calls after a long break.
-    const day = candidates.pop();
-    if (day) await generateDailyDiary(day);
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const day = localDay(yesterday);
+    // On each app launch, only fill yesterday's missing diary. Older gaps are
+    // deliberately left alone, so reopening the app never triggers a burst.
+    if (!fs.existsSync(path.join(diaryDir, `${day}.md`))) await generateDailyDiary(day);
   }
   let diaryTimer = null;
   function scheduleDailyDiary() {
@@ -2728,6 +2763,17 @@ module.exports = function initMinicpmChat(ctx) {
     dialog, shell, nativeImage, store: conversationStore,
     getWindow: () => workspace && !workspace.isDestroyed() ? workspace : null,
   });
+  const learning = createLearningService({
+    root: learningDir, dialog, shell, nativeImage,
+    getConfig: () => getLearningConfig({ includeSecrets: true }),
+    complete: async ({ text, image, system, maxTokens, temperature }) => {
+      const result = await remoteCompletion({
+        messages: [{ role: "user", content: text }], screenImageDataUrl: image,
+        system, stream: false, includeMemory: false, max_tokens: maxTokens, temperature,
+      });
+      return String(result && result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content || "").trim();
+    },
+  });
 
   function readHistoryLines(day) {
     if (!DATE_ID_RE.test(String(day || ""))) return [];
@@ -2808,7 +2854,7 @@ module.exports = function initMinicpmChat(ctx) {
     const themeConfig = adaptWorkspaceLive2dConfig(desktopThemeConfig);
     workspace = new BrowserWindow({
       ...getWorkspaceBounds(), minWidth: 900, minHeight: 620, show: false,
-      title: "TsukuMate 对话", backgroundColor: "#101115", autoHideMenuBar: true,
+      title: "TsukuMate 对话", backgroundColor: nativeTheme.shouldUseDarkColors ? "#1c1c1e" : "#f5f5f7", autoHideMenuBar: true,
       webPreferences: {
         preload: path.join(PRELOAD_ROOT, "preload-chat-workspace.js"),
         contextIsolation: true, nodeIntegration: false, sandbox: true,
@@ -2888,7 +2934,7 @@ module.exports = function initMinicpmChat(ctx) {
     });
   }
 
-  async function sendWorkspaceMessage(text, attachmentIds, senderId) {
+  async function sendWorkspaceMessage(text, attachmentIds, senderId, webSearch = false) {
     const clean = String(text || "").trim().slice(0, 16000);
     if (!clean) return { ok: false, error: "消息不能为空" };
     if (workspaceSession.generating) return { ok: false, error: "上一条回复仍在生成" };
@@ -2908,9 +2954,15 @@ module.exports = function initMinicpmChat(ctx) {
       try {
         const context = messagesAfterBoundary(workspaceSession.messages);
         const modelMessages = studyAttachments.buildModelContent(workspaceSession.conversation.id, context);
+        let webResearch = "";
+        if (webSearch) {
+          const sources = await learning.searchWeb(clean);
+          if (!sources.length) throw new Error("网络搜索没有返回可用资料");
+          webResearch = `\n\n联网检索资料（仅供本轮回答参考；请基于内容回答，必要时说明不确定性）：\n${sources.map((source, index) => `[${index + 1}] ${source.name}\n${source.text}\n来源：${source.url}`).join("\n\n")}`.slice(0, 16000);
+        }
         await remoteCompletion({
           messages: modelMessages,
-          system: studyCardSystemPrompt(studyCardMode(clean)),
+          system: `${studyCardSystemPrompt(studyCardMode(clean))}${webResearch}`,
           stream: true,
         }, (frame) => {
           if (frame && frame.event === "delta") {
@@ -2947,7 +2999,7 @@ module.exports = function initMinicpmChat(ctx) {
       return { configured, state: configured ? workspaceConnectionState : "unconfigured" };
     },
     "chat-workspace:send": async (event, payload = {}) => isWorkspaceSender(event.sender)
-      ? sendWorkspaceMessage(payload.text, payload.attachmentIds, event.sender.id)
+      ? sendWorkspaceMessage(payload.text, payload.attachmentIds, event.sender.id, payload.webSearch === true)
       : { ok: false, error: "Invalid workspace sender" },
     "chat-workspace:cancel": async (event) => {
       if (!isWorkspaceSender(event.sender)) return { ok: false };
@@ -3050,6 +3102,52 @@ module.exports = function initMinicpmChat(ctx) {
       if (!isWorkspaceSender(event.sender)) return { ok: false };
       fs.mkdirSync(diaryDir, { recursive: true }); const error = await shell.openPath(diaryDir);
       return error ? { ok: false, error } : { ok: true };
+    },
+    "chat-workspace:list-learning-notes": async (event) => isWorkspaceSender(event.sender) ? { ok: true, notes: learning.listNotes() } : { ok: false, notes: [] },
+    "chat-workspace:get-learning-note": async (event, payload = {}) => isWorkspaceSender(event.sender) ? { ok: true, note: learning.getNote(payload.id) } : { ok: false, note: null },
+    "chat-workspace:save-learning-note": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      try { return { ok: true, note: learning.saveNote(payload) }; } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:note-from-message": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      const message = workspaceSession.messages.find((item) => item && item.id === String(payload.messageId || "") && item.role === "assistant");
+      if (!message) return { ok: false, error: "找不到该 AI 回复" };
+      return { ok: true, note: learning.saveNote({ title: String(message.content || "").split("\n").find(Boolean) || "AI 回答摘录", content: message.content, richCards: message.richCards, sourceMessageId: message.id, conversationId: workspaceSession.conversation.id }) };
+    },
+    "chat-workspace:delete-learning-note": async (event, payload = {}) => ({ ok: isWorkspaceSender(event.sender) && learning.deleteNote(payload.id) }),
+    "chat-workspace:add-learning-resources": async (event) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      try { return await learning.addResources(workspace); } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:list-learning-resources": async (event) => isWorkspaceSender(event.sender) ? { ok: true, resources: learning.listResources() } : { ok: false, resources: [] },
+    "chat-workspace:get-learning-resource": async (event, payload = {}) => isWorkspaceSender(event.sender) ? { ok: true, resource: learning.getResource(payload.id) } : { ok: false, resource: null },
+    "chat-workspace:retry-learning-resource": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      try { return { ok: true, resource: await learning.retryResource(payload.id) }; } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:delete-learning-resource": async (event, payload = {}) => ({ ok: isWorkspaceSender(event.sender) && learning.deleteResource(payload.id) }),
+    "chat-workspace:list-practices": async (event) => isWorkspaceSender(event.sender) ? { ok: true, practices: learning.listPractices() } : { ok: false, practices: [] },
+    "chat-workspace:get-learning-search-status": async (event) => {
+      const config = getLearningConfig(); return isWorkspaceSender(event.sender) ? { ok: true, available: config.searchProvider !== "none", provider: config.searchProvider } : { ok: false, available: false };
+    },
+    "chat-workspace:get-practice": async (event, payload = {}) => isWorkspaceSender(event.sender) ? { ok: true, practice: learning.getPractice(payload.id) } : { ok: false, practice: null },
+    "chat-workspace:delete-practice": async (event, payload = {}) => ({ ok: isWorkspaceSender(event.sender) && learning.deletePractice(payload.id) }),
+    "chat-workspace:generate-practice": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      try { return { ok: true, practice: await learning.generate(payload) }; } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:select-practice-image": async (event) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      try { return await learning.selectAnswerImage(workspace); } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:submit-practice": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      try { return { ok: true, ...(await learning.submit(payload.practiceId, payload.questionId, payload.answer, payload.imageDataUrl)) }; } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:submit-practice-batch": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      try { return { ok: true, ...(await learning.submitBatch(payload.practiceId, payload.answers)) }; } catch (error) { return { ok: false, error: localizeError(error) }; }
     },
     "minicpm:status": async () => {
       const config = getInferenceConfig();
@@ -3299,6 +3397,11 @@ module.exports = function initMinicpmChat(ctx) {
       };
     },
     "minicpm-settings:get-inference-config": async () => getInferenceConfig(),
+    "minicpm-settings:get-learning-config": async () => getLearningConfig(),
+    "minicpm-settings:save-learning-config": async (_evt, payload) => {
+      try { return { ok: true, config: saveLearningConfig(payload || {}) }; }
+      catch (err) { return { ok: false, error: localizeError(err) }; }
+    },
     "minicpm-settings:save-api-profiles": async (_evt, payload) => {
       try { return { ok: true, config: saveApiProfiles(payload || {}) }; }
       catch (err) { return { ok: false, error: localizeError(err) }; }

@@ -5,6 +5,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' http://127.0.0.1:*; style-src 'self'; img-src 'self' data: http://127.0.0.1:*; connect-src 'self' http://127.0.0.1:*;">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TsukuMate 对话</title>
+  <link rel="stylesheet" href="../shared/ui/tokens.css">
   <link rel="stylesheet" href="chat-workspace.css">
   <link rel="stylesheet" href="chat-workspace-screen.css">
   <link rel="stylesheet" href="chat-workspace-learning.css">
@@ -17,6 +18,8 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5.5h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-6l-4.8 3v-3h-.2a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z"/></svg>
       </button>
       <button class="tool" id="diary-tool" title="日记" aria-label="日记">▤</button>
+      <button class="tool" id="notes-tool" title="笔记" aria-label="笔记">✎</button>
+      <button class="tool" id="practice-tool" title="练习" aria-label="练习">✦</button>
     </nav>
     <aside class="drawer" id="drawer" aria-hidden="true">
       <header><strong id="drawer-title">聊天历史</strong><button id="drawer-close">×</button></header>
@@ -47,10 +50,23 @@
         <textarea id="diary-editor" spellcheck="false" placeholder="选择左侧的一篇日记"></textarea>
         <footer><span id="diary-status"></span><button id="diary-generate">重新生成</button><button id="diary-folder">打开文件夹</button><button class="primary" id="diary-save">保存</button></footer>
       </div>
+      <section class="learning-view" id="notes-view" hidden>
+        <header class="learning-header"><div><h2 id="notes-heading">我的笔记</h2><p id="notes-subheading">从 AI 回复保存、整理并用于生成练习</p></div><div class="learning-tabs"><button id="notes-tab" class="active">我的笔记</button><button id="resources-tab">学习资源</button></div></header>
+        <div class="learning-layout"><aside class="learning-list"><button class="primary learning-create" id="notes-primary-action">＋ 新建笔记</button><div id="notes-list"></div></aside><main class="learning-editor"><div id="note-empty" class="learning-empty">选择一篇笔记，或从 AI 回复记入笔记</div><div id="note-editor" hidden><input id="note-title" maxlength="100" placeholder="笔记标题"><textarea id="note-content" placeholder="编辑笔记内容（支持 Markdown）"></textarea><footer><button id="note-delete">删除</button><button id="note-source" hidden>查看来源回复</button><span id="note-status"></span><button class="primary" id="note-save">保存笔记</button></footer></div><div id="resource-panel" hidden><div class="resource-toolbar"><button class="primary" id="resource-add">＋ 添加学习资源</button><span>支持 PDF、DOCX、TXT、Markdown、CSV 和图片</span></div><div id="resources-list" class="resource-list"></div></div></main></div>
+      </section>
+      <section class="learning-view" id="practice-view" hidden>
+        <header class="learning-header"><div><h2>学习练习</h2><p>从选中的笔记与学习资源生成练习</p></div><button class="primary practice-generate-pill" id="practice-new">＋ 生成练习</button></header>
+        <main id="practice-library" class="practice-library"><div class="learning-empty">尚未生成练习，点击右上角开始生成。</div></main>
+        <section class="practice-answer-view" id="practice-answer-view" hidden>
+          <header class="practice-answer-header"><button id="practice-answer-back">‹ 返回练习库</button><h2 id="practice-answer-title">学习练习</h2><button class="primary" id="practice-submit-all">交卷</button></header>
+          <div class="practice-answer-body"><aside id="practice-question-list" class="practice-question-list" aria-label="题目列表"></aside><main id="practice-answer-content" class="practice-answer-content"></main></div>
+        </section>
+      </section>
+      <div class="learning-modal" id="practice-modal" hidden><div class="learning-modal-card"><header><h2>生成学习练习</h2><button id="practice-modal-close">×</button></header><label>练习类型<select id="practice-kind"><option value="choice">选择题</option><option value="flashcards">闪卡</option><option value="fill">填空题</option><option value="short">简答题</option><option value="review">复习题</option></select></label><label>学科<select id="practice-subject"><option value="general">通用</option><option value="chinese">语文</option><option value="math">数学</option><option value="english">英语</option></select></label><label id="practice-source-row">资料来源<select id="practice-source"><option value="local">已选笔记与资源</option><option value="web">联网检索资料</option></select></label><div class="source-picker"><strong>选择笔记</strong><div id="practice-notes-picker"></div><strong>选择学习资源（可选）</strong><div id="practice-resources-picker"></div></div><footer><span id="practice-generate-status"></span><button class="primary" id="practice-generate">生成</button></footer></div></div>
       <footer class="composer" id="composer">
         <div class="attachment-list" id="attachment-list" hidden></div>
         <textarea id="prompt" rows="2" placeholder="输入消息，Cmd/Ctrl + Enter 发送"></textarea>
-        <div class="composer-actions"><button class="attachment-button" id="attachment-button" type="button" title="上传学习附件">📎 上传附件</button><span id="send-status">准备就绪</span><button id="cancel" hidden>停止</button><button class="primary" id="send">发送</button></div>
+        <div class="composer-actions"><button class="attachment-button" id="attachment-button" type="button" title="上传学习附件">📎 上传附件</button><button id="web-search" type="button" title="为本轮回答启用网络搜索" aria-pressed="false">⌕ 网络搜索</button><span id="send-status">准备就绪</span><button id="cancel" hidden>停止</button><button class="primary" id="send">发送</button></div>
       </footer>
     </section>
     <aside class="live2d-pane">

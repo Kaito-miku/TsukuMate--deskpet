@@ -153,6 +153,8 @@ contextBridge.exposeInMainWorld("minicpmSettings", {
   setNarration: (enabled) => ipcRenderer.invoke("minicpm-settings:set-narration", { enabled }),
   getChatParams: () => ipcRenderer.invoke("minicpm-settings:get-chat-params"),
   getInferenceConfig: () => ipcRenderer.invoke("minicpm-settings:get-inference-config"),
+  getLearningConfig: () => ipcRenderer.invoke("minicpm-settings:get-learning-config"),
+  saveLearningConfig: (config) => ipcRenderer.invoke("minicpm-settings:save-learning-config", config || {}),
   setInferenceConfig: (config) => ipcRenderer.invoke("minicpm-settings:set-inference-config", config || {}),
   saveApiProfiles: (payload) => ipcRenderer.invoke("minicpm-settings:save-api-profiles", payload || {}),
   getPersonaProfiles: () => ipcRenderer.invoke("minicpm-settings:get-persona-profiles"),

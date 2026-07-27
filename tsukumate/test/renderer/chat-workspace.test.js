@@ -93,6 +93,15 @@ test("workspace history and diary IPC reject arbitrary paths", () => {
   assert.match(chat, /fs\.renameSync\(temp, target\)/);
 });
 
+test("daily diary includes new conversation sessions and only catches up yesterday on launch", () => {
+  const chat = read("main/chat/minicpm-chat.js");
+  assert.match(chat, /function readDailyDiaryRecords\(day\)/);
+  assert.match(chat, /conversationStore\.readMessages\(conversation\.id\)/);
+  assert.match(chat, /const yesterday = new Date\(\); yesterday\.setDate\(yesterday\.getDate\(\) - 1\)/);
+  assert.match(chat, /if \(!fs\.existsSync\(path\.join\(diaryDir,/);
+  assert.match(chat, /await generateDailyDiary\(day\)/);
+});
+
 test("workspace replaces screen capture with tokenized learning attachments", () => {
   const html = read("renderer/chat-workspace/chat-workspace.html");
   const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");

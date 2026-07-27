@@ -62,6 +62,12 @@
   }
 }
 
+/* Shared Apple-style preference-window refinements. Existing settings
+   semantics remain unchanged; this only normalises visual hierarchy. */
+:root{--bg:var(--tm-bg);--panel-bg:var(--tm-surface-solid);--sidebar-bg:var(--tm-sidebar);--sidebar-hover:var(--tm-fill);--sidebar-active:var(--tm-surface-solid);--sidebar-active-text:var(--tm-text);--text-primary:var(--tm-text);--text-secondary:var(--tm-secondary);--text-tertiary:var(--tm-tertiary);--border:var(--tm-separator);--row-border:var(--tm-hairline);--accent:var(--tm-tint);--accent-hover:var(--tm-tint-hover);--toast-bg:var(--tm-elevated);--toast-text:var(--tm-text);--toast-error:var(--tm-red)}
+html,body{font-family:var(--tm-font);background:var(--tm-glass-background)}.app{background:var(--tm-glass-background)}.sidebar{background:var(--tm-sidebar);backdrop-filter:blur(24px) saturate(130%);border-color:var(--tm-separator)}.sidebar-item{border-radius:var(--tm-radius-sm);transition:background var(--tm-transition),color var(--tm-transition)}.sidebar-item:hover{background:var(--tm-fill)}.sidebar-item.active{background:var(--tm-surface-solid);box-shadow:0 1px 2px rgba(0,0,0,.08)}.sidebar-item.active .sidebar-item-label{color:var(--tm-tint)}.content{background:rgba(255,255,255,.34);backdrop-filter:blur(16px)}.page-header{padding-top:30px}.page-title{font-family:var(--tm-font-display);letter-spacing:-.02em}.section{border-color:var(--tm-separator);border-radius:var(--tm-radius-lg);background:var(--tm-elevated);box-shadow:0 1px 2px rgba(0,0,0,.025)}.row:hover{background:var(--tm-fill)}.settings-group-switcher{border:0;background:var(--tm-fill);border-radius:var(--tm-radius-sm);padding:3px}.settings-group-tab{border-radius:6px}.settings-group-tab.active{background:var(--tm-surface-solid);color:var(--tm-tint);box-shadow:0 1px 2px rgba(0,0,0,.1)}.soft-btn,.primary-btn{border-radius:var(--tm-radius-sm);transition:background var(--tm-transition),transform var(--tm-transition)}.soft-btn:hover,.primary-btn:hover{transform:translateY(-1px)}input[type="text"],input[type="url"],input[type="password"],input[type="number"],select,textarea{border-color:var(--tm-hairline);border-radius:var(--tm-radius-sm);background:var(--tm-surface-solid);color:var(--tm-text)}input:focus,select:focus,textarea:focus{border-color:var(--tm-tint);box-shadow:var(--tm-focus)!important}
+@media(prefers-color-scheme:dark){.content{background:rgba(28,28,30,.34)}}
+
 html, body {
   height: 100%;
   margin: 0;
@@ -107,7 +113,7 @@ html, body {
   cursor: pointer;
   color: var(--text-secondary);
   font-weight: 500;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: background 0.12s var(--tm-ease), color 0.12s var(--tm-ease);
 }
 .sidebar-item:hover:not(.disabled) { background: var(--sidebar-hover); }
 .sidebar-item.active {
@@ -250,7 +256,7 @@ html, body {
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: background .15s ease, color .15s ease, box-shadow .15s ease;
+  transition: background .15s var(--tm-ease), color .15s var(--tm-ease), box-shadow .15s var(--tm-ease);
 }
 .settings-group-tab:hover { background: var(--sidebar-hover); color: var(--text); }
 .settings-group-tab.active {
@@ -424,7 +430,7 @@ html, body {
   cursor: pointer;
   user-select: none;
   overflow: hidden;
-  transition: background 0.12s ease, padding 0.18s ease;
+  transition: background 0.12s var(--tm-ease), padding 0.18s var(--tm-ease);
 }
 .collapsible-group-header:hover {
   background: rgba(0, 0, 0, 0.025);
@@ -451,9 +457,9 @@ html, body {
   transform: translateX(-6px) rotate(0deg);
   transform-origin: center;
   transition:
-    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-    color 0.16s ease,
-    opacity 0.16s ease;
+    transform 0.22s var(--tm-ease),
+    color 0.16s var(--tm-ease),
+    opacity 0.16s var(--tm-ease);
 }
 .collapsible-group-chevron svg,
 .anim-override-chevron svg {
@@ -519,7 +525,7 @@ html, body {
   gap: 6px;
   max-width: 48%;
   min-width: 0;
-  transition: opacity 0.16s ease, transform 0.18s ease;
+  transition: opacity 0.16s var(--tm-ease), transform 0.18s var(--tm-ease);
 }
 .session-hud-collapsible .collapsible-group-summary {
   flex: 0 0 auto;
@@ -615,7 +621,7 @@ html, body {
   padding: 10px 16px 12px 40px;
   opacity: 1;
   transform: translateY(0);
-  transition: max-height 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.16s ease, transform 0.18s ease, padding 0.18s ease, border-color 0.18s ease;
+  transition: max-height 0.22s var(--tm-ease), opacity 0.16s var(--tm-ease), transform 0.18s var(--tm-ease), padding 0.18s var(--tm-ease), border-color 0.18s var(--tm-ease);
   will-change: max-height, opacity, transform;
 }
 .collapsible-group.collapsed .collapsible-group-body {
@@ -979,7 +985,7 @@ html, body {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0)), var(--switch-off);
   cursor: pointer;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06), inset 0 1px 3px rgba(0, 0, 0, 0.14);
-  transition: background 0.26s ease, box-shadow 0.26s ease, transform 0.16s ease;
+  transition: background 0.26s var(--tm-ease), box-shadow 0.26s var(--tm-ease), transform 0.16s var(--tm-ease);
   flex-shrink: 0;
 }
 .switch::after {
@@ -993,7 +999,7 @@ html, body {
   background: var(--switch-knob);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22);
   transform: translateX(0) scale(1);
-  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s ease;
+  transition: transform 0.28s var(--tm-ease), box-shadow 0.2s var(--tm-ease);
 }
 .switch.on {
   --switch-knob-x: 16px;
@@ -1080,7 +1086,7 @@ html, body {
   border: 2px solid var(--accent);
   background: #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-  transition: transform 0.12s ease, box-shadow 0.18s ease;
+  transition: transform 0.12s var(--tm-ease), box-shadow 0.18s var(--tm-ease);
 }
 .volume-slider:focus-visible {
   outline: none;
@@ -1248,7 +1254,7 @@ html, body {
   color: var(--text-secondary);
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: background 0.12s var(--tm-ease), color 0.12s var(--tm-ease);
 }
 .segmented button.active {
   background: color-mix(in srgb, var(--accent) 17%, var(--panel-bg));
@@ -1309,7 +1315,7 @@ html, body {
   font: inherit;
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: border-color 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+  transition: border-color 0.14s var(--tm-ease), box-shadow 0.14s var(--tm-ease), background 0.14s var(--tm-ease);
 }
 .language-picker-trigger:hover,
 .language-picker.open .language-picker-trigger {
@@ -1334,7 +1340,7 @@ html, body {
   border-right: 1.5px solid var(--text-secondary);
   border-bottom: 1.5px solid var(--text-secondary);
   transform: translateY(-1px) rotate(45deg);
-  transition: transform 0.14s ease, border-color 0.14s ease;
+  transition: transform 0.14s var(--tm-ease), border-color 0.14s var(--tm-ease);
 }
 .language-picker.open .language-picker-chevron {
   transform: translateY(2px) rotate(225deg);
@@ -1355,7 +1361,7 @@ html, body {
   transform: translateY(-4px) scale(0.98);
   transform-origin: top right;
   pointer-events: none;
-  transition: opacity 0.14s ease, transform 0.14s ease;
+  transition: opacity 0.14s var(--tm-ease), transform 0.14s var(--tm-ease);
 }
 .language-picker.open .language-picker-menu {
   opacity: 1;
@@ -1432,7 +1438,7 @@ html, body {
   background: var(--panel-bg);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   transform: translateX(calc(var(--codex-permission-mode-active-index) * 100%));
-  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.24s var(--tm-ease);
 }
 .codex-permission-mode-segmented button {
   background: transparent;
@@ -1525,7 +1531,7 @@ html, body {
   border-radius: 10px;
   padding: 12px;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  transition: border-color 0.15s var(--tm-ease), box-shadow 0.15s var(--tm-ease), transform 0.1s var(--tm-ease);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1645,7 +1651,7 @@ html, body {
   padding: 4px 6px;
   border-radius: 5px;
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: background 0.12s var(--tm-ease), color 0.12s var(--tm-ease);
   font-family: inherit;
 }
 .theme-delete-btn:hover {
@@ -1667,7 +1673,7 @@ html, body {
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  transition: background 0.12s var(--tm-ease), border-color 0.12s var(--tm-ease), color 0.12s var(--tm-ease);
 }
 .theme-uninstall-btn:hover:not(:disabled) {
   background: rgba(185, 28, 28, 0.1);
@@ -1693,7 +1699,7 @@ html, body {
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
-  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+  transition: border-color 0.12s var(--tm-ease), background 0.12s var(--tm-ease), color 0.12s var(--tm-ease);
 }
 .soft-btn:hover:not(:disabled) { border-color: var(--accent); }
 .soft-btn.accent {
@@ -2165,7 +2171,7 @@ html, body {
   box-shadow:
     0 5px 12px color-mix(in srgb, var(--accent) 32%, transparent),
     0 1px 2px rgba(0, 0, 0, 0.18);
-  transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s ease;
+  transition: transform 0.16s var(--tm-ease), box-shadow 0.16s var(--tm-ease);
 }
 .anim-override-slider-row input[type="range"]:hover::-webkit-slider-thumb {
   transform: scale(1.08);
@@ -2321,7 +2327,7 @@ html, body {
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
 }
 .doctor-modal-entering {
-  animation: doctor-modal-in 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: doctor-modal-in 0.16s var(--tm-ease);
 }
 @keyframes doctor-modal-in {
   from {
@@ -2362,7 +2368,7 @@ html, body {
   background: var(--bg);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, transform 0.12s ease;
+  transition: background 0.14s var(--tm-ease), border-color 0.14s var(--tm-ease), color 0.14s var(--tm-ease), transform 0.12s var(--tm-ease);
 }
 .doctor-close svg {
   width: 16px;
@@ -2547,7 +2553,7 @@ html, body {
   gap: 7px;
 }
 .doctor-agent-collapsible {
-  transition: background 0.14s ease, border-color 0.14s ease;
+  transition: background 0.14s var(--tm-ease), border-color 0.14s var(--tm-ease);
 }
 .doctor-agent-collapsible.expanded {
   border-color: rgba(var(--accent-rgb), 0.22);
@@ -2581,7 +2587,7 @@ html, body {
   height: 18px;
   color: var(--text-tertiary);
   transform: rotate(0deg);
-  transition: transform 0.18s ease, color 0.14s ease;
+  transition: transform 0.18s var(--tm-ease), color 0.14s var(--tm-ease);
 }
 .doctor-agent-collapsible.expanded .doctor-agent-chevron {
   color: var(--accent);
@@ -2592,7 +2598,7 @@ html, body {
   grid-template-rows: 0fr;
   opacity: 0;
   margin-top: 0;
-  transition: grid-template-rows 0.24s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.16s ease, margin-top 0.2s ease;
+  transition: grid-template-rows 0.24s var(--tm-ease), opacity 0.16s var(--tm-ease), margin-top 0.2s var(--tm-ease);
 }
 .doctor-agent-collapsible.expanded .doctor-agent-body {
   grid-template-rows: 1fr;
@@ -2724,7 +2730,7 @@ html, body {
   border-radius: 8px;
   padding: 8px 10px;
   background: var(--bg);
-  transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+  transition: background 0.16s var(--tm-ease), border-color 0.16s var(--tm-ease), box-shadow 0.16s var(--tm-ease);
 }
 .doctor-connection-panel.pass {
   border-left-color: rgba(var(--doctor-pass-rgb), 0.72);
@@ -2750,7 +2756,7 @@ html, body {
   height: 100%;
   border-radius: inherit;
   background: var(--doctor-warning);
-  transition: width 0.24s ease;
+  transition: width 0.24s var(--tm-ease);
 }
 .doctor-action-bar {
   display: flex;
@@ -3023,7 +3029,7 @@ html, body {
   pointer-events: auto;
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.2s var(--tm-ease), transform 0.2s var(--tm-ease);
   max-width: 320px;
 }
 .toast.visible { opacity: 1; transform: translateY(0); }
@@ -3049,7 +3055,7 @@ html, body {
   cursor: pointer;
   user-select: none;
   -webkit-user-drag: none;
-  transition: transform 0.12s ease;
+  transition: transform 0.12s var(--tm-ease);
 }
 .about-logo-wrap:active,
 .about-crab-wrap:active { transform: scale(0.97); }
@@ -3120,7 +3126,7 @@ html, body {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background 0.15s var(--tm-ease);
 }
 .about-check-update-btn:hover { background: var(--accent-hover); }
 .about-check-update-btn:disabled { opacity: 0.6; cursor: default; }
@@ -3216,7 +3222,7 @@ html, body {
   background: var(--panel-bg);
   margin-bottom: 8px;
   cursor: pointer;
-  transition: border-color 0.12s ease, background 0.12s ease;
+  transition: border-color 0.12s var(--tm-ease), background 0.12s var(--tm-ease);
 }
 .remote-ssh-card:hover { border-color: var(--accent); }
 .remote-ssh-card.selected {
@@ -3694,7 +3700,7 @@ html, body {
   cursor: pointer;
   border: 1px solid transparent;
   background: color-mix(in srgb, var(--text-primary) 3%, var(--panel-bg));
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  transition: background 0.12s var(--tm-ease), border-color 0.12s var(--tm-ease), color 0.12s var(--tm-ease);
 }
 .minicpm-adapter-choice:hover {
   background: color-mix(in srgb, var(--accent) 7%, var(--panel-bg));
@@ -3765,7 +3771,7 @@ html, body {
   align-items: center;
   justify-content: center;
   color: var(--text-tertiary);
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: background 0.12s var(--tm-ease), color 0.12s var(--tm-ease);
 }
 .minicpm-adapter-icon-btn:hover {
   background: rgba(var(--accent-rgb), 0.1);
@@ -3859,7 +3865,7 @@ html, body {
   justify-content: center;
   width: 14px;
   height: 14px;
-  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.18s var(--tm-ease);
   opacity: 0.75;
 }
 .minicpm-advanced-chevron svg {
@@ -3874,7 +3880,7 @@ html, body {
 .minicpm-advanced-row {
   cursor: pointer;
   gap: 12px;
-  transition: background 0.12s ease;
+  transition: background 0.12s var(--tm-ease);
 }
 .minicpm-advanced-row .minicpm-advanced-row-icon {
   flex: 0 0 auto;
@@ -4097,3 +4103,14 @@ html, body {
 .mobile-action-btn:hover { background: var(--accent); color: #fff; }
 .mobile-action-danger { border-color: var(--red, #7f1d1d); color: var(--red, #fca5a5); }
 .mobile-action-danger:hover { background: var(--red, #7f1d1d); color: #fff; }
+
+/* Keep every preference pane on the shared HIG visual system. */
+:root{--bg:var(--tm-bg);--panel-bg:var(--tm-surface-solid);--sidebar-bg:var(--tm-sidebar);--sidebar-hover:var(--tm-fill);--sidebar-active:var(--tm-surface-solid);--sidebar-active-text:var(--tm-text);--text-primary:var(--tm-text);--text-secondary:var(--tm-secondary);--text-tertiary:var(--tm-tertiary);--border:var(--tm-separator);--row-border:var(--tm-hairline);--accent:var(--tm-tint);--accent-hover:var(--tm-tint-hover);--toast-bg:var(--tm-elevated);--toast-text:var(--tm-text);--toast-error:var(--tm-red)}
+html,body{font-family:var(--tm-font);background:var(--tm-bg)}.sidebar{background:var(--tm-sidebar);backdrop-filter:blur(24px) saturate(130%);border-color:var(--tm-separator)}.sidebar-item{border-radius:var(--tm-radius-sm);transition:background var(--tm-transition),color var(--tm-transition)}.sidebar-item:hover{background:var(--tm-fill)}.sidebar-item.active{background:var(--tm-surface-solid);box-shadow:0 1px 2px rgba(0,0,0,.08)}.sidebar-item.active .sidebar-item-label{color:var(--tm-tint)}.content{background:var(--tm-surface-solid)}.page-header{padding-top:30px}.page-title{font-family:var(--tm-font-display);letter-spacing:-.02em}.section{border-color:var(--tm-separator);border-radius:var(--tm-radius-lg);background:var(--tm-elevated);box-shadow:0 1px 2px rgba(0,0,0,.025)}.row:hover{background:var(--tm-fill)}.settings-group-switcher{border:0;background:var(--tm-fill);border-radius:var(--tm-radius-sm);padding:3px}.settings-group-tab{border-radius:6px}.settings-group-tab.active{background:var(--tm-surface-solid);color:var(--tm-tint);box-shadow:0 1px 2px rgba(0,0,0,.1)}.soft-btn,.primary-btn{border-radius:var(--tm-radius-sm);transition:background var(--tm-transition),transform var(--tm-transition)}.soft-btn:hover,.primary-btn:hover{transform:translateY(-1px)}input[type="text"],input[type="url"],input[type="password"],input[type="number"],select,textarea{border-color:var(--tm-hairline);border-radius:var(--tm-radius-sm);background:var(--tm-surface-solid);color:var(--tm-text)}input:focus,select:focus,textarea:focus{border-color:var(--tm-tint);box-shadow:var(--tm-focus)!important}
+/* Shared continuous-corner material layer. Solid controls keep form text crisp. */
+html,body{font-family:var(--tm-font);background:var(--tm-bg)}
+.sidebar{background:var(--tm-sidebar);border-color:var(--tm-hairline);backdrop-filter:blur(var(--tm-glass-blur)) saturate(145%)}
+.sidebar-item,.soft-btn,.primary-btn,input[type="text"],input[type="url"],input[type="password"],input[type="number"],select,textarea{border-radius:var(--tm-radius-control)}
+.section,.toast,.modal-content,.dialog-content{border-radius:var(--tm-radius-window);border-color:var(--tm-hairline);box-shadow:var(--tm-shadow)}
+.settings-group-switcher,.settings-group-tab{border-radius:var(--tm-radius-pill)}
+.sidebar-item,.soft-btn,.primary-btn,.settings-group-tab,.row,.section,.toast,.modal-content,.dialog-content{transition-timing-function:var(--tm-ease)}

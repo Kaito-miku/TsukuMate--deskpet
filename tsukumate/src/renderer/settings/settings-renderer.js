@@ -6,6 +6,7 @@ const SIDEBAR_TABS = [
   { id: "general", labelKey: "sidebarGeneral", available: true },
   { id: "api", label: "模型连接", available: true },
   { id: "memory", label: "聊天与记忆", available: true },
+  { id: "learning", label: "学习检索与联网资料", available: true },
   { id: "personas", label: "人格", available: true },
   { id: "agents", labelKey: "sidebarAgents", available: true },
   { id: "appearanceGroup", label: "外观与动画", available: true },
@@ -164,6 +165,7 @@ if (globalThis.ClawdSettingsTabMobile) globalThis.ClawdSettingsTabMobile.init(co
 if (globalThis.ClawdSettingsTabMinicpm) globalThis.ClawdSettingsTabMinicpm.init(core);
 if (globalThis.ClawdSettingsTabApi) globalThis.ClawdSettingsTabApi.init(core);
 if (globalThis.ClawdSettingsTabMemory) globalThis.ClawdSettingsTabMemory.init(core);
+if (globalThis.ClawdSettingsTabLearning) globalThis.ClawdSettingsTabLearning.init(core);
 if (globalThis.ClawdSettingsTabPersonas) globalThis.ClawdSettingsTabPersonas.init(core);
 
 if (window.settingsAPI && typeof window.settingsAPI.onChanged === "function") {
