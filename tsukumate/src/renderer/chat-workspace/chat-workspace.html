@@ -78,14 +78,9 @@
       </footer>
       <section class="image-viewer" id="image-viewer" hidden role="dialog" aria-modal="true" aria-labelledby="image-viewer-title">
         <div class="image-viewer-card">
-          <header><strong id="image-viewer-title">图片预览</strong><button id="image-viewer-close" type="button" aria-label="关闭图片预览">×</button></header>
-          <div class="image-viewer-toolbar" aria-label="图片工具">
-            <button id="image-copy" type="button">复制图片</button><button id="image-download" type="button">下载图片</button>
-            <button id="image-brush" type="button" aria-pressed="false">画笔</button><button id="image-text" type="button" aria-pressed="false">文字</button>
-            <label class="image-color">颜色 <input id="image-color" type="color" value="#1683ff"></label><button id="image-clear" type="button">清除批注</button>
-            <button id="image-ocr" type="button">识别文字</button>
-          </div>
-          <div class="image-canvas-wrap"><canvas id="image-canvas" aria-label="图片批注画布"></canvas></div>
+          <header class="image-viewer-header"><strong id="image-viewer-title">图片预览</strong><div class="image-viewer-actions"><button id="image-copy" type="button">▣ 复制</button><button id="image-download" type="button">⇩ 下载</button><button id="image-more" type="button" aria-expanded="false">••• 更多</button><button id="image-viewer-close" type="button" aria-label="关闭图片预览">×</button></div></header>
+          <div class="image-more-menu" id="image-more-menu" hidden><button id="image-markup-toggle" type="button" aria-pressed="false">✦ 标注图片</button><button id="image-ocr" type="button">▤ 识别文字</button></div>
+          <div class="image-viewer-body"><aside class="image-markup-panel" id="image-markup-panel" hidden><h3>标注</h3><div class="image-tool-grid"><button id="image-select" class="active" type="button" title="选择">↖</button><button id="image-brush" type="button" title="画笔" aria-pressed="false">╱</button><button id="image-text" type="button" title="文字" aria-pressed="false">T</button><button id="image-clear" type="button" title="清除批注">⌫</button></div><label class="image-color-swatch" title="选择颜色"><input id="image-color" type="color" value="#1683ff"><span>颜色</span></label><label class="image-size">粗细 <input id="image-brush-size" type="range" min="2" max="28" value="6"></label><button class="image-panel-reset" id="image-panel-reset" type="button">清除全部批注</button></aside><div class="image-canvas-wrap"><canvas id="image-canvas" aria-label="图片批注画布"></canvas></div></div>
           <section class="image-ocr-result" id="image-ocr-result" hidden><header><strong>识别结果</strong><button id="image-ocr-copy" type="button">复制文字</button></header><textarea id="image-ocr-text" readonly></textarea></section>
         </div>
       </section>
