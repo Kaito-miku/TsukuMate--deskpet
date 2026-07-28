@@ -157,6 +157,17 @@ test("workspace replaces screen capture with tokenized learning attachments", ()
   assert.match(chat, /studyAttachments\.addClipboardImage/);
 });
 
+test("workspace image viewer keeps attachments tokenized while offering preview, annotation and OCR", () => {
+  const html = read("renderer/chat-workspace/chat-workspace.html");
+  const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
+  const preload = read("preload/preload-chat-workspace.js");
+  const chat = read("main/chat/minicpm-chat.js");
+  assert.match(html, /id="image-viewer"/); assert.match(html, /id="image-canvas"/); assert.match(html, /id="image-ocr"/);
+  assert.match(renderer, /openImageViewer/); assert.match(renderer, /previewAttachmentImage/); assert.match(renderer, /ocrAttachmentImage/);
+  assert.match(preload, /chat-workspace:preview-attachment-image/); assert.match(preload, /chat-workspace:ocr-attachment-image/);
+  assert.match(chat, /studyAttachments\.readImage/); assert.match(chat, /You are an OCR transcriber/);
+});
+
 test("workspace keeps lifecycle state separate from Cubism diagnostic logs", () => {
   const preload = read("preload/preload-chat-workspace.js");
   const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");

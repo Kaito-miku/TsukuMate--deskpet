@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld("chatWorkspace", {
   readClipboardImage: () => ipcRenderer.invoke("chat-workspace:read-clipboard-image"),
   discardAttachment: (id) => ipcRenderer.invoke("chat-workspace:discard-attachment", { id }),
   openAttachment: (id) => ipcRenderer.invoke("chat-workspace:open-attachment", { id }),
+  previewAttachmentImage: (id) => ipcRenderer.invoke("chat-workspace:preview-attachment-image", { id }),
+  ocrAttachmentImage: (id) => ipcRenderer.invoke("chat-workspace:ocr-attachment-image", { id }),
   getA2uiSource: (id, kind) => ipcRenderer.invoke("chat-workspace:get-a2ui-source", { id, kind }),
   performA2uiAction: (payload) => ipcRenderer.invoke("chat-workspace:perform-a2ui-action", payload || {}),
   addA2uiModels: () => ipcRenderer.invoke("chat-workspace:add-a2ui-models"),

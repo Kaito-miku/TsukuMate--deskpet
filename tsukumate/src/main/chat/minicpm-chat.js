@@ -3116,6 +3116,23 @@ module.exports = function initMinicpmChat(ctx) {
     }),
     "chat-workspace:open-attachment": async (event, payload = {}) => isWorkspaceSender(event.sender)
       ? studyAttachments.open(workspaceSession.conversation.id, payload.id) : { ok: false },
+    "chat-workspace:preview-attachment-image": async (event, payload = {}) => isWorkspaceSender(event.sender)
+      ? studyAttachments.readImage(workspaceSession.conversation.id, payload.id, event.sender.id)
+      : { ok: false, error: "无权查看图片" },
+    "chat-workspace:ocr-attachment-image": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "无权识别图片" };
+      const result = studyAttachments.readImage(workspaceSession.conversation.id, payload.id, event.sender.id);
+      if (!result.ok) return result;
+      try {
+        const response = await remoteCompletion({
+          messages: [{ role: "user", content: [{ type: "text", text: "请逐行转写这张图片中可见的文字。保留原本语言、段落和代码；不要解释、不要概括；若没有可识别文字，仅回答“未识别到文字”。" }, { type: "image_url", image_url: { url: result.image.dataUrl } }] }],
+          includeMemory: false, stream: false, temperature: 0, max_tokens: 3000,
+          system: "You are an OCR transcriber. Return only the text visible in the image.",
+        });
+        const text = String(response?.choices?.[0]?.message?.content || "").trim();
+        return text ? { ok: true, text } : { ok: false, error: "未识别到文字" };
+      } catch (error) { return { ok: false, error: `文字识别失败：${localizeError(error)}` }; }
+    },
     "chat-workspace:get-a2ui-source": async (event, payload = {}) => isWorkspaceSender(event.sender)
       ? a2uiMedia.resolveSource(payload.id, payload.kind)
       : { ok: false, error: "无权访问媒体来源" },

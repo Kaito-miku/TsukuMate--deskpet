@@ -26,6 +26,11 @@ let webSearchEnabled = false;
 let webSearchAvailable = false;
 let pendingSessionSnapshot = null;
 let pendingSessionTimer = null;
+let previewImage = null;
+let previewAttachmentId = null;
+let previewTool = null;
+let previewDrawing = false;
+let previewLastPoint = null;
 if (window.TsukuMateRichContent) window.TsukuMateRichContent.onInput = (value) => { const prompt = $("prompt"); prompt.value = String(value || ""); prompt.focus(); };
 
 function cleanupCards() { while (cardCleanups.length) { try { cardCleanups.pop()(); } catch {} } while (a2uiCleanups.length) { try { a2uiCleanups.pop()(); } catch {} } }
@@ -52,9 +57,19 @@ function renderAttachment(attachment, interactive = false) {
       pendingAttachments = pendingAttachments.filter((item) => item.id !== attachment.id);
       renderPendingAttachments();
     };
-  } else chip.onclick = () => api.openAttachment(attachment.id);
+  } else chip.onclick = () => { if (attachment.kind === "image") void openImageViewer(attachment); else api.openAttachment(attachment.id); };
   return chip;
 }
+function previewCanvasPoint(event) { const canvas = $("image-canvas"); const rect = canvas.getBoundingClientRect(); return { x: (event.clientX - rect.left) * (canvas.width / rect.width), y: (event.clientY - rect.top) * (canvas.height / rect.height) }; }
+function drawPreviewBase() { const canvas = $("image-canvas"); if (!previewImage) return; const max = 4096; const scale = Math.min(1, max / Math.max(previewImage.naturalWidth, previewImage.naturalHeight)); canvas.width = Math.max(1, Math.round(previewImage.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(previewImage.naturalHeight * scale)); const ctx = canvas.getContext("2d"); ctx.drawImage(previewImage, 0, 0, canvas.width, canvas.height); }
+function selectPreviewTool(tool) { previewTool = previewTool === tool ? null : tool; $("image-brush").classList.toggle("active", previewTool === "brush"); $("image-text").classList.toggle("active", previewTool === "text"); $("image-brush").setAttribute("aria-pressed", String(previewTool === "brush")); $("image-text").setAttribute("aria-pressed", String(previewTool === "text")); $("image-canvas").style.cursor = previewTool ? "crosshair" : "default"; }
+async function openImageViewer(attachment) {
+  const result = await api.previewAttachmentImage(attachment.id); if (!result?.ok || !result.image) { $("send-status").textContent = result?.error || "无法打开图片预览"; return; }
+  const image = new Image(); image.onload = () => { previewImage = image; previewAttachmentId = attachment.id; $("image-viewer-title").textContent = result.image.name || "图片预览"; $("image-ocr-result").hidden = true; $("image-ocr-text").value = ""; drawPreviewBase(); $("image-viewer").hidden = false; }; image.onerror = () => { $("send-status").textContent = "图片无法显示"; }; image.src = result.image.dataUrl;
+}
+function closeImageViewer() { $("image-viewer").hidden = true; previewImage = null; previewAttachmentId = null; previewDrawing = false; selectPreviewTool(null); }
+async function copyPreviewImage() { const canvas = $("image-canvas"); try { const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png")); if (!blob || !navigator.clipboard?.write || typeof ClipboardItem === "undefined") throw new Error("当前系统不支持写入图片剪贴板"); await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]); $("send-status").textContent = "图片已复制到剪贴板"; } catch (error) { $("send-status").textContent = String(error?.message || "复制图片失败"); } }
+function downloadPreviewImage() { const link = document.createElement("a"); link.href = $("image-canvas").toDataURL("image/png"); link.download = `${$("image-viewer-title").textContent || "图片"}-批注.png`; link.click(); }
 function appendMarkdownInline(target, value) {
   const parts = String(value || "").split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
   for (const part of parts) {
@@ -256,7 +271,7 @@ function syncConversationSelection() {
 }
 function renderPendingAttachments() {
   const root = $("attachment-list"); root.replaceChildren(); root.hidden = !pendingAttachments.length;
-  for (const attachment of pendingAttachments) root.append(renderAttachment(attachment, true));
+  for (const attachment of pendingAttachments) { if (attachment.kind === "image") { const preview = document.createElement("button"); preview.type = "button"; preview.className = "attachment-preview"; preview.textContent = "预览"; preview.title = `预览图片：${attachment.name}`; preview.onclick = () => void openImageViewer(attachment); root.append(preview); } root.append(renderAttachment(attachment, true)); }
 }
 async function discardPendingAttachments() {
   const current = pendingAttachments; pendingAttachments = []; renderPendingAttachments();
@@ -383,6 +398,13 @@ $("prompt").addEventListener("paste", async (event) => {
   pendingAttachments.push(result.attachment); renderPendingAttachments();
   $("send-status").textContent = "已从剪贴板添加图片";
 });
+$("image-viewer-close").onclick = closeImageViewer; $("image-viewer").onclick = (event) => { if (event.target === $("image-viewer")) closeImageViewer(); };
+$("image-copy").onclick = copyPreviewImage; $("image-download").onclick = downloadPreviewImage; $("image-brush").onclick = () => selectPreviewTool("brush"); $("image-text").onclick = () => selectPreviewTool("text"); $("image-clear").onclick = drawPreviewBase;
+$("image-canvas").addEventListener("pointerdown", (event) => { if (!previewTool) return; const canvas = event.currentTarget; const point = previewCanvasPoint(event); const ctx = canvas.getContext("2d"); if (previewTool === "text") { const text = prompt("输入批注文字"); if (text) { ctx.fillStyle = $("image-color").value; ctx.font = `${Math.max(18, Math.round(canvas.width / 45))}px -apple-system, PingFang SC, sans-serif`; ctx.fillText(text.slice(0, 300), point.x, point.y); } return; } previewDrawing = true; previewLastPoint = point; canvas.setPointerCapture(event.pointerId); ctx.strokeStyle = $("image-color").value; ctx.lineWidth = Math.max(2, canvas.width / 500); ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(point.x, point.y); });
+$("image-canvas").addEventListener("pointermove", (event) => { if (!previewDrawing || previewTool !== "brush") return; const point = previewCanvasPoint(event); const ctx = event.currentTarget.getContext("2d"); ctx.lineTo(point.x, point.y); ctx.stroke(); previewLastPoint = point; });
+$("image-canvas").addEventListener("pointerup", (event) => { previewDrawing = false; previewLastPoint = null; event.currentTarget.releasePointerCapture?.(event.pointerId); });
+$("image-ocr").onclick = async () => { if (!previewAttachmentId) return; const button = $("image-ocr"); button.disabled = true; button.textContent = "识别中…"; const result = await api.ocrAttachmentImage(previewAttachmentId); button.disabled = false; button.textContent = "识别文字"; $("image-ocr-result").hidden = false; $("image-ocr-text").value = result?.ok ? result.text : (result?.error || "文字识别失败"); };
+$("image-ocr-copy").onclick = async () => { try { await navigator.clipboard.writeText($("image-ocr-text").value); $("send-status").textContent = "识别文字已复制"; } catch { $("send-status").textContent = "复制文字失败"; } };
 $("chat-tool").onclick = () => viewState.content === "chat" && viewState.drawer === "history" ? (viewState.drawer = null, renderView()) : showConversationDrawer(); $("diary-tool").onclick = showDiaryDrawer; $("drawer-close").onclick = () => { viewState.drawer = null; renderView(); }; $("back-button").onclick = returnToChat;
 function bindTool(id, action) {
   const node = $(id); let lastPointerAt = 0;

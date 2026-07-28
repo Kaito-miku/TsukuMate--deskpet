@@ -76,6 +76,19 @@
         <textarea id="prompt" rows="2" placeholder="输入消息，Cmd/Ctrl + Enter 发送"></textarea>
         <div class="composer-actions"><button class="attachment-button" id="attachment-button" type="button" title="上传学习附件">📎 上传附件</button><button class="attachment-button" id="a2ui-model-button" type="button" title="添加可由 A2UI 展示的 GLB/GLTF 模型">◈ 添加 3D 模型</button><button id="web-search" type="button" title="为本轮回答启用网络搜索" aria-pressed="false">⌕ 网络搜索</button><span id="send-status">准备就绪</span><button id="cancel" hidden>停止</button><button class="primary" id="send">发送</button></div>
       </footer>
+      <section class="image-viewer" id="image-viewer" hidden role="dialog" aria-modal="true" aria-labelledby="image-viewer-title">
+        <div class="image-viewer-card">
+          <header><strong id="image-viewer-title">图片预览</strong><button id="image-viewer-close" type="button" aria-label="关闭图片预览">×</button></header>
+          <div class="image-viewer-toolbar" aria-label="图片工具">
+            <button id="image-copy" type="button">复制图片</button><button id="image-download" type="button">下载图片</button>
+            <button id="image-brush" type="button" aria-pressed="false">画笔</button><button id="image-text" type="button" aria-pressed="false">文字</button>
+            <label class="image-color">颜色 <input id="image-color" type="color" value="#1683ff"></label><button id="image-clear" type="button">清除批注</button>
+            <button id="image-ocr" type="button">识别文字</button>
+          </div>
+          <div class="image-canvas-wrap"><canvas id="image-canvas" aria-label="图片批注画布"></canvas></div>
+          <section class="image-ocr-result" id="image-ocr-result" hidden><header><strong>识别结果</strong><button id="image-ocr-copy" type="button">复制文字</button></header><textarea id="image-ocr-text" readonly></textarea></section>
+        </div>
+      </section>
     </section>
     <aside class="live2d-pane">
       <div id="pet-container"><div id="live2d-stage"></div></div>

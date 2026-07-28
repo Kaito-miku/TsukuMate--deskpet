@@ -194,7 +194,19 @@ function createStudyAttachmentService({ dialog, shell, nativeImage, store, getWi
     const error = await shell.openPath(path.join(paths(conversationId, attachmentId).dir, meta.storedName));
     return error ? { ok: false, error } : { ok: true };
   }
-  return { select, addClipboardImage, discard, commit, discardForSender, buildModelContent, open, readMeta };
+  function readImage(conversationId, attachmentId, senderId) {
+    const id = String(attachmentId || ""); const meta = readMeta(conversationId, id); const owner = pending.get(id);
+    if (!meta || meta.kind !== "image") return { ok: false, error: "图片不存在" };
+    // Pending files stay private to the renderer that added them. Committed
+    // files belong to the current conversation and may be previewed there.
+    if (owner && (owner.conversationId !== conversationId || owner.senderId !== senderId)) return { ok: false, error: "无权查看图片" };
+    try {
+      const bytes = fs.readFileSync(path.join(paths(conversationId, id).dir, meta.storedName));
+      if (!bytes.length || bytes.length > MAX_FILE_BYTES) return { ok: false, error: "图片数据无效" };
+      return { ok: true, image: { id: meta.id, name: meta.name, mimeType: meta.mimeType, dataUrl: `data:${meta.mimeType};base64,${bytes.toString("base64")}` } };
+    } catch { return { ok: false, error: "无法读取图片" }; }
+  }
+  return { select, addClipboardImage, discard, commit, discardForSender, buildModelContent, open, readImage, readMeta };
 }
 
 module.exports = { createStudyAttachmentService, safeName, MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES, MAX_TEXT_PER_FILE, MAX_TEXT_TOTAL };
