@@ -19,6 +19,16 @@ test("conversation store persists titles, messages and context boundaries", () =
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test("conversation store removes only a signed new-session directory", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tsukumate-conversation-"));
+  const store = createConversationStore(root); const meta = store.create();
+  store.append(meta.id, { id: "u1", role: "user", content: "remove me", timestamp: new Date().toISOString() });
+  assert.equal(store.remove(meta.id), true);
+  assert.equal(store.readMeta(meta.id), null);
+  assert.equal(store.remove("legacy-2026-07-27"), false);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 test("generated titles accept fenced JSON but reject malformed or excessive titles", () => {
   assert.equal(parseGeneratedTitle('```json\n{"title":"复合情绪测试"}\n```', "zh-CN"), "复合情绪测试");
   assert.equal(parseGeneratedTitle("not json", "zh-CN"), "");
