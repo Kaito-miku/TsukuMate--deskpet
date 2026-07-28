@@ -46,6 +46,7 @@ test("clipboard images become opaque pending image attachments", () => {
   assert.equal(Object.hasOwn(result.attachment, "path"), false);
   assert.equal(service.discard(conversation.id, result.attachment.id, 8), false);
   assert.equal(service.discard(conversation.id, result.attachment.id, 7), true);
+  assert.equal(service.addClipboardImage(conversation.id, 7, { mimeType: "image/jpg", dataUrl: "data:image/jpg;base64,aGVsbG8=" }).ok, true);
   assert.equal(service.addClipboardImage(conversation.id, 7, { mimeType: "image/gif", dataUrl: "data:image/gif;base64,aGVsbG8=" }).ok, false);
   fs.rmSync(root, { recursive: true, force: true });
 });

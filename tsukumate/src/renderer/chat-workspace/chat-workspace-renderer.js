@@ -373,7 +373,7 @@ $("title-edit").onclick = editTitle; $("title-input").onblur = () => finishTitle
 $("prompt").addEventListener("keydown", (event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); send(); } });
 $("prompt").addEventListener("paste", async (event) => {
   if (session.generating) return;
-  const items = [...(event.clipboardData?.items || [])].filter((item) => /^image\/(png|jpeg|webp)$/i.test(item.type));
+  const items = [...(event.clipboardData?.items || [])].filter((item) => /^image\/(png|jpe?g|webp)$/i.test(item.type));
   if (!items.length) return; // Preserve the browser's ordinary text paste.
   event.preventDefault();
   let added = 0;

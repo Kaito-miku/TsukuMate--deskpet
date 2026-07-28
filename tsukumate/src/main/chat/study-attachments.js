@@ -19,6 +19,9 @@ const TYPES = {
 const CLIPBOARD_IMAGE_TYPES = new Map([
   ["image/png", ".png"],
   ["image/jpeg", ".jpg"],
+  // Some clipboard providers incorrectly use image/jpg. Treat it as the
+  // standard JPEG MIME type while retaining the original data URL header.
+  ["image/jpg", ".jpg"],
   ["image/webp", ".webp"],
 ]);
 
@@ -97,11 +100,13 @@ function createStudyAttachmentService({ dialog, shell, nativeImage, store, getWi
   }
   function addClipboardImage(conversationId, senderId, payload = {}) {
     if (!store.readMeta(conversationId)) return { ok: false, error: "请先创建新对话" };
-    const mimeType = String(payload.mimeType || "").toLowerCase();
-    const extension = CLIPBOARD_IMAGE_TYPES.get(mimeType);
+    const inputMimeType = String(payload.mimeType || "").toLowerCase();
+    const extension = CLIPBOARD_IMAGE_TYPES.get(inputMimeType);
+    const mimeType = inputMimeType === "image/jpg" ? "image/jpeg" : inputMimeType;
     const dataUrl = String(payload.dataUrl || "");
-    if (!extension || !dataUrl.startsWith(`data:${mimeType};base64,`)) return { ok: false, error: "仅支持粘贴 PNG、JPEG 或 WebP 图片" };
-    const encoded = dataUrl.slice(`data:${mimeType};base64,`.length);
+    const prefix = `data:${inputMimeType};base64,`;
+    if (!extension || !dataUrl.startsWith(prefix)) return { ok: false, error: "仅支持粘贴 PNG、JPG/JPEG 或 WebP 图片" };
+    const encoded = dataUrl.slice(prefix.length);
     // Reject malformed data before decoding. This is a renderer boundary, not
     // a general-purpose file upload API, so no paths or filenames are accepted.
     if (!encoded || encoded.length > Math.ceil(MAX_FILE_BYTES * 4 / 3) + 8 || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 !== 0) return { ok: false, error: "剪贴板图片数据无效或超过 20 MB" };
