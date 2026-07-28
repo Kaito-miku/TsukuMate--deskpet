@@ -164,6 +164,7 @@ test("workspace image viewer keeps attachments tokenized while offering preview,
   const chat = read("main/chat/minicpm-chat.js");
   assert.match(html, /id="image-viewer"/); assert.match(html, /id="image-canvas"/); assert.match(html, /id="image-ocr"/);
   assert.match(renderer, /openImageViewer/); assert.match(renderer, /previewAttachmentImage/); assert.match(renderer, /ocrAttachmentImage/);
+  assert.match(renderer, /Ctrl-modified wheel event/); assert.match(renderer, /event\.ctrlKey/);
   assert.match(preload, /chat-workspace:preview-attachment-image/); assert.match(preload, /chat-workspace:ocr-attachment-image/);
   assert.match(chat, /studyAttachments\.readImage/); assert.match(chat, /You are an OCR transcriber/);
 });
