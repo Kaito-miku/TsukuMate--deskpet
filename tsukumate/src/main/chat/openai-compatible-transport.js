@@ -6,6 +6,11 @@ const http = require("http");
 const https = require("https");
 const { createProxyAgent } = require("../integrations/agents/proxy-agent");
 
+// Remote reasoning and rich visual responses can legitimately take longer
+// than 30 seconds before their first SSE frame. This is an inactivity timeout,
+// not a total-generation limit; any received data refreshes the socket timer.
+const DEFAULT_API_TIMEOUT_MS = 90_000;
+
 function validateConfig(input) {
   const endpoint = String(input && input.endpoint || "").trim();
   const model = String(input && input.model || "").trim();
@@ -28,7 +33,7 @@ function responseError(status, raw) {
   return new Error(message);
 }
 
-function requestJson({ endpoint, apiKey, body, signal, timeoutMs = 30000, onEvent }) {
+function requestJson({ endpoint, apiKey, body, signal, timeoutMs = DEFAULT_API_TIMEOUT_MS, onEvent }) {
   const url = new URL(endpoint);
   const client = url.protocol === "https:" ? https : http;
   // Match the rest of the app's network behavior: macOS system proxy and
@@ -121,4 +126,4 @@ function makeChatBody({ model, messages, stream, system, maxTokens, temperature,
   };
 }
 
-module.exports = { validateConfig, requestJson, makeChatBody };
+module.exports = { DEFAULT_API_TIMEOUT_MS, validateConfig, requestJson, makeChatBody };

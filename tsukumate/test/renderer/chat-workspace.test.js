@@ -31,6 +31,29 @@ test("workspace has a conversation-history action and a dedicated Live2D camera 
   assert.match(renderer, /showDiaryDrawer\([\s\S]*selectedDiary = null/);
   assert.match(chat, /workspaceFraming:\s*"head-to-knees"/);
   assert.match(read("renderer/chat-workspace/chat-workspace-screen.css"), /\[hidden\]\s*\{\s*display:\s*none\s*!important/);
+  assert.match(renderer, /function renderSafeMarkdown/);
+  assert.match(renderer, /function appendMarkdownInline/);
+  assert.match(read("renderer/chat-workspace/chat-workspace.html"), /chat-workspace-markdown\.css/);
+  assert.match(read("renderer/chat-workspace/chat-workspace.html"), /chat-workspace-bubbles\.css/);
+  assert.match(renderer, /messageNodeCache/);
+  assert.match(renderer, /splitStreamingContent/);
+  assert.match(renderer, /message-code-block/);
+  assert.match(renderer, /message-html-preview/);
+  assert.match(renderer, /TsukuMateRichContent\.renderCard/);
+  assert.match(renderer, /raw complete web document/);
+  assert.match(renderer, /vcp-root\|response-root/);
+  assert.match(renderer, /TsukuMateRichContent\.onInput/);
+  assert.match(renderer, /return "default"/);
+  assert.match(renderer, /visual-bubble-stable/);
+  assert.match(renderer, /clearMessageNode\(row\); row\.replaceChildren\(\)/);
+  assert.doesNotMatch(renderer, /function renderMessages\(\) \{[\s\S]{0,180}root\.replaceChildren\(\)/);
+});
+
+test("workspace uses a neutral default visual bubble and isolated code blocks", () => {
+  const css = read("renderer/chat-workspace/chat-workspace-bubbles.css");
+  assert.match(css, /\.message-code-block/);
+  assert.match(css, /data-bubble-theme="science"/);
+  assert.match(css, /rgba\(42,44,49,\.76\)/);
 });
 
 test("workspace camera auto-fits tall, regular, and wide drawable bounds without changing aspect", () => {
@@ -70,11 +93,25 @@ test("workspace preload exposes only constrained conversation, attachment and di
   assert.match(preload, /chat-workspace:load-diary/);
   assert.match(preload, /chat-workspace:save-diary/);
   assert.match(preload, /chat-workspace:create-conversation/);
+  assert.match(preload, /chat-workspace:delete-conversation/);
   assert.match(preload, /chat-workspace:select-attachments/);
   assert.match(preload, /chat-workspace:discard-attachment/);
+  assert.match(preload, /chat-workspace:get-a2ui-source/);
+  assert.match(preload, /chat-workspace:perform-a2ui-action/);
+  assert.match(preload, /chat-workspace:get-a2ui-model/);
+  assert.match(preload, /chat-workspace:get-a2ui-whep-config/);
   assert.doesNotMatch(preload, /chat-workspace:screen-list/);
   assert.doesNotMatch(preload, /require\("fs"\)/);
   assert.doesNotMatch(preload, /openPath/);
+});
+
+test("conversation drawer provides a guarded delete control for new sessions", () => {
+  const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
+  const chat = read("main/chat/minicpm-chat.js");
+  assert.match(renderer, /conversation-delete/);
+  assert.match(renderer, /api\.deleteConversation/);
+  assert.match(chat, /chat-workspace:delete-conversation/);
+  assert.match(chat, /conversationStore\.remove/);
 });
 
 test("quick launcher opens the workspace while the legacy shortcut still targets the bubble", () => {

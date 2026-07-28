@@ -2,13 +2,21 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' http://127.0.0.1:*; style-src 'self'; img-src 'self' data: http://127.0.0.1:*; connect-src 'self' http://127.0.0.1:*;">
+  <!-- Generated visual bubbles use CSS only after it has been sanitized and
+       scoped to one message by the UniStudy-compatible renderer.  Inline
+       styles are therefore required for the message-local style node; scripts
+       remain restricted to shipped local bundles. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' http://127.0.0.1:*; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http://127.0.0.1:*; connect-src 'self' http://127.0.0.1:*; frame-src https://www.youtube-nocookie.com https://player.bilibili.com; media-src 'none';">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TsukuMate 对话</title>
   <link rel="stylesheet" href="../shared/ui/tokens.css">
   <link rel="stylesheet" href="chat-workspace.css">
   <link rel="stylesheet" href="chat-workspace-screen.css">
   <link rel="stylesheet" href="chat-workspace-learning.css">
+  <link rel="stylesheet" href="chat-workspace-markdown.css">
+  <link rel="stylesheet" href="chat-workspace-bubbles.css">
+  <link rel="stylesheet" href="../shared/a2ui/a2ui.css">
+  <link rel="stylesheet" href="../shared/a2ui/a2ui-stream.css">
 </head>
 <body>
   <main class="workspace">
@@ -66,7 +74,7 @@
       <footer class="composer" id="composer">
         <div class="attachment-list" id="attachment-list" hidden></div>
         <textarea id="prompt" rows="2" placeholder="输入消息，Cmd/Ctrl + Enter 发送"></textarea>
-        <div class="composer-actions"><button class="attachment-button" id="attachment-button" type="button" title="上传学习附件">📎 上传附件</button><button id="web-search" type="button" title="为本轮回答启用网络搜索" aria-pressed="false">⌕ 网络搜索</button><span id="send-status">准备就绪</span><button id="cancel" hidden>停止</button><button class="primary" id="send">发送</button></div>
+        <div class="composer-actions"><button class="attachment-button" id="attachment-button" type="button" title="上传学习附件">📎 上传附件</button><button class="attachment-button" id="a2ui-model-button" type="button" title="添加可由 A2UI 展示的 GLB/GLTF 模型">◈ 添加 3D 模型</button><button id="web-search" type="button" title="为本轮回答启用网络搜索" aria-pressed="false">⌕ 网络搜索</button><span id="send-status">准备就绪</span><button id="cancel" hidden>停止</button><button class="primary" id="send">发送</button></div>
       </footer>
     </section>
     <aside class="live2d-pane">
@@ -76,6 +84,7 @@
     </aside>
   </main>
   <script src="../shared/rich-content/rich-content.bundle.js"></script>
+  <script src="../shared/a2ui/a2ui.bundle.js"></script>
   <script src="chat-workspace-renderer.js"></script>
   <script src="../shared/live2d/live2d-bootstrap.js"></script>
 </body>

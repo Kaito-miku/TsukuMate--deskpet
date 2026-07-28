@@ -16,14 +16,19 @@ let activePractice = null;
 let activeQuestionIndex = 0;
 let practiceDrafts = new Map();
 const cardCleanups = [];
+const a2uiCleanups = [];
+const messageNodeCache = new Map();
 let navigatorIdleTimer = null;
 let navigatorDragging = false;
 let live2dHasVisibleFrame = false;
 let live2dPhase = "loading";
 let webSearchEnabled = false;
 let webSearchAvailable = false;
+let pendingSessionSnapshot = null;
+let pendingSessionTimer = null;
+if (window.TsukuMateRichContent) window.TsukuMateRichContent.onInput = (value) => { const prompt = $("prompt"); prompt.value = String(value || ""); prompt.focus(); };
 
-function cleanupCards() { while (cardCleanups.length) { try { cardCleanups.pop()(); } catch {} } }
+function cleanupCards() { while (cardCleanups.length) { try { cardCleanups.pop()(); } catch {} } while (a2uiCleanups.length) { try { a2uiCleanups.pop()(); } catch {} } }
 function nearBottom() { const view = $("chat-view"); return view.scrollHeight - view.scrollTop - view.clientHeight < 90; }
 function scrollToLatest(behavior = "auto") { $("chat-view").scrollTo({ top: $("chat-view").scrollHeight, behavior }); $("jump-bottom").hidden = true; activateConversationNavigator(); }
 function updateJumpBottom() { $("jump-bottom").hidden = viewState.content !== "chat" || nearBottom(); }
@@ -50,37 +55,170 @@ function renderAttachment(attachment, interactive = false) {
   } else chip.onclick = () => api.openAttachment(attachment.id);
   return chip;
 }
+function appendMarkdownInline(target, value) {
+  const parts = String(value || "").split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  for (const part of parts) {
+    if (!part) continue;
+    if (part.startsWith("**") && part.endsWith("**")) { const strong = document.createElement("strong"); strong.textContent = part.slice(2, -2); target.append(strong); }
+    else if (part.startsWith("`") && part.endsWith("`")) { const code = document.createElement("code"); code.textContent = part.slice(1, -1); target.append(code); }
+    else target.append(document.createTextNode(part));
+  }
+}
+function renderSafeMarkdown(value) {
+  const root = document.createElement("div"); root.className = "message-markdown"; let list = null; let code = null; let codeLanguage = ""; let rawHtml = null; let fragment = null; let fragmentDepth = 0;
+  const flushList = () => { if (list) root.append(list); list = null; };
+  const appendCode = (source = code?.join("\n") || "", language = codeLanguage || "text", completed = true) => {
+    if (completed && /^(html?|xhtml)$/i.test(language) && /^\s*<div\b[^>]*\bid\s*=\s*["'](?:vcp-root|response-root)["']/i.test(source) && window.TsukuMateRichContent?.renderInlineFragment) {
+      const visual = document.createElement("div"); visual.className = "message-inline-visual";
+      window.TsukuMateRichContent.renderInlineFragment(visual, source); root.append(visual);
+      return;
+    }
+    // Like UniStudy, a complete web document opens as its preview card first.
+    // Its source remains available from the card toolbar instead of pushing the
+    // useful rendered result below hundreds of lines of HTML/JavaScript.
+    if (completed && /^(html?|xhtml)$/i.test(language) && window.TsukuMateRichContent) {
+      const preview = document.createElement("div"); preview.className = "message-html-preview";
+      window.TsukuMateRichContent.renderCard(preview, { html: source, css: "" }); root.append(preview);
+      return;
+    }
+    const shell = document.createElement("pre"); shell.className = "message-code-block"; shell.dataset.language = language;
+    const codeNode = document.createElement("code"); codeNode.textContent = source; shell.append(codeNode); root.append(shell);
+    // A fenced HTML document is a declared visual artifact, not prose. Keep its
+    // source visible, then render it in the existing sandboxed UniStudy-derived
+    // preview boundary. Scripts, network access and event handlers stay blocked.
+  };
+  for (const line of String(value || "").split("\n")) {
+    if (fragment) {
+      fragment.push(line); fragmentDepth += (line.match(/<div\b[^>]*>/gi) || []).length - (line.match(/<\/div\s*>/gi) || []).length;
+      if (fragmentDepth <= 0) { appendCode(fragment.join("\n"), "html"); fragment = null; fragmentDepth = 0; }
+      continue;
+    }
+    if (rawHtml) {
+      rawHtml.push(line);
+      if (/^\s*<\/html\s*>\s*$/i.test(line)) { appendCode(rawHtml.join("\n"), "html"); rawHtml = null; }
+      continue;
+    }
+    const fence = line.match(/^```\s*([\w.+#-]*)\s*$/);
+    if (fence) { flushList(); if (code) { appendCode(); code = null; codeLanguage = ""; } else { code = []; codeLanguage = fence[1] || "text"; } continue; }
+    if (code) { code.push(line); continue; }
+    // UniStudy recognizes a raw complete web document even when a model omits
+    // the Markdown fence. Treat it as an HTML artifact rather than paragraphs.
+    if (/^\s*(?:<!doctype\s+html\b[^>]*>|<html\b[^>]*>)/i.test(line)) {
+      flushList(); rawHtml = [line];
+      if (/<\/html\s*>\s*$/i.test(line)) { appendCode(rawHtml.join("\n"), "html"); rawHtml = null; }
+      continue;
+    }
+    // UniStudy visual containers are raw fragments rather than complete HTML
+    // documents. Render only the explicit root IDs, never arbitrary raw tags.
+    if (/^\s*<div\b[^>]*\bid\s*=\s*["'](?:vcp-root|response-root)["']/i.test(line)) {
+      flushList(); fragment = [line]; fragmentDepth = (line.match(/<div\b[^>]*>/gi) || []).length - (line.match(/<\/div\s*>/gi) || []).length;
+      if (fragmentDepth <= 0) { appendCode(fragment.join("\n"), "html"); fragment = null; fragmentDepth = 0; }
+      continue;
+    }
+    const heading = line.match(/^(#{1,3})\s+(.+)$/); const item = line.match(/^[-*]\s+(.+)$/);
+    if (heading) { flushList(); const node = document.createElement(`h${heading[1].length + 1}`); appendMarkdownInline(node, heading[2]); root.append(node); }
+    else if (item) { if (!list) list = document.createElement("ul"); const node = document.createElement("li"); appendMarkdownInline(node, item[1]); list.append(node); }
+    else { flushList(); if (!line.trim()) { root.append(document.createElement("br")); continue; } const node = document.createElement("p"); appendMarkdownInline(node, line); root.append(node); }
+  }
+  if (code) appendCode(undefined, undefined, false);
+  if (rawHtml) appendCode(rawHtml.join("\n"), "html", false);
+  // Browsers close an unfinished div fragment safely, so showing it now gives
+  // the UniStudy-style visual streaming effect instead of a raw HTML tail.
+  if (fragment) appendCode(fragment.join("\n"), "html", true);
+  flushList(); return root;
+}
+function splitStreamingContent(value, streaming) {
+  const source = String(value || ""); if (!streaming) return { stable: source, tail: "" };
+  const fence = source.lastIndexOf("```"); if (fence >= 0 && source.indexOf("```", fence + 3) < 0) return { stable: source.slice(0, fence), tail: source.slice(fence) };
+  const boundary = source.lastIndexOf("\n\n"); return boundary >= 0 ? { stable: source.slice(0, boundary + 2), tail: source.slice(boundary + 2) } : { stable: "", tail: source };
+}
+function bubbleTheme(message) {
+  const surfaceTheme = message.a2uiSurfaces?.find((item) => item?.theme)?.theme;
+  if (surfaceTheme) return surfaceTheme;
+  const value = String(message.content || "").toLowerCase();
+  if (/(警告|危险|错误|注意|warning)/.test(value)) return "warning";
+  if (/(诗|文学|散文|阅读|历史|语文)/.test(value)) return "literature";
+  if (/(复习|练习|测验|flashcard)/.test(value)) return "review";
+  if (/(代码|python|javascript|终端|debug)/.test(value)) return "terminal";
+  return "default";
+}
+function clearMessageNode(row) { for (const cleanup of row._tmCleanups || []) { try { cleanup(); } catch {} } row._tmCleanups = []; delete row._tmVisualText; delete row._tmCompletedAssistantBlocks; }
+function appendCompletedAssistantBlocks(row, message) {
+  if (row._tmCompletedAssistantBlocks) return;
+  row._tmCompletedAssistantBlocks = true;
+  if (Array.isArray(message.richCards) && window.TsukuMateRichContent) { const cards = document.createElement("div"); cards.className = "study-card-list"; row.append(cards); for (const card of message.richCards.slice(0, 3)) row._tmCleanups.push(window.TsukuMateRichContent.renderCard(cards, card)); }
+  if (Array.isArray(message.a2uiSurfaces) && window.TsukuMateA2UI) { const surfaces = document.createElement("div"); surfaces.className = "a2ui-surface-list"; row.append(surfaces); for (const surface of message.a2uiSurfaces.slice(0, 2)) row._tmCleanups.push(window.TsukuMateA2UI.renderSurface(surfaces, surface)); }
+  if (message.id) { const actions = document.createElement("div"); actions.className = "message-learning-actions"; const note = document.createElement("button"); note.type = "button"; note.textContent = "记入笔记"; note.onclick = async () => { const result = await api.noteFromMessage(message.id); if (!result?.ok) { $("send-status").textContent = result?.error || "创建笔记失败"; return; } selectedNoteId = result.note.id; await openLearning("notes"); }; actions.append(note); row.append(actions); }
+}
+function renderMessageNode(row, message) {
+  const signature = JSON.stringify({ content: message.content || "", streaming: !!message.streaming, error: !!message.error, attachments: message.attachments || [], richCards: message.richCards || [], a2ui: message.a2uiSurfaces || [] });
+  if (row.dataset.signature === signature) return;
+  // UniStudy's streaming renderer never replaces a message row per token: it
+  // keeps the bubble and only morphs its unfinished tail.  Apart from looking
+  // smoother, that preserves visual cards, focus and future interactive state.
+  if (message.role === "assistant" && row._tmVisualText && window.TsukuMateRichContent?.renderVisualMessage) {
+    row.dataset.signature = signature;
+    // Do not reassign className on every delta: Chromium may restart the
+    // descendant glass entry animation when its selector is recalculated.
+    row.classList.add("message", "assistant");
+    row.classList.toggle("streaming", !!message.streaming);
+    row.classList.toggle("error", !!message.error);
+    window.TsukuMateRichContent.renderVisualMessage(row._tmVisualText, message.content || "", { streaming: !!message.streaming, messageId: message.id });
+    // Crucially, finalising a stream must not rebuild the message row.  The
+    // previous code did so, replaying the glass animation and recalculating a
+    // different theme from the completed text — seen as a whole-bubble flash.
+    if (!message.streaming) appendCompletedAssistantBlocks(row, message);
+    return;
+  }
+  clearMessageNode(row); row.replaceChildren(); row.dataset.signature = signature; row.className = `message ${message.role}${message.streaming ? " streaming" : ""}${message.error ? " error" : ""}`; row.dataset.messageId = message.id || "";
+  if (message.role === "user") row.dataset.messageIndex = String([...$("messages").querySelectorAll(".message.user")].length + 1);
+  const text = document.createElement("div"); text.className = "message-text";
+  text.dataset.bubbleTheme = message.role === "assistant" ? bubbleTheme(message) : "user";
+  if (message.role === "assistant" && window.TsukuMateRichContent?.renderVisualMessage) {
+    row._tmVisualText = text;
+    row._tmCleanups.push(() => window.TsukuMateRichContent.cleanupVisualMessage?.(text));
+    window.TsukuMateRichContent.renderVisualMessage(text, message.content || "", { streaming: !!message.streaming, messageId: message.id });
+  } else {
+    const preparedContent = message.content || "";
+    const parts = splitStreamingContent(preparedContent, !!message.streaming); const stable = document.createElement("div"); stable.className = "visual-bubble-stable"; stable.append(renderSafeMarkdown(parts.stable)); const tail = document.createElement("div"); tail.className = "visual-bubble-tail"; tail.append(renderSafeMarkdown(parts.tail)); text.append(stable, tail);
+  }
+  row.append(text);
+  if (Array.isArray(message.attachments) && message.attachments.length) { const list = document.createElement("div"); list.className = "message-attachments"; for (const attachment of message.attachments) list.append(renderAttachment(attachment)); row.append(list); }
+  if (message.role === "assistant" && !message.streaming) appendCompletedAssistantBlocks(row, message);
+}
 function renderMessages() {
-  const follow = nearBottom(); cleanupCards();
-  const root = $("messages"); root.replaceChildren();
+  const follow = nearBottom();
+  const root = $("messages");
   if (!session.messages.length) {
+    for (const row of messageNodeCache.values()) clearMessageNode(row); messageNodeCache.clear(); root.replaceChildren();
     const empty = document.createElement("div"); empty.className = "chat-empty";
     empty.innerHTML = "<strong>从一个问题开始</strong><span>上传讲义、PDF、文档或图片，也可以要求 TsukuMate 用学习卡片整理。</span>";
     root.append(empty); requestAnimationFrame(updateConversationNavigator); return;
   }
+  // Never append an already-mounted row on every streamed token.  Doing so
+  // briefly detaches/reinserts the user row and then the assistant row, which
+  // repaints both glass bubbles as a visible flash.  Keep nodes in place and
+  // only insert when their actual order changes.
+  root.querySelector(".chat-empty")?.remove();
+  let previous = null;
+  const placeInOrder = (node) => {
+    const expectedPrevious = previous;
+    if (node.parentNode !== root) {
+      root.insertBefore(node, expectedPrevious ? expectedPrevious.nextSibling : root.firstChild);
+    } else if (node.previousSibling !== expectedPrevious) {
+      root.insertBefore(node, expectedPrevious ? expectedPrevious.nextSibling : root.firstChild);
+    }
+    previous = node;
+  };
+  const live = new Set();
   for (const message of session.messages) {
     if (message.role === "context-boundary") {
-      const boundary = document.createElement("div"); boundary.className = "context-boundary"; boundary.textContent = "已清除此处之前的对话上下文"; root.append(boundary); continue;
+      const key = message.id || `boundary-${live.size}`; live.add(key); let boundary = messageNodeCache.get(key); if (!boundary) { boundary = document.createElement("div"); boundary.className = "context-boundary"; boundary.textContent = "已清除此处之前的对话上下文"; messageNodeCache.set(key, boundary); } placeInOrder(boundary); continue;
     }
-    const row = document.createElement("article"); row.className = `message ${message.role}${message.streaming ? " streaming" : ""}${message.error ? " error" : ""}`; row.dataset.messageId = message.id || "";
-    if (message.role === "user") row.dataset.messageIndex = String(root.querySelectorAll(".message.user").length + 1);
-    const text = document.createElement("div"); text.className = "message-text"; text.textContent = message.content || (message.streaming ? "" : ""); row.append(text);
-    if (Array.isArray(message.attachments) && message.attachments.length) {
-      const list = document.createElement("div"); list.className = "message-attachments";
-      for (const attachment of message.attachments) list.append(renderAttachment(attachment)); row.append(list);
-    }
-    if (message.role === "assistant" && Array.isArray(message.richCards) && window.TsukuMateRichContent) {
-      const cards = document.createElement("div"); cards.className = "study-card-list"; row.append(cards);
-      for (const card of message.richCards.slice(0, 3)) cardCleanups.push(window.TsukuMateRichContent.renderCard(cards, card));
-    }
-    if (message.role === "assistant" && message.id) {
-      const actions = document.createElement("div"); actions.className = "message-learning-actions";
-      const note = document.createElement("button"); note.type = "button"; note.textContent = "记入笔记";
-      note.onclick = async () => { const result = await api.noteFromMessage(message.id); if (!result || !result.ok) { $("send-status").textContent = result?.error || "创建笔记失败"; return; } selectedNoteId = result.note.id; await openLearning("notes"); };
-      actions.append(note); row.append(actions);
-    }
-    root.append(row);
+    const key = message.id || `${message.role}-${live.size}`; live.add(key); let row = messageNodeCache.get(key); if (!row) { row = document.createElement("article"); messageNodeCache.set(key, row); } renderMessageNode(row, message);
+    placeInOrder(row);
   }
+  for (const [key, row] of messageNodeCache) if (!live.has(key)) { clearMessageNode(row); row.remove(); messageNodeCache.delete(key); }
   requestAnimationFrame(() => { if (follow) scrollToLatest(); else updateJumpBottom(); updateConversationNavigator(); });
 }
 function renderSession(value) {
@@ -90,10 +228,24 @@ function renderSession(value) {
   $("title-edit").hidden = !!conversation.legacy || viewState.content === "diary";
   $("send-status").textContent = session.generating ? "正在回复…" : "准备就绪";
   $("cancel").hidden = !session.generating;
-  for (const id of ["send", "attachment-button", "new-conversation", "clear-context"]) $(id).disabled = !!session.generating;
+  for (const id of ["send", "attachment-button", "a2ui-model-button", "new-conversation", "clear-context"]) $(id).disabled = !!session.generating;
   $("web-search").disabled = !!session.generating || !webSearchAvailable;
   syncConversationSelection();
   renderMessages();
+}
+// Remote providers can emit many tiny deltas in the same paint interval.
+// Rendering every one causes backdrop-filter surfaces to repaint visibly,
+// which looked like the answer bubble was flashing.  Keep the newest snapshot
+// and paint at a calm, UniStudy-like cadence instead.
+function scheduleSessionRender(value) {
+  pendingSessionSnapshot = value || pendingSessionSnapshot;
+  if (pendingSessionTimer) return;
+  pendingSessionTimer = setTimeout(() => {
+    pendingSessionTimer = null;
+    const snapshot = pendingSessionSnapshot;
+    pendingSessionSnapshot = null;
+    requestAnimationFrame(() => renderSession(snapshot));
+  }, 48);
 }
 function syncConversationSelection() {
   const activeId = session.conversation?.id || "";
@@ -170,11 +322,18 @@ async function showConversationDrawer() {
   const result = await api.listConversations(); root.replaceChildren();
   if (!result || !result.ok) { root.innerHTML = '<div class="drawer-status error">读取失败</div>'; return; }
   for (const item of result.conversations || []) {
+    const row = document.createElement("div"); row.className = "conversation-list-row";
     const button = document.createElement("button"); button.className = "date-item"; button.dataset.conversationId = item.id; button.disabled = !!session.generating;
     button.classList.toggle("active", item.id === session.conversationId); button.innerHTML = `<strong></strong><small></small>`;
     button.querySelector("strong").textContent = item.title; button.querySelector("small").textContent = item.legacy ? "旧版记录" : new Date(item.updatedAt).toLocaleString();
     button.onclick = async () => { await discardPendingAttachments(); const loaded = await api.loadConversation(item.id); if (!loaded.ok) { $("send-status").textContent = loaded.error || "切换失败"; return; } session = loaded.session || session; syncConversationSelection(); };
-    root.append(button);
+    row.append(button);
+    if (!item.legacy) {
+      const remove = document.createElement("button"); remove.type = "button"; remove.className = "conversation-delete"; remove.title = `删除对话：${item.title}`; remove.setAttribute("aria-label", `删除对话：${item.title}`); remove.textContent = "×"; remove.disabled = !!session.generating;
+      remove.onclick = async (event) => { event.stopPropagation(); if (!confirm(`删除对话“${item.title}”？其中的消息和已发送附件将被永久删除。`)) return; const deleted = await api.deleteConversation(item.id); if (!deleted?.ok) { $("send-status").textContent = deleted?.error || "删除失败"; return; } if (deleted.session) session = deleted.session; await showConversationDrawer(); };
+      row.append(remove);
+    }
+    root.append(row);
   }
 }
 async function showDiaryDrawer() {
@@ -206,6 +365,7 @@ async function finishTitle(save) {
 
 $("send").onclick = send; $("cancel").onclick = () => api.cancel();
 $("attachment-button").onclick = async () => { const result = await api.selectAttachments(); if (result && result.ok) { pendingAttachments.push(...(result.attachments || [])); renderPendingAttachments(); } else $("send-status").textContent = result && result.error || "附件读取失败"; };
+$("a2ui-model-button").onclick = async () => { const result = await api.addA2uiModels(); $("send-status").textContent = result?.ok ? (result.models?.length ? `已添加 ${result.models.length} 个 3D 模型，可在下一次请求中让 AI 展示。` : "未添加 3D 模型") : (result?.error || "添加 3D 模型失败"); };
 $("web-search").onclick = () => { if (!webSearchAvailable || session.generating) return; webSearchEnabled = !webSearchEnabled; $("web-search").classList.toggle("active", webSearchEnabled); $("web-search").setAttribute("aria-pressed", String(webSearchEnabled)); $("send-status").textContent = webSearchEnabled ? "本轮将使用网络搜索" : "准备就绪"; };
 $("new-conversation").onclick = async () => { if (session.generating) return; if (($("prompt").value.trim() || pendingAttachments.length) && !confirm("放弃尚未发送的内容并新建对话吗？")) return; await discardPendingAttachments(); await api.createConversation(); viewState = { content: "chat", drawer: null }; renderView(); };
 $("clear-context").onclick = async () => { if (!session.generating && confirm("保留记录，但让后续回复不再使用此处之前的对话？")) await api.clearContext(); };
@@ -236,7 +396,7 @@ $("diary-save").onclick = async () => { if (!selectedDiary) return; const result
 $("diary-generate").onclick = async () => { if (!selectedDiary || !confirm("重新生成会覆盖当前日记，确定吗？")) return; const result = await api.generateDiary(selectedDiary); if (result.ok) await loadDiary(selectedDiary); };
 $("diary-folder").onclick = () => api.openDiaryFolder();
 
-api.onSession(renderSession); api.getSession().then(renderSession); renderView();
+api.onSession(scheduleSessionRender); api.getSession().then(renderSession); renderView();
 api.getLearningSearchStatus().then((status) => { webSearchAvailable = !!status?.available; const button = $("web-search"); button.disabled = !webSearchAvailable; button.title = webSearchAvailable ? `为本轮回答启用网络搜索（${status.provider || "已配置"}）` : "请先在设置 - 学习检索与联网资料中配置搜索服务"; });
 api.getConnectionStatus().then((status) => setConnectionState(status && status.state, status && status.configured));
 function setConnectionState(state, configured = true) { const dot = document.querySelector(".connection-dot"); const safe = !configured ? "unconfigured" : (["available", "error", "configured"].includes(state) ? state : "configured"); dot.dataset.state = safe; }

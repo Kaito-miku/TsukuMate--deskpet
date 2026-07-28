@@ -103,11 +103,20 @@ function createConversationStore(root, options = {}) {
     if (!meta) return null;
     return writeMeta({ ...meta, titleGenerationAttempts: Math.min(2, (meta.titleGenerationAttempts || 0) + 1) });
   }
+  function remove(id) {
+    // Legacy date JSONL files are retained for backwards compatibility and
+    // are intentionally not removable through the new conversation UI.
+    if (!ID_RE.test(String(id || ""))) return false;
+    const dir = sessionDir(id);
+    if (!fs.existsSync(dir)) return false;
+    fs.rmSync(dir, { recursive: true, force: false });
+    return !fs.existsSync(dir);
+  }
   function attachmentDir(id) {
     if (!ID_RE.test(String(id || ""))) throw new Error("Attachments require a current conversation");
     const dir = path.join(sessionDir(id), "attachments"); fs.mkdirSync(dir, { recursive: true }); return dir;
   }
-  return { validId, create, list, readMeta, readMessages, append, updateTitle, incrementTitleAttempt, attachmentDir, cleanTitle };
+  return { validId, create, list, readMeta, readMessages, append, updateTitle, incrementTitleAttempt, remove, attachmentDir, cleanTitle };
 }
 
 module.exports = { createConversationStore, cleanTitle, ID_RE, LEGACY_RE };

@@ -41,9 +41,11 @@ const { normalizeProfiles, selectActiveProfile } = require("./persona-profiles")
 const { createScreenCaptureService } = require("./screen-capture");
 const { paginateHistoryLines } = require("../../shared/chat/chat-history-page");
 const { parseRichStudyCards, studyCardMode, studyCardSystemPrompt } = require("../../shared/chat/rich-study-card");
+const { parseA2uiSurfaces, a2uiSystemPrompt, uniStudyVisualSystemPrompt, workspaceVisualOutputPrompt } = require("../../shared/chat/a2ui-surface");
 const { createConversationStore } = require("./conversation-store");
 const { createStudyAttachmentService } = require("./study-attachments");
 const { createLearningService } = require("./learning-service");
+const { createA2uiMediaService } = require("./a2ui-media-service");
 const { parseGeneratedTitle, buildTitlePrompt } = require("./conversation-title");
 const {
   EMOTIONS,
@@ -1440,15 +1442,22 @@ module.exports = function initMinicpmChat(ctx) {
   }
   function getLearningConfig({ includeSecrets = false } = {}) {
     const raw = readMinicpmPrefsRaw(); const provider = ["none", "tavily", "searxng"].includes(raw.learning_search_provider) ? raw.learning_search_provider : "none";
-    const value = { embeddingEndpoint: String(raw.learning_embedding_endpoint || ""), embeddingModel: String(raw.learning_embedding_model || ""), embeddingKeyConfigured: !!readApiKey("learning-embedding"), searchProvider: provider, searchEndpoint: String(raw.learning_search_endpoint || ""), searchKeyConfigured: !!readApiKey("learning-search") };
-    return includeSecrets ? { ...value, embeddingKey: readApiKey("learning-embedding") || "", searchKey: readApiKey("learning-search") || "" } : value;
+    const value = { embeddingEndpoint: String(raw.learning_embedding_endpoint || ""), embeddingModel: String(raw.learning_embedding_model || ""), embeddingKeyConfigured: !!readApiKey("learning-embedding"), searchProvider: provider, searchEndpoint: String(raw.learning_search_endpoint || ""), searchKeyConfigured: !!readApiKey("learning-search"), a2uiEnabled: raw.a2ui_enabled !== false, visualBubbleEnabled: raw.visual_bubble_enabled !== false, whepEndpoint: String(raw.a2ui_whep_endpoint || ""), whepKeyConfigured: !!readApiKey("a2ui-whep") };
+    return includeSecrets ? { ...value, embeddingKey: readApiKey("learning-embedding") || "", searchKey: readApiKey("learning-search") || "", whepKey: readApiKey("a2ui-whep") || "" } : value;
   }
   function saveLearningConfig(input = {}) {
     const provider = ["none", "tavily", "searxng"].includes(input.searchProvider) ? input.searchProvider : "none";
-    const patch = { learning_embedding_endpoint: input.embeddingEndpoint ? cleanServiceUrl(input.embeddingEndpoint) : "", learning_embedding_model: String(input.embeddingModel || "").trim().slice(0, 128), learning_search_provider: provider, learning_search_endpoint: input.searchEndpoint ? cleanServiceUrl(input.searchEndpoint) : "" };
+    const patch = { learning_embedding_endpoint: input.embeddingEndpoint ? cleanServiceUrl(input.embeddingEndpoint) : "", learning_embedding_model: String(input.embeddingModel || "").trim().slice(0, 128), learning_search_provider: provider, learning_search_endpoint: input.searchEndpoint ? cleanServiceUrl(input.searchEndpoint) : "", a2ui_enabled: input.a2uiEnabled !== false, visual_bubble_enabled: input.visualBubbleEnabled !== false, a2ui_whep_endpoint: input.whepEndpoint ? cleanServiceUrl(input.whepEndpoint) : "" };
     if (typeof input.embeddingKey === "string" && input.embeddingKey.trim()) writeApiKey(input.embeddingKey.trim(), "learning-embedding");
     if (typeof input.searchKey === "string" && input.searchKey.trim()) writeApiKey(input.searchKey.trim(), "learning-search");
+    if (typeof input.whepKey === "string" && input.whepKey.trim()) writeApiKey(input.whepKey.trim(), "a2ui-whep");
     mergeMinicpmPrefs(patch); return getLearningConfig();
+  }
+  function getWhepConfig(streamId) {
+    if (String(streamId || "") !== "whep-default") return { ok: false, error: "未知的实时流" };
+    const config = getLearningConfig({ includeSecrets: true });
+    if (!config.whepEndpoint) return { ok: false, error: "请先在设置中配置 WHEP 播放地址" };
+    return { ok: true, endpoint: config.whepEndpoint, token: config.whepKey || "" };
   }
   function isApiMode() { return true; }
   function saveApiProfiles(input) {
@@ -2746,10 +2755,17 @@ module.exports = function initMinicpmChat(ctx) {
 
   // ── Full chat workspace ───────────────────────────────────────────────
   const DATE_ID_RE = /^\d{4}-\d{2}-\d{2}$/;
+  function hydrateA2uiMessages(messages) {
+    return (messages || []).map((message) => {
+      if (message?.role !== "assistant" || Array.isArray(message.a2uiSurfaces)) return message;
+      const parsed = parseA2uiSurfaces(message.content);
+      return parsed.a2uiSurfaces.length ? { ...message, content: parsed.content, a2uiSurfaces: parsed.a2uiSurfaces } : message;
+    });
+  }
   const initialConversation = conversationStore.list().find((item) => !item.legacy) || conversationStore.create();
   let workspaceSession = {
     conversation: initialConversation,
-    messages: conversationStore.readMessages(initialConversation.id),
+    messages: hydrateA2uiMessages(conversationStore.readMessages(initialConversation.id)),
     generating: false,
     requestId: null,
   };
@@ -2774,6 +2790,7 @@ module.exports = function initMinicpmChat(ctx) {
       return String(result && result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content || "").trim();
     },
   });
+  const a2uiMedia = createA2uiMediaService({ root: learningDir, dialog, shell });
 
   function readHistoryLines(day) {
     if (!DATE_ID_RE.test(String(day || ""))) return [];
@@ -2804,7 +2821,7 @@ module.exports = function initMinicpmChat(ctx) {
     if (bubble && !bubble.isDestroyed()) {
       bubble.webContents.send("minicpm:shared-session", {
         ...snapshot,
-        messages: snapshot.messages.map(({ richCards, attachments, ...message }) => message),
+        messages: snapshot.messages.map(({ richCards, a2uiSurfaces, attachments, ...message }) => message),
       });
     }
   }
@@ -2958,11 +2975,13 @@ module.exports = function initMinicpmChat(ctx) {
         if (webSearch) {
           const sources = await learning.searchWeb(clean);
           if (!sources.length) throw new Error("网络搜索没有返回可用资料");
-          webResearch = `\n\n联网检索资料（仅供本轮回答参考；请基于内容回答，必要时说明不确定性）：\n${sources.map((source, index) => `[${index + 1}] ${source.name}\n${source.text}\n来源：${source.url}`).join("\n\n")}`.slice(0, 16000);
+          const registered = a2uiMedia.registerSearchSources(sources);
+          const ids = new Map(registered.map((source) => [source.url, source.id]));
+          webResearch = `\n\n联网检索资料（仅供本轮回答参考；请基于内容回答，必要时说明不确定性）。若要以 A2UI 显示图片或视频，只可引用下列 sourceId：\n${sources.map((source, index) => `[${index + 1}] ${source.name}\n${source.text}\n来源：${source.url}\nsourceId：${ids.get(source.url) || "不可用"}`).join("\n\n")}`.slice(0, 16000);
         }
         await remoteCompletion({
           messages: modelMessages,
-          system: `${studyCardSystemPrompt(studyCardMode(clean))}${webResearch}`,
+          system: `${getLearningConfig().a2uiEnabled === false ? studyCardSystemPrompt(studyCardMode(clean)) : `${uniStudyVisualSystemPrompt()}\n\n${workspaceVisualOutputPrompt(clean)}\n\n${a2uiSystemPrompt()}${getLearningConfig().visualBubbleEnabled === false ? "" : " Every response is displayed as a visual learning bubble; choose the most fitting declared theme."}${getLearningConfig().whepEndpoint ? " A configured realtime stream may be referenced only as streamId whep-default." : ""}${a2uiMedia.listModels().length ? ` Available local 3D models: ${a2uiMedia.listModels().map((model) => `${model.name} (${model.id})`).join(", ")}. Only reference these modelId values.` : ""}`}${webResearch}`,
           stream: true,
         }, (frame) => {
           if (frame && frame.event === "delta") {
@@ -2973,9 +2992,11 @@ module.exports = function initMinicpmChat(ctx) {
         assistant.streaming = false;
         workspaceConnectionState = "available";
         const parsed = parseRichStudyCards(assistant.content);
-        assistant.content = parsed.content;
+        const a2ui = parseA2uiSurfaces(parsed.content);
+        assistant.content = a2ui.content;
         if (parsed.richCards.length) assistant.richCards = parsed.richCards;
-        if (assistant.content.trim() || assistant.richCards) conversationStore.append(workspaceSession.conversation.id, assistant);
+        if (a2ui.a2uiSurfaces.length) assistant.a2uiSurfaces = a2ui.a2uiSurfaces;
+        if (assistant.content.trim() || assistant.richCards || assistant.a2uiSurfaces) conversationStore.append(workspaceSession.conversation.id, assistant);
       } catch (error) {
         assistant.streaming = false;
         assistant.error = true;
@@ -3016,6 +3037,21 @@ module.exports = function initMinicpmChat(ctx) {
     },
     "chat-workspace:list-conversations": async (event) => isWorkspaceSender(event.sender)
       ? { ok: true, conversations: conversationStore.list() } : { ok: false, conversations: [] },
+    "chat-workspace:delete-conversation": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      if (workspaceSession.generating) return { ok: false, error: "当前回复结束后再删除对话" };
+      const id = String(payload.id || "");
+      if (!conversationStore.readMeta(id)) return { ok: false, error: "只能删除新的对话记录" };
+      const deletingCurrent = workspaceSession.conversation?.id === id;
+      if (!conversationStore.remove(id)) return { ok: false, error: "删除对话失败" };
+      if (deletingCurrent) {
+        const fallback = conversationStore.list().find((item) => !item.legacy) || conversationStore.create();
+        workspaceSession = { conversation: fallback, messages: hydrateA2uiMessages(conversationStore.readMessages(fallback.id)), generating: false, requestId: null };
+        if (workspace && !workspace.isDestroyed()) workspace.setTitle(`${fallback.title} · TsukuMate`);
+        broadcastSharedSession();
+      }
+      return { ok: true, session: deletingCurrent ? publicSharedSession() : null };
+    },
     "chat-workspace:load-conversation": async (event, payload = {}) => {
       if (!isWorkspaceSender(event.sender) || workspaceSession.generating) return { ok: false, error: "当前回复结束后不能切换" };
       const id = String(payload.id || "");
@@ -3024,7 +3060,7 @@ module.exports = function initMinicpmChat(ctx) {
         ? conversationStore.list().find((item) => item.id === id)
         : conversationStore.readMeta(id);
       if (!conversation) return { ok: false, error: "对话不存在" };
-      workspaceSession = { conversation, messages: conversationStore.readMessages(id), generating: false, requestId: null };
+      workspaceSession = { conversation, messages: hydrateA2uiMessages(conversationStore.readMessages(id)), generating: false, requestId: null };
       if (workspace && !workspace.isDestroyed()) workspace.setTitle(`${conversation.title} · TsukuMate`);
       broadcastSharedSession();
       return { ok: true, session: publicSharedSession() };
@@ -3057,6 +3093,24 @@ module.exports = function initMinicpmChat(ctx) {
     }),
     "chat-workspace:open-attachment": async (event, payload = {}) => isWorkspaceSender(event.sender)
       ? studyAttachments.open(workspaceSession.conversation.id, payload.id) : { ok: false },
+    "chat-workspace:get-a2ui-source": async (event, payload = {}) => isWorkspaceSender(event.sender)
+      ? a2uiMedia.resolveSource(payload.id, payload.kind)
+      : { ok: false, error: "无权访问媒体来源" },
+    "chat-workspace:perform-a2ui-action": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "无权执行操作" };
+      if (payload.intent === "open-source") return a2uiMedia.openSource(payload.sourceId);
+      if (["toggle-details", "save-note"].includes(payload.intent)) return { ok: true };
+      return { ok: false, error: "此 AI 操作不在允许范围内" };
+    },
+    "chat-workspace:add-a2ui-models": async (event) => isWorkspaceSender(event.sender)
+      ? a2uiMedia.addModels(workspace)
+      : { ok: false, models: [] },
+    "chat-workspace:get-a2ui-model": async (event, payload = {}) => isWorkspaceSender(event.sender)
+      ? a2uiMedia.getModel(payload.id)
+      : { ok: false, error: "无权访问 3D 模型" },
+    "chat-workspace:get-a2ui-whep-config": async (event, payload = {}) => isWorkspaceSender(event.sender)
+      ? getWhepConfig(payload.streamId)
+      : { ok: false, error: "无权访问实时流" },
     "chat-workspace:reload-live2d": async (event) => {
       if (!isWorkspaceSender(event.sender)) return { ok: false };
       const base = typeof ctx.getPetRendererConfig === "function" ? ctx.getPetRendererConfig() : {};

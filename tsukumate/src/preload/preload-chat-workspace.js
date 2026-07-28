@@ -1,6 +1,19 @@
 "use strict";
 
 const { contextBridge, ipcRenderer } = require("electron");
+const whepPeers = new Map();
+async function waitForIce(peer) { if (peer.iceGatheringState === "complete") return; await new Promise((resolve) => { const done = () => { if (peer.iceGatheringState === "complete") { peer.removeEventListener("icegatheringstatechange", done); resolve(); } }; peer.addEventListener("icegatheringstatechange", done); setTimeout(resolve, 1800); }); }
+async function startWhepStream(streamId, elementId) {
+  const target = document.getElementById(String(elementId || "")); if (!(target instanceof HTMLVideoElement)) return { ok: false, error: "找不到实时流播放器" };
+  const config = await ipcRenderer.invoke("chat-workspace:get-a2ui-whep-config", { streamId }); if (!config?.ok) return config || { ok: false, error: "实时流不可用" };
+  try { whepPeers.get(elementId)?.close(); const peer = new RTCPeerConnection(); whepPeers.set(elementId, peer); const stream = new MediaStream(); target.srcObject = stream; target.muted = true; target.playsInline = true;
+    peer.ontrack = (event) => event.streams[0]?.getTracks().forEach((track) => { if (!stream.getTrackById(track.id)) stream.addTrack(track); });
+    peer.addTransceiver("video", { direction: "recvonly" }); peer.addTransceiver("audio", { direction: "recvonly" }); const offer = await peer.createOffer(); await peer.setLocalDescription(offer); await waitForIce(peer);
+    const response = await fetch(config.endpoint, { method: "POST", headers: { "content-type": "application/sdp", ...(config.token ? { authorization: `Bearer ${config.token}` } : {}) }, body: peer.localDescription?.sdp || "" });
+    if (!response.ok) throw new Error(`WHEP 服务返回 ${response.status}`); await peer.setRemoteDescription({ type: "answer", sdp: await response.text() }); await target.play().catch(() => {}); return { ok: true };
+  } catch (error) { whepPeers.get(elementId)?.close(); whepPeers.delete(elementId); return { ok: false, error: String(error?.message || error) }; }
+}
+function stopWhepStream(elementId) { const peer = whepPeers.get(String(elementId || "")); peer?.close(); whepPeers.delete(String(elementId || "")); const target = document.getElementById(String(elementId || "")); if (target instanceof HTMLVideoElement) target.srcObject = null; return { ok: true }; }
 
 const themeArg = process.argv.find((value) => value.startsWith("--theme-config="));
 contextBridge.exposeInMainWorld("themeConfig", themeArg ? JSON.parse(themeArg.slice(15)) : null);
@@ -14,12 +27,19 @@ contextBridge.exposeInMainWorld("chatWorkspace", {
   cancel: () => ipcRenderer.invoke("chat-workspace:cancel"),
   createConversation: () => ipcRenderer.invoke("chat-workspace:create-conversation"),
   listConversations: () => ipcRenderer.invoke("chat-workspace:list-conversations"),
+  deleteConversation: (id) => ipcRenderer.invoke("chat-workspace:delete-conversation", { id }),
   loadConversation: (id) => ipcRenderer.invoke("chat-workspace:load-conversation", { id }),
   clearContext: () => ipcRenderer.invoke("chat-workspace:clear-context"),
   updateTitle: (title) => ipcRenderer.invoke("chat-workspace:update-title", { title }),
   selectAttachments: () => ipcRenderer.invoke("chat-workspace:select-attachments"),
   discardAttachment: (id) => ipcRenderer.invoke("chat-workspace:discard-attachment", { id }),
   openAttachment: (id) => ipcRenderer.invoke("chat-workspace:open-attachment", { id }),
+  getA2uiSource: (id, kind) => ipcRenderer.invoke("chat-workspace:get-a2ui-source", { id, kind }),
+  performA2uiAction: (payload) => ipcRenderer.invoke("chat-workspace:perform-a2ui-action", payload || {}),
+  addA2uiModels: () => ipcRenderer.invoke("chat-workspace:add-a2ui-models"),
+  getA2uiModel: (id) => ipcRenderer.invoke("chat-workspace:get-a2ui-model", { id }),
+  startA2uiStream: (streamId, elementId) => startWhepStream(streamId, elementId),
+  stopA2uiStream: (elementId) => stopWhepStream(elementId),
   reloadLive2d: () => ipcRenderer.invoke("chat-workspace:reload-live2d"),
   getLive2dStatus: () => ({ ...lastLive2dStatus }),
   listHistory: () => ipcRenderer.invoke("chat-workspace:list-history"),
