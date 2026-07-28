@@ -32,6 +32,10 @@ contextBridge.exposeInMainWorld("chatWorkspace", {
   clearContext: () => ipcRenderer.invoke("chat-workspace:clear-context"),
   updateTitle: (title) => ipcRenderer.invoke("chat-workspace:update-title", { title }),
   selectAttachments: () => ipcRenderer.invoke("chat-workspace:select-attachments"),
+  pasteImage: (payload) => ipcRenderer.invoke("chat-workspace:paste-image", {
+    dataUrl: String(payload?.dataUrl || ""),
+    mimeType: String(payload?.mimeType || ""),
+  }),
   discardAttachment: (id) => ipcRenderer.invoke("chat-workspace:discard-attachment", { id }),
   openAttachment: (id) => ipcRenderer.invoke("chat-workspace:open-attachment", { id }),
   getA2uiSource: (id, kind) => ipcRenderer.invoke("chat-workspace:get-a2ui-source", { id, kind }),

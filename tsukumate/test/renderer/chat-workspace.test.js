@@ -95,6 +95,7 @@ test("workspace preload exposes only constrained conversation, attachment and di
   assert.match(preload, /chat-workspace:create-conversation/);
   assert.match(preload, /chat-workspace:delete-conversation/);
   assert.match(preload, /chat-workspace:select-attachments/);
+  assert.match(preload, /chat-workspace:paste-image/);
   assert.match(preload, /chat-workspace:discard-attachment/);
   assert.match(preload, /chat-workspace:get-a2ui-source/);
   assert.match(preload, /chat-workspace:perform-a2ui-action/);
@@ -148,6 +149,10 @@ test("workspace replaces screen capture with tokenized learning attachments", ()
   assert.match(chat, /studyAttachments\.commit/);
   assert.doesNotMatch(renderer, /screenImageDataUrl|screenCaptureToken/);
   assert.match(chat, /minicpm:screen-capture-list/);
+  assert.match(renderer, /addEventListener\("paste"/);
+  assert.match(renderer, /api\.pasteImage/);
+  assert.match(chat, /chat-workspace:paste-image/);
+  assert.match(chat, /studyAttachments\.addClipboardImage/);
 });
 
 test("workspace keeps lifecycle state separate from Cubism diagnostic logs", () => {

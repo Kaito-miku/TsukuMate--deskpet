@@ -348,7 +348,7 @@ async function loadDiary(date) {
   viewState.content = "diary"; renderView();
 }
 async function send() {
-  const text = $("prompt").value.trim(); if (!text || session.generating) return;
+  const text = $("prompt").value.trim(); if ((!text && !pendingAttachments.length) || session.generating) return;
   const ids = pendingAttachments.map((item) => item.id);
   const result = await api.send({ text, attachmentIds: ids, webSearch: webSearchEnabled });
   if (result.ok) { pendingAttachments = []; renderPendingAttachments(); $("prompt").value = ""; if (webSearchEnabled) { webSearchEnabled = false; $("web-search").classList.remove("active"); $("web-search").setAttribute("aria-pressed", "false"); } }
@@ -371,6 +371,24 @@ $("new-conversation").onclick = async () => { if (session.generating) return; if
 $("clear-context").onclick = async () => { if (!session.generating && confirm("保留记录，但让后续回复不再使用此处之前的对话？")) await api.clearContext(); };
 $("title-edit").onclick = editTitle; $("title-input").onblur = () => finishTitle(true); $("title-input").onkeydown = (event) => { if (event.key === "Enter") { event.preventDefault(); finishTitle(true); } if (event.key === "Escape") { event.preventDefault(); finishTitle(false); } };
 $("prompt").addEventListener("keydown", (event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); send(); } });
+$("prompt").addEventListener("paste", async (event) => {
+  if (session.generating) return;
+  const items = [...(event.clipboardData?.items || [])].filter((item) => /^image\/(png|jpeg|webp)$/i.test(item.type));
+  if (!items.length) return; // Preserve the browser's ordinary text paste.
+  event.preventDefault();
+  let added = 0;
+  for (const item of items.slice(0, 5)) {
+    const file = item.getAsFile();
+    if (!file) continue;
+    try {
+      const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onerror = () => reject(new Error("无法读取剪贴板图片")); reader.onload = () => resolve(reader.result); reader.readAsDataURL(file); });
+      const result = await api.pasteImage({ dataUrl, mimeType: item.type });
+      if (!result?.ok) { $("send-status").textContent = result?.error || "无法添加剪贴板图片"; continue; }
+      if (result.attachment) { pendingAttachments.push(result.attachment); added += 1; }
+    } catch (error) { $("send-status").textContent = String(error?.message || "无法读取剪贴板图片"); }
+  }
+  if (added) { renderPendingAttachments(); $("send-status").textContent = `已从剪贴板添加 ${added} 张图片`; }
+});
 $("chat-tool").onclick = () => viewState.content === "chat" && viewState.drawer === "history" ? (viewState.drawer = null, renderView()) : showConversationDrawer(); $("diary-tool").onclick = showDiaryDrawer; $("drawer-close").onclick = () => { viewState.drawer = null; renderView(); }; $("back-button").onclick = returnToChat;
 function bindTool(id, action) {
   const node = $(id); let lastPointerAt = 0;

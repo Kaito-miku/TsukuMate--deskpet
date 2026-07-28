@@ -2952,12 +2952,15 @@ module.exports = function initMinicpmChat(ctx) {
   }
 
   async function sendWorkspaceMessage(text, attachmentIds, senderId, webSearch = false) {
-    const clean = String(text || "").trim().slice(0, 16000);
-    if (!clean) return { ok: false, error: "消息不能为空" };
+    let clean = String(text || "").trim().slice(0, 16000);
+    if (!clean && !(Array.isArray(attachmentIds) && attachmentIds.length)) return { ok: false, error: "消息不能为空" };
     if (workspaceSession.generating) return { ok: false, error: "上一条回复仍在生成" };
     let attachments;
     try { attachments = studyAttachments.commit(workspaceSession.conversation.id, attachmentIds, senderId); }
     catch (error) { return { ok: false, error: String(error && error.message || error) }; }
+    // An image-only paste is a valid question. Keep a useful, visible prompt
+    // rather than sending an empty text part to providers with stricter schemas.
+    if (!clean && attachments.length) clean = "请分析我上传的附件。";
     const user = { id: `user-${Date.now()}`, role: "user", content: clean, attachments, timestamp: new Date().toISOString() };
     const assistant = { id: `assistant-${Date.now()}`, role: "assistant", content: "", timestamp: new Date().toISOString(), streaming: true };
     workspaceSession.messages.push(user, assistant);
@@ -3087,6 +3090,11 @@ module.exports = function initMinicpmChat(ctx) {
     "chat-workspace:select-attachments": async (event) => {
       if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
       return studyAttachments.select(workspaceSession.conversation.id, event.sender.id);
+    },
+    "chat-workspace:paste-image": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "无权访问附件" };
+      if (workspaceSession.generating) return { ok: false, error: "正在生成回复，暂时不能添加附件" };
+      return studyAttachments.addClipboardImage(workspaceSession.conversation.id, event.sender.id, payload);
     },
     "chat-workspace:discard-attachment": async (event, payload = {}) => ({
       ok: isWorkspaceSender(event.sender) && studyAttachments.discard(workspaceSession.conversation.id, payload.id, event.sender.id),

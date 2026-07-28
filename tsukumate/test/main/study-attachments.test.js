@@ -35,3 +35,17 @@ test("pending attachments remain sender scoped", async () => {
   assert.equal(service.discard(conversation.id, id, 1), true);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("clipboard images become opaque pending image attachments", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tsukumate-clipboard-image-"));
+  const store = createConversationStore(path.join(root, "history")); const conversation = store.create();
+  const service = createStudyAttachmentService({ dialog: {}, shell: {}, nativeImage: {}, store, getWindow: () => null });
+  const png = "data:image/png;base64,aGVsbG8=";
+  const result = service.addClipboardImage(conversation.id, 7, { mimeType: "image/png", dataUrl: png });
+  assert.equal(result.ok, true); assert.equal(result.attachment.kind, "image");
+  assert.equal(Object.hasOwn(result.attachment, "path"), false);
+  assert.equal(service.discard(conversation.id, result.attachment.id, 8), false);
+  assert.equal(service.discard(conversation.id, result.attachment.id, 7), true);
+  assert.equal(service.addClipboardImage(conversation.id, 7, { mimeType: "image/gif", dataUrl: "data:image/gif;base64,aGVsbG8=" }).ok, false);
+  fs.rmSync(root, { recursive: true, force: true });
+});

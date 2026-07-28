@@ -16,6 +16,11 @@ const TYPES = {
   ".txt": ["text/plain", "document"], ".md": ["text/markdown", "document"], ".csv": ["text/csv", "document"],
   ".png": ["image/png", "image"], ".jpg": ["image/jpeg", "image"], ".jpeg": ["image/jpeg", "image"], ".webp": ["image/webp", "image"],
 };
+const CLIPBOARD_IMAGE_TYPES = new Map([
+  ["image/png", ".png"],
+  ["image/jpeg", ".jpg"],
+  ["image/webp", ".webp"],
+]);
 
 function safeName(value) {
   const base = path.basename(String(value || "attachment")).replace(/[\u0000-\u001f<>:"/\\|?*]/g, "_").trim();
@@ -90,6 +95,38 @@ function createStudyAttachmentService({ dialog, shell, nativeImage, store, getWi
       return { ok: false, error: String(error && error.message || error) };
     }
   }
+  function addClipboardImage(conversationId, senderId, payload = {}) {
+    if (!store.readMeta(conversationId)) return { ok: false, error: "请先创建新对话" };
+    const mimeType = String(payload.mimeType || "").toLowerCase();
+    const extension = CLIPBOARD_IMAGE_TYPES.get(mimeType);
+    const dataUrl = String(payload.dataUrl || "");
+    if (!extension || !dataUrl.startsWith(`data:${mimeType};base64,`)) return { ok: false, error: "仅支持粘贴 PNG、JPEG 或 WebP 图片" };
+    const encoded = dataUrl.slice(`data:${mimeType};base64,`.length);
+    // Reject malformed data before decoding. This is a renderer boundary, not
+    // a general-purpose file upload API, so no paths or filenames are accepted.
+    if (!encoded || encoded.length > Math.ceil(MAX_FILE_BYTES * 4 / 3) + 8 || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 !== 0) return { ok: false, error: "剪贴板图片数据无效或超过 20 MB" };
+    let bytes;
+    try { bytes = Buffer.from(encoded, "base64"); } catch { return { ok: false, error: "剪贴板图片数据无效" }; }
+    if (!bytes.length || bytes.length > MAX_FILE_BYTES) return { ok: false, error: "单张图片不能超过 20 MB" };
+    const existing = [...pending.values()].filter((item) => item.conversationId === conversationId && item.senderId === senderId);
+    if (existing.length >= MAX_FILES) return { ok: false, error: "每条消息最多上传 5 个附件" };
+    if (existing.reduce((sum, item) => sum + (Number(item.size) || 0), 0) + bytes.length > MAX_TOTAL_BYTES) return { ok: false, error: "附件总大小不能超过 50 MB" };
+    const id = crypto.randomBytes(10).toString("hex");
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const name = `clipboard-${stamp}${extension}`;
+    const target = path.join(store.attachmentDir(conversationId), `${id}-${name}`);
+    const meta = { id, conversationId, name, mimeType, kind: "image", size: bytes.length, storedName: path.basename(target), committed: false };
+    try {
+      fs.writeFileSync(target, bytes, { flag: "wx" });
+      fs.writeFileSync(paths(conversationId, id).meta, JSON.stringify(meta, null, 2), "utf8");
+      pending.set(id, { conversationId, senderId, size: meta.size });
+      return { ok: true, attachment: publicAttachment(meta) };
+    } catch (error) {
+      try { fs.unlinkSync(target); } catch {}
+      try { fs.unlinkSync(paths(conversationId, id).meta); } catch {}
+      return { ok: false, error: String(error && error.message || error) };
+    }
+  }
   function discard(conversationId, attachmentId, senderId) {
     const owner = pending.get(String(attachmentId));
     if (!owner || owner.conversationId !== conversationId || owner.senderId !== senderId) return false;
@@ -152,7 +189,7 @@ function createStudyAttachmentService({ dialog, shell, nativeImage, store, getWi
     const error = await shell.openPath(path.join(paths(conversationId, attachmentId).dir, meta.storedName));
     return error ? { ok: false, error } : { ok: true };
   }
-  return { select, discard, commit, discardForSender, buildModelContent, open, readMeta };
+  return { select, addClipboardImage, discard, commit, discardForSender, buildModelContent, open, readMeta };
 }
 
 module.exports = { createStudyAttachmentService, safeName, MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES, MAX_TEXT_PER_FILE, MAX_TEXT_TOTAL };
