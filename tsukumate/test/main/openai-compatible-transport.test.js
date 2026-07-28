@@ -3,7 +3,7 @@
 const { test, describe, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
-const { validateConfig, requestJson, makeChatBody } = require("../../src/main/chat/openai-compatible-transport");
+const { DEFAULT_API_TIMEOUT_MS, validateConfig, requestJson, makeChatBody } = require("../../src/main/chat/openai-compatible-transport");
 
 let server;
 afterEach(async () => {
@@ -20,6 +20,10 @@ function listen(handler) {
 }
 
 describe("OpenAI-compatible transport", () => {
+  test("allows slow remote models 90 seconds of network inactivity", () => {
+    assert.equal(DEFAULT_API_TIMEOUT_MS, 90_000);
+  });
+
   test("validates a complete endpoint and model", () => {
     assert.throws(() => validateConfig({ endpoint: "/v1/chat/completions", model: "x" }), /complete/);
     assert.throws(() => validateConfig({ endpoint: "https://example.test", model: "" }), /Model/);
