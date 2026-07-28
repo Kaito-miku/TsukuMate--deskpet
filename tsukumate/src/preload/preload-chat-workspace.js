@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld("chatWorkspace", {
     dataUrl: String(payload?.dataUrl || ""),
     mimeType: String(payload?.mimeType || ""),
   }),
+  readClipboardImage: () => ipcRenderer.invoke("chat-workspace:read-clipboard-image"),
   discardAttachment: (id) => ipcRenderer.invoke("chat-workspace:discard-attachment", { id }),
   openAttachment: (id) => ipcRenderer.invoke("chat-workspace:open-attachment", { id }),
   getA2uiSource: (id, kind) => ipcRenderer.invoke("chat-workspace:get-a2ui-source", { id, kind }),

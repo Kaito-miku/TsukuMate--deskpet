@@ -96,6 +96,7 @@ test("workspace preload exposes only constrained conversation, attachment and di
   assert.match(preload, /chat-workspace:delete-conversation/);
   assert.match(preload, /chat-workspace:select-attachments/);
   assert.match(preload, /chat-workspace:paste-image/);
+  assert.match(preload, /chat-workspace:read-clipboard-image/);
   assert.match(preload, /chat-workspace:discard-attachment/);
   assert.match(preload, /chat-workspace:get-a2ui-source/);
   assert.match(preload, /chat-workspace:perform-a2ui-action/);
@@ -150,8 +151,9 @@ test("workspace replaces screen capture with tokenized learning attachments", ()
   assert.doesNotMatch(renderer, /screenImageDataUrl|screenCaptureToken/);
   assert.match(chat, /minicpm:screen-capture-list/);
   assert.match(renderer, /addEventListener\("paste"/);
-  assert.match(renderer, /api\.pasteImage/);
+  assert.match(renderer, /api\.readClipboardImage/);
   assert.match(chat, /chat-workspace:paste-image/);
+  assert.match(chat, /clipboard\.readImage\(\)/);
   assert.match(chat, /studyAttachments\.addClipboardImage/);
 });
 

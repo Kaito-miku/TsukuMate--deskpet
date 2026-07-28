@@ -25,7 +25,7 @@
 // has no torch / transformers / peft dependency and ships as a single
 // binary per platform alongside llama-server.
 
-const { BrowserWindow, ipcMain, screen, shell, Menu, app, safeStorage, desktopCapturer, systemPreferences, dialog, nativeImage, nativeTheme } = require("electron");
+const { BrowserWindow, ipcMain, screen, shell, Menu, app, safeStorage, desktopCapturer, systemPreferences, dialog, nativeImage, nativeTheme, clipboard } = require("electron");
 const { spawn, execFile } = require("child_process");
 const { promisify } = require("util");
 const execFileAsync = promisify(execFile);
@@ -3095,6 +3095,21 @@ module.exports = function initMinicpmChat(ctx) {
       if (!isWorkspaceSender(event.sender)) return { ok: false, error: "无权访问附件" };
       if (workspaceSession.generating) return { ok: false, error: "正在生成回复，暂时不能添加附件" };
       return studyAttachments.addClipboardImage(workspaceSession.conversation.id, event.sender.id, payload);
+    },
+    // Use Electron's native clipboard reader as the primary path. Browser
+    // ClipboardEvent MIME labels vary on macOS (for example TIFF/JFIF for a
+    // JPG source), while nativeImage safely normalizes the clipboard image to
+    // PNG before it reaches the existing constrained attachment service.
+    "chat-workspace:read-clipboard-image": async (event) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "无权访问附件" };
+      if (workspaceSession.generating) return { ok: false, error: "正在生成回复，暂时不能添加附件" };
+      try {
+        const image = clipboard.readImage();
+        if (!image || image.isEmpty()) return { ok: false, error: "剪贴板中没有可读取的图片" };
+        return studyAttachments.addClipboardImage(workspaceSession.conversation.id, event.sender.id, {
+          mimeType: "image/png", dataUrl: `data:image/png;base64,${image.toPNG().toString("base64")}`,
+        });
+      } catch (error) { return { ok: false, error: `无法读取剪贴板图片：${String(error && error.message || error)}` }; }
     },
     "chat-workspace:discard-attachment": async (event, payload = {}) => ({
       ok: isWorkspaceSender(event.sender) && studyAttachments.discard(workspaceSession.conversation.id, payload.id, event.sender.id),
