@@ -132,10 +132,33 @@ test("workspace preload exposes only constrained conversation, attachment and di
 test("conversation drawer provides a guarded delete control for new sessions", () => {
   const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
   const chat = read("main/chat/minicpm-chat.js");
-  assert.match(renderer, /conversation-delete/);
+  assert.match(read("renderer/chat-workspace/chat-workspace-bubbles.css"), /conversation-delete/);
+  assert.match(renderer, /conversation-tree-row/);
   assert.match(renderer, /api\.deleteConversation/);
   assert.match(chat, /chat-workspace:delete-conversation/);
   assert.match(chat, /conversationStore\.remove/);
+});
+
+test("workspace exposes hierarchical branches, vocabulary annotation, and a local topic network", () => {
+  const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
+  const preload = read("preload/preload-chat-workspace.js");
+  const chat = read("main/chat/minicpm-chat.js");
+  const css = read("renderer/chat-workspace/chat-workspace-bubbles.css");
+  assert.match(renderer, /openBranchPicker/);
+  assert.match(renderer, /applyLearningAnnotations/);
+  assert.match(renderer, /conversationDrawerTab/);
+  assert.match(renderer, /思维网络/);
+  assert.match(renderer, /learning-vocabulary-popover/);
+  assert.match(renderer, /vocabularyMode/);
+  assert.match(preload, /chat-workspace:create-branch/);
+  assert.match(preload, /chat-workspace:get-conversation-network/);
+  assert.match(chat, /function branchContext/);
+  assert.match(chat, /chat-workspace:create-branch/);
+  assert.match(chat, /conversationStore\.removeTree/);
+  assert.match(chat, /learningAnnotations/);
+  assert.match(css, /learning-vocabulary-term/);
+  assert.match(css, /conversation-network-canvas/);
+  assert.match(css, /vocabulary-plain/);
 });
 
 test("quick launcher opens the workspace while the legacy shortcut still targets the bubble", () => {

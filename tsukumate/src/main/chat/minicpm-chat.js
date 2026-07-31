@@ -3124,6 +3124,45 @@ module.exports = function initMinicpmChat(ctx) {
     return context;
   }
 
+  function branchOwnMessages(id, throughMessageId = null) {
+    const messages = messagesAfterBoundary(conversationStore.readMessages(id));
+    const limit = String(throughMessageId || "");
+    const index = limit ? messages.findIndex((message) => String(message.id) === limit) : -1;
+    return (index >= 0 ? messages.slice(0, index + 1) : messages).map((message) => ({ ...message, attachments: [] }));
+  }
+  function branchContext(meta, throughMessageId = null, visited = new Set()) {
+    if (!meta || visited.has(meta.id)) return [];
+    visited.add(meta.id);
+    const own = branchOwnMessages(meta.id, throughMessageId);
+    if (meta.branchType === "inherit" && meta.parentConversationId) {
+      const parent = conversationStore.readMeta(meta.parentConversationId);
+      return [...branchContext(parent, meta.branchPointMessageId, visited), ...own].slice(-240);
+    }
+    if (["related", "vocabulary"].includes(meta.branchType) && meta.parentSnapshot) {
+      const snapshot = meta.parentSnapshot;
+      const background = [snapshot.title && `父话题：${snapshot.title}`, snapshot.summary && `父话题摘要：${snapshot.summary}`, snapshot.sentence && `原句：${snapshot.sentence}`, snapshot.term && `学习词汇：${snapshot.term}`, snapshot.definition && `词汇解释：${snapshot.definition}`].filter(Boolean).join("\n");
+      return [{ id: `branch-background-${meta.id}`, role: "user", content: `以下是本分支的受控背景，仅用于理解当前关联主题：\n${background}`, timestamp: meta.createdAt }, ...own].slice(-240);
+    }
+    return own.slice(-240);
+  }
+  function cleanJsonReply(value) { const raw = String(value || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim(); try { return JSON.parse(raw); } catch { const match = raw.match(/\{[\s\S]*\}/); try { return match ? JSON.parse(match[0]) : null; } catch { return null; } } }
+  async function updateConversationLearningMeta(conversationId, assistantId, content) {
+    const meta = conversationStore.readMeta(conversationId); if (!meta || !String(content || "").trim()) return;
+    const version = meta.contentVersion || 0; const source = String(content || "").slice(0, 12000);
+    try {
+      const summaryReply = await remoteCompletion({ messages: [{ role: "user", content: `将下列对话回复概括为一个简洁学习主题摘要（80字以内，只输出纯文本）：\n${source}` }], includeMemory: false, stream: false, temperature: 0, max_tokens: 120, system: "只输出安全、准确的纯文本中文摘要。" });
+      const summary = String(summaryReply?.choices?.[0]?.message?.content || "").replace(/<[^>]+>/g, "").trim(); const latest = conversationStore.readMeta(conversationId);
+      if (summary && latest && latest.contentVersion === version) conversationStore.updateSummary(conversationId, summary, version);
+    } catch {}
+    try {
+      const annotationReply = await remoteCompletion({ messages: [{ role: "user", content: `从下面学习文本中选择最多5个可能需要解释的术语或短语，返回严格 JSON：{"items":[{"term":"原文精确片段","definition":"不超过70字的解释"}]}。只选择原文连续片段；没有则返回空数组。\n\n${source}` }], includeMemory: false, stream: false, temperature: 0, max_tokens: 500, system: "只输出 JSON，不输出 Markdown 或 HTML。" });
+      const parsed = cleanJsonReply(annotationReply?.choices?.[0]?.message?.content); const taken = new Set(); const annotations = [];
+      for (const item of Array.isArray(parsed?.items) ? parsed.items.slice(0, 5) : []) { const term = String(item?.term || "").trim(); const definition = String(item?.definition || "").replace(/<[^>]+>/g, "").trim(); const start = term ? source.indexOf(term) : -1; if (start < 0 || taken.has(start) || !definition) continue; taken.add(start); annotations.push({ id: `term-${start}`, start, end: start + term.length, term, definition }); }
+      const updated = conversationStore.updateDerivedMessage(conversationId, assistantId, { learningAnnotations: annotations });
+      if (updated && workspaceSession.conversation?.id === conversationId) { const index = workspaceSession.messages.findIndex((message) => String(message.id) === String(assistantId)); if (index >= 0) workspaceSession.messages[index] = updated; broadcastSharedSession(); }
+    } catch {}
+  }
+
   function maybeGenerateConversationTitle(user, attachments) {
     const conversationId = workspaceSession.conversation.id;
     const current = conversationStore.readMeta(conversationId);
@@ -3185,7 +3224,7 @@ module.exports = function initMinicpmChat(ctx) {
     maybeGenerateConversationTitle(user, attachments);
     setImmediate(async () => {
       try {
-        const context = messagesAfterBoundary(workspaceSession.messages);
+        const context = branchContext(workspaceSession.conversation);
         const modelMessages = studyAttachments.buildModelContent(workspaceSession.conversation.id, context);
         let webResearch = "";
         if (webSearch) {
@@ -3248,7 +3287,7 @@ module.exports = function initMinicpmChat(ctx) {
         assistant.content = a2ui.content;
         if (parsed.richCards.length) assistant.richCards = parsed.richCards;
         if (a2ui.a2uiSurfaces.length) assistant.a2uiSurfaces = a2ui.a2uiSurfaces;
-        if (assistant.content.trim() || assistant.thinking.trim() || assistant.richCards || assistant.a2uiSurfaces) conversationStore.append(workspaceSession.conversation.id, assistant);
+        if (assistant.content.trim() || assistant.thinking.trim() || assistant.richCards || assistant.a2uiSurfaces) { conversationStore.append(workspaceSession.conversation.id, assistant); void updateConversationLearningMeta(workspaceSession.conversation.id, assistant.id, assistant.content); }
       } catch (error) {
         assistant.generationDurationMs = Math.max(0, Date.now() - assistant.generationStartedAt);
         assistant.streaming = false;
@@ -3317,15 +3356,34 @@ module.exports = function initMinicpmChat(ctx) {
       broadcastSharedSession();
       return { ok: true, conversation };
     },
+    "chat-workspace:create-branch": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || workspaceSession.generating) return { ok: false, error: "当前回复结束后再建立分支" };
+      const parent = workspaceSession.conversation; if (!parent || parent.legacy) return { ok: false, error: "旧版记录不能建立分支" };
+      const branchType = ["inherit", "related", "vocabulary"].includes(payload.type) ? payload.type : "";
+      const messageId = String(payload.messageId || ""); const message = workspaceSession.messages.find((item) => String(item.id) === messageId && ["user", "assistant"].includes(item.role));
+      if (!branchType || !message) return { ok: false, error: "分支点不存在" };
+      const sentence = String(payload.sentence || "").slice(0, 1400); const term = String(payload.term || "").slice(0, 160); const definition = String(payload.definition || "").slice(0, 800);
+      const title = branchType === "vocabulary" && term ? `词汇：${term}` : branchType === "inherit" ? `分支：${parent.title}` : `关联：${parent.title}`;
+      const conversation = conversationStore.create({ title, parentConversationId: parent.id, branchPointMessageId: messageId, branchType, parentSnapshot: { title: parent.title, summary: parent.topicSummary || String(message.content || "").slice(0, 800), sentence, term, definition } });
+      workspaceSession = { conversation, messages: [], generating: false, requestId: null };
+      if (workspace && !workspace.isDestroyed()) workspace.setTitle(`${conversation.title} · TsukuMate`);
+      broadcastSharedSession();
+      return { ok: true, conversation, session: publicSharedSession() };
+    },
     "chat-workspace:list-conversations": async (event) => isWorkspaceSender(event.sender)
       ? { ok: true, conversations: conversationStore.list() } : { ok: false, conversations: [] },
+    "chat-workspace:get-conversation-network": async (event) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, nodes: [], edges: [] };
+      const conversations = conversationStore.list();
+      return { ok: true, nodes: conversations.map((item) => ({ id: item.id, title: item.title, summary: item.topicSummary || "", branchType: item.branchType || "root", parentConversationId: item.parentConversationId || null, updatedAt: item.updatedAt })), edges: conversations.filter((item) => item.parentConversationId).map((item) => ({ from: item.parentConversationId, to: item.id, type: item.branchType || "related" })) };
+    },
     "chat-workspace:delete-conversation": async (event, payload = {}) => {
       if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
       if (workspaceSession.generating) return { ok: false, error: "当前回复结束后再删除对话" };
       const id = String(payload.id || "");
       if (!conversationStore.readMeta(id)) return { ok: false, error: "只能删除新的对话记录" };
       const deletingCurrent = workspaceSession.conversation?.id === id;
-      if (!conversationStore.remove(id)) return { ok: false, error: "删除对话失败" };
+      if (!conversationStore.removeTree(id)) return { ok: false, error: "删除对话失败" };
       if (deletingCurrent) {
         const fallback = conversationStore.list().find((item) => !item.legacy) || conversationStore.create();
         workspaceSession = { conversation: fallback, messages: hydrateA2uiMessages(conversationStore.readMessages(fallback.id)), generating: false, requestId: null };

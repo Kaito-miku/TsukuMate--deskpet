@@ -32,20 +32,32 @@ function createConversationStore(root, options = {}) {
     try { return JSON.parse(fs.readFileSync(metaPath(id), "utf8")); } catch { return null; }
   }
   function writeMeta(meta) {
+    const branchType = ["inherit", "related", "vocabulary"].includes(meta.branchType) ? meta.branchType : null;
     const safe = {
       id: meta.id, title: cleanTitle(meta.title) || defaultTitle(),
       titleSource: ["placeholder", "ai", "user"].includes(meta.titleSource) ? meta.titleSource : "placeholder",
       titleGenerationAttempts: Math.max(0, Math.min(2, Number(meta.titleGenerationAttempts) || 0)),
       createdAt: meta.createdAt || now(), updatedAt: meta.updatedAt || now(),
       contextBoundaryId: meta.contextBoundaryId || null,
+      parentConversationId: ID_RE.test(String(meta.parentConversationId || "")) ? meta.parentConversationId : null,
+      branchPointMessageId: String(meta.branchPointMessageId || "").slice(0, 120) || null,
+      branchType,
+      parentSnapshot: branchType ? {
+        title: cleanTitle(meta.parentSnapshot?.title, 100), summary: String(meta.parentSnapshot?.summary || "").slice(0, 2400),
+        sentence: String(meta.parentSnapshot?.sentence || "").slice(0, 1400), term: String(meta.parentSnapshot?.term || "").slice(0, 160), definition: String(meta.parentSnapshot?.definition || "").slice(0, 800),
+      } : null,
+      topicSummary: String(meta.topicSummary || "").slice(0, 2400),
+      summaryUpdatedAt: meta.summaryUpdatedAt || null,
+      summaryVersion: Math.max(0, Math.min(1e6, Number(meta.summaryVersion) || 0)),
+      contentVersion: Math.max(0, Math.min(1e6, Number(meta.contentVersion) || 0)),
     };
     atomicJson(metaPath(meta.id), safe);
     return safe;
   }
-  function create() {
+  function create(options = {}) {
     const id = `chat-${Date.now().toString(36)}-${crypto.randomBytes(5).toString("hex")}`;
     fs.mkdirSync(path.join(sessionDir(id), "attachments"), { recursive: true });
-    return writeMeta({ id, title: defaultTitle(), titleSource: "placeholder", titleGenerationAttempts: 0, createdAt: now(), updatedAt: now() });
+    return writeMeta({ id, title: cleanTitle(options.title) || defaultTitle(), titleSource: options.title ? "user" : "placeholder", titleGenerationAttempts: 0, createdAt: now(), updatedAt: now(), ...options });
   }
   function readMessages(id) {
     let file;
@@ -71,7 +83,7 @@ function createConversationStore(root, options = {}) {
     fs.appendFileSync(file, `${JSON.stringify(message)}\n`, "utf8");
     if (!legacy) {
       const meta = readMeta(id);
-      if (meta) writeMeta({ ...meta, updatedAt: now(), contextBoundaryId: message.role === "context-boundary" ? message.id : meta.contextBoundaryId });
+      if (meta) writeMeta({ ...meta, updatedAt: now(), contextBoundaryId: message.role === "context-boundary" ? message.id : meta.contextBoundaryId, contentVersion: (meta.contentVersion || 0) + 1 });
     }
   }
   function list() {
@@ -127,7 +139,7 @@ function createConversationStore(root, options = {}) {
     fs.writeFileSync(rewrite, next.map((message) => JSON.stringify(message)).join("\n") + (next.length ? "\n" : ""), "utf8");
     fs.renameSync(rewrite, file);
     const meta = readMeta(id);
-    if (meta) writeMeta({ ...meta, updatedAt: now() });
+    if (meta) writeMeta({ ...meta, updatedAt: now(), contentVersion: (meta.contentVersion || 0) + 1 });
     return true;
   }
   function updateMessage(id, messageId, patch = {}) {
@@ -146,14 +158,26 @@ function createConversationStore(root, options = {}) {
     fs.writeFileSync(rewrite, messages.map((message) => JSON.stringify(message)).join("\n") + "\n", "utf8");
     fs.renameSync(rewrite, file);
     const meta = readMeta(id);
-    if (meta) writeMeta({ ...meta, updatedAt: now() });
+    if (meta) writeMeta({ ...meta, updatedAt: now(), contentVersion: (meta.contentVersion || 0) + 1 });
     return messages[index];
   }
+  function updateDerivedMessage(id, messageId, patch = {}) {
+    if (!ID_RE.test(String(id || "")) || !String(messageId || "")) return null;
+    const file = messagesPath(id); if (!fs.existsSync(file)) return null;
+    const messages = readMessages(id); const index = messages.findIndex((message) => String(message.id) === String(messageId));
+    if (index < 0 || messages[index].role !== "assistant") return null;
+    const annotations = Array.isArray(patch.learningAnnotations) ? patch.learningAnnotations.slice(0, 8).map((item, itemIndex) => ({ id: String(item?.id || `term-${itemIndex + 1}`).slice(0, 80), start: Math.max(0, Math.min(16000, Number(item?.start) || 0)), end: Math.max(0, Math.min(16000, Number(item?.end) || 0)), term: String(item?.term || "").slice(0, 160), definition: String(item?.definition || "").slice(0, 800) })).filter((item) => item.end > item.start && item.term && item.definition) : [];
+    messages[index] = { ...messages[index], learningAnnotations: annotations };
+    const rewrite = `${file}.tmp-${process.pid}-${Date.now()}`; fs.writeFileSync(rewrite, messages.map((message) => JSON.stringify(message)).join("\n") + "\n", "utf8"); fs.renameSync(rewrite, file);
+    return messages[index];
+  }
+  function updateSummary(id, summary, version) { const meta = readMeta(id); if (!meta) return null; return writeMeta({ ...meta, topicSummary: String(summary || "").slice(0, 2400), summaryUpdatedAt: now(), summaryVersion: Math.max(0, Number(version) || meta.contentVersion || 0) }); }
+  function removeTree(id) { if (!ID_RE.test(String(id || "")) || !readMeta(id)) return false; const ids = new Set([id]); let changed = true; while (changed) { changed = false; for (const meta of list()) if (meta.parentConversationId && ids.has(meta.parentConversationId) && !ids.has(meta.id)) { ids.add(meta.id); changed = true; } } for (const childId of ids) { const dir = sessionDir(childId); if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: false }); } return true; }
   function attachmentDir(id) {
     if (!ID_RE.test(String(id || ""))) throw new Error("Attachments require a current conversation");
     const dir = path.join(sessionDir(id), "attachments"); fs.mkdirSync(dir, { recursive: true }); return dir;
   }
-  return { validId, create, list, readMeta, readMessages, append, updateTitle, incrementTitleAttempt, remove, removeMessage, updateMessage, attachmentDir, cleanTitle };
+  return { validId, create, list, readMeta, readMessages, append, updateTitle, incrementTitleAttempt, remove, removeTree, removeMessage, updateMessage, updateDerivedMessage, updateSummary, attachmentDir, cleanTitle };
 }
 
 module.exports = { createConversationStore, cleanTitle, ID_RE, LEGACY_RE };

@@ -52,6 +52,26 @@ test("conversation store edits one message while retaining its position and hist
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test("conversation store persists branch metadata, annotations, and deletes a complete subtree", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tsukumate-conversation-"));
+  const store = createConversationStore(root);
+  const parent = store.create({ title: "主话题" });
+  store.append(parent.id, { id: "u1", role: "user", content: "解释递归", timestamp: new Date().toISOString() });
+  store.append(parent.id, { id: "a1", role: "assistant", content: "递归是函数调用自身。", timestamp: new Date().toISOString() });
+  const child = store.create({ title: "分支", parentConversationId: parent.id, branchPointMessageId: "a1", branchType: "inherit", parentSnapshot: { title: "主话题", summary: "递归基础" } });
+  const grandchild = store.create({ title: "词汇", parentConversationId: child.id, branchPointMessageId: "a1", branchType: "vocabulary", parentSnapshot: { title: "分支", term: "递归", definition: "函数调用自身" } });
+  assert.equal(store.readMeta(child.id).branchType, "inherit");
+  assert.equal(store.readMeta(child.id).parentSnapshot.summary, "递归基础");
+  const updated = store.updateDerivedMessage(parent.id, "a1", { learningAnnotations: [{ id: "term-0", start: 0, end: 2, term: "递归", definition: "函数调用自身" }] });
+  assert.deepEqual(updated.learningAnnotations, [{ id: "term-0", start: 0, end: 2, term: "递归", definition: "函数调用自身" }]);
+  assert.equal(store.updateSummary(parent.id, "递归的基本概念", 2).summaryVersion, 2);
+  assert.equal(store.removeTree(parent.id), true);
+  assert.equal(store.readMeta(parent.id), null);
+  assert.equal(store.readMeta(child.id), null);
+  assert.equal(store.readMeta(grandchild.id), null);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 test("generated titles accept fenced JSON but reject malformed or excessive titles", () => {
   assert.equal(parseGeneratedTitle('```json\n{"title":"复合情绪测试"}\n```', "zh-CN"), "复合情绪测试");
   assert.equal(parseGeneratedTitle("not json", "zh-CN"), "");
