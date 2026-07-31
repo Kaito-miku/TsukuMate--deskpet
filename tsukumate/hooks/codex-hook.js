@@ -100,6 +100,35 @@ function buildToolInputFingerprint(toolInput) {
     .digest("hex");
 }
 
+// The HUD needs a human-readable indication of what Codex is doing, but the
+// complete tool input can contain prompts, diffs, commands, or credentials.
+// Forward only a small, deliberately allow-listed target.  The main process
+// validates it again before it reaches a renderer.
+function summarizeToolActivityTarget(toolName, toolInput) {
+  if (!toolInput || typeof toolInput !== "object" || Array.isArray(toolInput)) return null;
+  const pick = (...keys) => {
+    for (const key of keys) {
+      const value = toolInput[key];
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return null;
+  };
+  const tool = String(toolName || "").toLowerCase();
+  const pathValue = pick("path", "file_path", "filePath", "filename");
+  if (pathValue) {
+    const normalized = pathValue.replace(/\\/g, "/").replace(/\/+$/, "");
+    const base = normalized.split("/").filter(Boolean).pop();
+    return base ? base.slice(0, 96) : null;
+  }
+  // Search terms are useful status information. Do not forward shell command
+  // text or arbitrary tool descriptions: those often include sensitive data.
+  if (/(search|grep|find)/.test(tool)) {
+    const query = pick("query", "pattern", "search", "term");
+    return query ? query.replace(/[\r\n\t]+/g, " ").slice(0, 96) : null;
+  }
+  return null;
+}
+
 function parseSessionMetaLine(line) {
   if (typeof line !== "string" || !line.trim()) return null;
   let parsed;
@@ -371,6 +400,8 @@ function buildStateBody(payload, resolve) {
   const toolInput = payload.tool_input && typeof payload.tool_input === "object" ? payload.tool_input : null;
   const toolInputFingerprint = buildToolInputFingerprint(toolInput);
   if (toolName) body.tool_name = toolName;
+  const toolActivityTarget = summarizeToolActivityTarget(toolName, toolInput);
+  if (toolActivityTarget) body.tool_activity_target = toolActivityTarget;
   if (toolUseId) body.tool_use_id = toolUseId;
   if (toolInputFingerprint) body.tool_input_fingerprint = toolInputFingerprint;
 
@@ -439,6 +470,7 @@ module.exports = {
   buildPermissionBody,
   buildStateBody,
   buildToolInputFingerprint,
+  summarizeToolActivityTarget,
   extractLastAssistantTextFromTranscript,
   extractCodexSessionIdFromTranscriptPath,
   isCodexDesktopSession,

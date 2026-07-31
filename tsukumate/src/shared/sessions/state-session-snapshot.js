@@ -209,6 +209,9 @@ function buildSessionSnapshotEntry(id, session, sessionAliases = {}, options = {
       : null,
     assistantLastOutputTruncated: !!(session && session.assistantLastOutputTruncated === true),
     lastToolName: (session && typeof session.lastToolName === "string") ? session.lastToolName : null,
+    lastToolActivityTarget: (session && typeof session.lastToolActivityTarget === "string")
+      ? session.lastToolActivityTarget
+      : null,
     lastEvent: latestEvent ? {
       labelKey: rawEvent ? (EVENT_LABEL_KEYS[rawEvent] || null) : null,
       rawEvent,
@@ -339,6 +342,7 @@ function sessionSnapshotSignature(snapshot) {
       assistantLastOutput: entry.assistantLastOutput,
       assistantLastOutputTruncated: !!entry.assistantLastOutputTruncated,
       lastToolName: entry.lastToolName,
+      lastToolActivityTarget: entry.lastToolActivityTarget,
       lastEventLabelKey: entry.lastEvent ? entry.lastEvent.labelKey : null,
       lastEventRawEvent: entry.lastEvent ? entry.lastEvent.rawEvent : null,
       lastEventAt: entry.lastEvent ? entry.lastEvent.at : null,

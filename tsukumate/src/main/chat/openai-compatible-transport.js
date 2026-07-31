@@ -6,6 +6,11 @@ const http = require("http");
 const https = require("https");
 const { createProxyAgent } = require("../integrations/agents/proxy-agent");
 
+// Remote reasoning and rich visual responses can legitimately take longer
+// than 30 seconds before their first SSE frame. This is an inactivity timeout,
+// not a total-generation limit; any received data refreshes the socket timer.
+const DEFAULT_API_TIMEOUT_MS = 90_000;
+
 function validateConfig(input) {
   const endpoint = String(input && input.endpoint || "").trim();
   const model = String(input && input.model || "").trim();
@@ -28,7 +33,51 @@ function responseError(status, raw) {
   return new Error(message);
 }
 
-function requestJson({ endpoint, apiKey, body, signal, timeoutMs = 30000, onEvent }) {
+function textFromCandidate(value) {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map((item) => textFromCandidate(item?.text || item?.content || item)).join("");
+  if (value && typeof value === "object") return textFromCandidate(value.text || value.content || "");
+  return "";
+}
+
+function extractReasoningDelta(payload) {
+  const eventType = String(payload?.type || payload?.event || "").toLowerCase();
+  const candidates = [
+    payload?.choices?.[0]?.delta?.reasoning_content, payload?.choices?.[0]?.delta?.reasoning, payload?.choices?.[0]?.delta?.analysis,
+    payload?.choices?.[0]?.message?.reasoning_content, payload?.choices?.[0]?.message?.reasoning, payload?.choices?.[0]?.message?.analysis,
+    payload?.delta?.reasoning_content, payload?.delta?.reasoning, payload?.delta?.analysis,
+    payload?.message?.reasoning_content, payload?.message?.reasoning, payload?.message?.analysis,
+    payload?.reasoning_content, payload?.reasoning, payload?.analysis,
+  ];
+  for (const candidate of candidates) { const text = textFromCandidate(candidate); if (text) return text; }
+  // OpenAI Responses API and several Codex-compatible gateways stream
+  // reasoning as a typed root event instead of a chat-completions choice.
+  // Example: { type: "response.reasoning_text.delta", delta: "…" }.
+  if (/(?:reasoning|thinking|analysis)/.test(eventType)) {
+    for (const candidate of [payload?.delta, payload?.text, payload?.content, payload?.output_text]) {
+      const text = textFromCandidate(candidate); if (text) return text;
+    }
+  }
+  return "";
+}
+
+function extractContentDelta(payload) {
+  const candidates = [payload?.choices?.[0]?.delta?.content, payload?.choices?.[0]?.message?.content, payload?.delta?.content, payload?.message?.content, payload?.content];
+  for (const candidate of candidates) { const text = textFromCandidate(candidate); if (text) return text; }
+  // Responses API style events carry a string `delta` at the root:
+  // { type: "response.output_text.delta", delta: "Hello" }.  Do not
+  // accept it for reasoning events, otherwise thought text leaks into the
+  // final answer.
+  const eventType = String(payload?.type || payload?.event || "").toLowerCase();
+  if (!/(?:reasoning|thinking|analysis)/.test(eventType) && /(?:output[._-]?text|content|message|text)/.test(eventType)) {
+    for (const candidate of [payload?.delta, payload?.text, payload?.output_text]) {
+      const text = textFromCandidate(candidate); if (text) return text;
+    }
+  }
+  return "";
+}
+
+function requestJson({ endpoint, apiKey, body, signal, timeoutMs = DEFAULT_API_TIMEOUT_MS, onEvent }) {
   const url = new URL(endpoint);
   const client = url.protocol === "https:" ? https : http;
   // Match the rest of the app's network behavior: macOS system proxy and
@@ -88,10 +137,10 @@ function requestJson({ endpoint, apiKey, body, signal, timeoutMs = 30000, onEven
           if (!data || data === "[DONE]") continue;
           try {
             const parsed = JSON.parse(data);
-            const delta = parsed.choices && parsed.choices[0] && parsed.choices[0].delta;
-            if (!delta) continue;
-            if (delta.reasoning_content) onEvent && onEvent({ event: "think", content: String(delta.reasoning_content) });
-            if (delta.content) onEvent && onEvent({ event: "delta", content: String(delta.content) });
+            const reasoning = extractReasoningDelta(parsed);
+            const content = extractContentDelta(parsed);
+            if (reasoning) onEvent && onEvent({ event: "think", content: reasoning });
+            if (content) onEvent && onEvent({ event: "delta", content });
           } catch { /* Ignore provider keepalive/malformed SSE frames. */ }
         }
       });
@@ -121,4 +170,4 @@ function makeChatBody({ model, messages, stream, system, maxTokens, temperature,
   };
 }
 
-module.exports = { validateConfig, requestJson, makeChatBody };
+module.exports = { DEFAULT_API_TIMEOUT_MS, validateConfig, requestJson, makeChatBody, extractReasoningDelta, extractContentDelta };

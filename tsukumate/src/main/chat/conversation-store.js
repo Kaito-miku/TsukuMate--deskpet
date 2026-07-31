@@ -103,11 +103,57 @@ function createConversationStore(root, options = {}) {
     if (!meta) return null;
     return writeMeta({ ...meta, titleGenerationAttempts: Math.min(2, (meta.titleGenerationAttempts || 0) + 1) });
   }
+  function remove(id) {
+    // Legacy date JSONL files are retained for backwards compatibility and
+    // are intentionally not removable through the new conversation UI.
+    if (!ID_RE.test(String(id || ""))) return false;
+    const dir = sessionDir(id);
+    if (!fs.existsSync(dir)) return false;
+    fs.rmSync(dir, { recursive: true, force: false });
+    return !fs.existsSync(dir);
+  }
+  function removeMessage(id, messageId) {
+    // Keep legacy date-based archives read-only: only current, signed session
+    // directories are eligible for a destructive single-message operation.
+    if (!ID_RE.test(String(id || "")) || !String(messageId || "")) return false;
+    const file = messagesPath(id);
+    if (!fs.existsSync(file)) return false;
+    const messages = readMessages(id);
+    const next = messages.filter((message) => String(message.id) !== String(messageId));
+    if (next.length === messages.length) return false;
+    // messages.jsonl is deliberately JSON Lines, not a JSON array. Rewrite it
+    // atomically so a restart can never observe a partially deleted history.
+    const rewrite = `${file}.tmp-${process.pid}-${Date.now()}`;
+    fs.writeFileSync(rewrite, next.map((message) => JSON.stringify(message)).join("\n") + (next.length ? "\n" : ""), "utf8");
+    fs.renameSync(rewrite, file);
+    const meta = readMeta(id);
+    if (meta) writeMeta({ ...meta, updatedAt: now() });
+    return true;
+  }
+  function updateMessage(id, messageId, patch = {}) {
+    if (!ID_RE.test(String(id || "")) || !String(messageId || "")) return null;
+    const file = messagesPath(id);
+    if (!fs.existsSync(file)) return null;
+    const messages = readMessages(id);
+    const index = messages.findIndex((message) => String(message.id) === String(messageId));
+    if (index < 0) return null;
+    const content = String(patch.content ?? "").slice(0, 16000);
+    // A manually edited assistant response is plain user-owned content. Its
+    // old derived cards/surfaces must not survive below the new text.
+    const { richCards, a2uiSurfaces, ...plainMessage } = messages[index];
+    messages[index] = { ...plainMessage, content, editedAt: now() };
+    const rewrite = `${file}.tmp-${process.pid}-${Date.now()}`;
+    fs.writeFileSync(rewrite, messages.map((message) => JSON.stringify(message)).join("\n") + "\n", "utf8");
+    fs.renameSync(rewrite, file);
+    const meta = readMeta(id);
+    if (meta) writeMeta({ ...meta, updatedAt: now() });
+    return messages[index];
+  }
   function attachmentDir(id) {
     if (!ID_RE.test(String(id || ""))) throw new Error("Attachments require a current conversation");
     const dir = path.join(sessionDir(id), "attachments"); fs.mkdirSync(dir, { recursive: true }); return dir;
   }
-  return { validId, create, list, readMeta, readMessages, append, updateTitle, incrementTitleAttempt, attachmentDir, cleanTitle };
+  return { validId, create, list, readMeta, readMessages, append, updateTitle, incrementTitleAttempt, remove, removeMessage, updateMessage, attachmentDir, cleanTitle };
 }
 
 module.exports = { createConversationStore, cleanTitle, ID_RE, LEGACY_RE };

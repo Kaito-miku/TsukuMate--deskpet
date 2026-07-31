@@ -1314,6 +1314,22 @@ describe("updateSession()", () => {
     assert.ok(logs.some((msg) => msg.includes("source=codex-official")));
   });
 
+  it("clears a previous tool target when the next tool has no safe target", () => {
+    api.updateSession("s1", "working", "PreToolUse", {
+      agentId: "codex",
+      toolName: "Read",
+      toolActivityTarget: "session-hud-renderer.js",
+    });
+    api.updateSession("s1", "working", "PreToolUse", {
+      agentId: "codex",
+      toolName: "Bash",
+    });
+
+    const entry = api.sessions.get("s1");
+    assert.strictEqual(entry.lastToolName, "Bash");
+    assert.strictEqual(entry.lastToolActivityTarget, null);
+  });
+
   it("Codex Stop schedules an exit probe and deletes when agentPid exits", () => {
     api.cleanup();
     const alive = new Set([1000, 2000]);

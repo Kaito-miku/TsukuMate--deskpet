@@ -450,14 +450,19 @@ describe("state-session-snapshot builder", () => {
     assert.notStrictEqual(sessionSnapshotSignature(base), sessionSnapshotSignature(differentTitle));
   });
 
-  it("exposes and signs the latest tool name for task-card progress", () => {
+  it("exposes and signs the latest tool activity for task-card progress", () => {
     const withRead = buildSessionSnapshot(new Map([
-      ["codex", session("working", { agentId: "codex", lastToolName: "Read" })],
+      ["codex", session("working", {
+        agentId: "codex",
+        lastToolName: "Read",
+        lastToolActivityTarget: "session-hud-renderer.js",
+      })],
     ]));
     const withEdit = buildSessionSnapshot(new Map([
       ["codex", session("working", { agentId: "codex", lastToolName: "Edit" })],
     ]));
     assert.strictEqual(withRead.sessions[0].lastToolName, "Read");
+    assert.strictEqual(withRead.sessions[0].lastToolActivityTarget, "session-hud-renderer.js");
     assert.notStrictEqual(sessionSnapshotSignature(withRead), sessionSnapshotSignature(withEdit));
   });
 
