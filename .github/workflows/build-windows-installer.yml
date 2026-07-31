@@ -1,0 +1,56 @@
+name: Build Windows installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional existing GitHub Release tag to receive the installer (for example beta-26.01)"
+        required: false
+        default: "beta-26.01"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Windows x64 installer
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: tsukumate
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tsukumate/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Fetch verified Windows sidecar
+        run: node scripts/fetch-sidecar-binaries.js --target windows-x64
+
+      - name: Build NSIS installer
+        run: npm run build:win:x64
+
+      - name: Upload installer artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TsukuMate-Windows-x64-installer
+          path: tsukumate/dist/TsukuMate-Setup-*-x64.exe
+          if-no-files-found: warn
+
+      - name: Add installer to release
+        if: success() && inputs.release_tag != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: gh release upload "$env:RELEASE_TAG" "dist/TsukuMate-Setup-*-x64.exe" --clobber
