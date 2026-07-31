@@ -109,6 +109,7 @@ scripts/*
 !scripts/verify-sidecar-binaries.js
 !scripts/fetch-sidecar-binaries.js
 !scripts/ensure-sidecar-binaries.js
+!scripts/notarize.js
 !scripts/fetch-adapters.js
 !scripts/verify-adapters.js
 
