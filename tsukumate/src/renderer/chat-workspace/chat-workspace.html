@@ -35,7 +35,7 @@
       <div class="date-list" id="date-list"></div>
     </aside>
     <section class="content-pane">
-      <header class="content-header">
+      <header class="content-header" id="content-header">
         <button class="back-button" id="back-button" hidden>‹ 返回</button>
         <div class="title-block">
           <div class="title-line"><h1 id="page-title">新对话</h1><button class="title-edit" id="title-edit" type="button" title="修改标题">✎</button><input id="title-input" maxlength="60" hidden></div>
@@ -54,6 +54,10 @@
         </nav>
         <button class="jump-bottom" id="jump-bottom" type="button" hidden aria-label="回到最新消息">回到最新 <span aria-hidden="true">↓</span></button>
       </div>
+      <section class="conversation-network-view" id="conversation-network-view" hidden aria-label="对话思维网络">
+        <header class="conversation-network-header"><div><strong>对话思维网络</strong><span>拖拽节点整理主题关系，滚轮缩放画布</span></div><button id="conversation-network-back" type="button">返回对话</button></header>
+        <div class="conversation-network-main" id="conversation-network-main"></div>
+      </section>
       <div class="diary-view" id="diary-view" hidden>
         <div class="diary-empty-state" id="diary-empty-state">请点击需要查看的日记</div>
         <textarea id="diary-editor" spellcheck="false" placeholder="选择左侧的一篇日记"></textarea>

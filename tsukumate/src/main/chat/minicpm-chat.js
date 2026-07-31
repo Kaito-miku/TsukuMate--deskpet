@@ -2981,13 +2981,16 @@ module.exports = function initMinicpmChat(ctx) {
   }
 
   function publicSharedSession() {
+    const inheritedMessages = inheritedDisplayMessages(workspaceSession.conversation);
     return {
       conversation: { ...workspaceSession.conversation, generating: workspaceSession.generating },
       conversationId: workspaceSession.conversation.id,
       date: workspaceSession.conversation.legacy ? workspaceSession.conversation.id.slice(7) : null,
       generating: workspaceSession.generating,
       connectionState: workspaceConnectionState,
-      messages: workspaceSession.messages.map((message) => ({ ...message })),
+      // Parent messages stay in the parent JSONL.  This read-only projection
+      // makes an inherited branch intelligible without duplicating storage.
+      messages: [...inheritedMessages, ...workspaceSession.messages].map((message) => ({ ...message })),
     };
   }
 
@@ -3124,6 +3127,77 @@ module.exports = function initMinicpmChat(ctx) {
     return context;
   }
 
+  function branchOwnMessages(id, throughMessageId = null) {
+    const messages = messagesAfterBoundary(conversationStore.readMessages(id));
+    const limit = String(throughMessageId || "");
+    const index = limit ? messages.findIndex((message) => String(message.id) === limit) : -1;
+    return (index >= 0 ? messages.slice(0, index + 1) : messages).map((message) => ({ ...message, attachments: [] }));
+  }
+  function inheritedDisplayMessages(meta, visited = new Set()) {
+    if (!meta || meta.branchType !== "inherit" || !meta.parentConversationId || visited.has(meta.id)) return [];
+    visited.add(meta.id);
+    const parent = conversationStore.readMeta(meta.parentConversationId);
+    if (!parent) return [];
+    const own = branchOwnMessages(parent.id, meta.branchPointMessageId)
+      .filter((message) => message && message.role !== "context-boundary")
+      .map((message) => ({ ...message, attachments: [], inherited: true, inheritedSourceConversationId: parent.id }));
+    return [...inheritedDisplayMessages(parent, visited), ...own];
+  }
+  function branchContext(meta, throughMessageId = null, visited = new Set()) {
+    if (!meta || visited.has(meta.id)) return [];
+    visited.add(meta.id);
+    const own = branchOwnMessages(meta.id, throughMessageId);
+    if (meta.branchType === "inherit" && meta.parentConversationId) {
+      const parent = conversationStore.readMeta(meta.parentConversationId);
+      return [...branchContext(parent, meta.branchPointMessageId, visited), ...own].slice(-240);
+    }
+    if (["related", "vocabulary"].includes(meta.branchType) && meta.parentSnapshot) {
+      const snapshot = meta.parentSnapshot;
+      const background = [snapshot.title && `父话题：${snapshot.title}`, snapshot.summary && `父话题摘要：${snapshot.summary}`, snapshot.sentence && `原句：${snapshot.sentence}`, snapshot.term && `学习词汇：${snapshot.term}`, snapshot.definition && `词汇解释：${snapshot.definition}`].filter(Boolean).join("\n");
+      return [{ id: `branch-background-${meta.id}`, role: "user", content: `以下是本分支的受控背景，仅用于理解当前关联主题：\n${background}`, timestamp: meta.createdAt }, ...own].slice(-240);
+    }
+    return own.slice(-240);
+  }
+  function canMutateVisibleInheritedSource(conversationId) {
+    const target = String(conversationId || "");
+    if (!target || target === workspaceSession.conversation?.id) return true;
+    let cursor = workspaceSession.conversation; const visited = new Set();
+    while (cursor?.branchType === "inherit" && cursor.parentConversationId && !visited.has(cursor.id)) {
+      visited.add(cursor.id); const parent = conversationStore.readMeta(cursor.parentConversationId);
+      if (!parent) return false;
+      if (parent.id === target) return true;
+      cursor = parent;
+    }
+    return false;
+  }
+  function cleanBranchSentence(value, term = "") { const plain = String(value || "").replace(/```[\s\S]*?```/g, " ").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(); if (!plain) return ""; const index = term ? plain.indexOf(String(term)) : -1; if (index < 0) return plain.slice(0, 500); const starts = [plain.lastIndexOf("。", index - 1), plain.lastIndexOf("！", index - 1), plain.lastIndexOf("？", index - 1), plain.lastIndexOf(".", index - 1)].map((value) => value + 1); const start = Math.max(0, ...starts); const ends = [plain.indexOf("。", index + String(term).length), plain.indexOf("！", index + String(term).length), plain.indexOf("？", index + String(term).length), plain.indexOf(".", index + String(term).length)].filter((value) => value >= 0); const end = ends.length ? Math.min(...ends) + 1 : Math.min(plain.length, start + 500); return plain.slice(start, end).slice(0, 800); }
+  function cleanTopicSummary(value) {
+    let plain = String(value || "");
+    // Old branch snapshots may contain either raw visual-bubble HTML or an
+    // entity-escaped, mid-tag slice of it. Decode a few times before removing
+    // tags, including an unfinished final tag produced by the old truncation.
+    const entities = { "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&amp;": "&" };
+    for (let index = 0; index < 3; index += 1) plain = plain.replace(/&(lt|gt|quot|#39|amp);/gi, (match) => entities[match.toLowerCase()] || match);
+    return plain.replace(/```[\s\S]*?```/g, " ").replace(/<[^>]*(?:>|$)/g, " ").replace(/\s+/g, " ").trim().slice(0, 900);
+  }
+  function cleanJsonReply(value) { const raw = String(value || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/i, "").trim(); try { return JSON.parse(raw); } catch { const match = raw.match(/\{[\s\S]*\}/); try { return match ? JSON.parse(match[0]) : null; } catch { return null; } } }
+  async function updateConversationLearningMeta(conversationId, assistantId, content) {
+    const meta = conversationStore.readMeta(conversationId); if (!meta || !String(content || "").trim()) return;
+    const version = meta.contentVersion || 0; const source = String(content || "").slice(0, 12000);
+    try {
+      const summaryReply = await remoteCompletion({ messages: [{ role: "user", content: `将下列对话回复概括为一个简洁学习主题摘要（80字以内，只输出纯文本）：\n${source}` }], includeMemory: false, stream: false, temperature: 0, max_tokens: 120, system: "只输出安全、准确的纯文本中文摘要。" });
+      const summary = String(summaryReply?.choices?.[0]?.message?.content || "").replace(/<[^>]+>/g, "").trim(); const latest = conversationStore.readMeta(conversationId);
+      if (summary && latest && latest.contentVersion === version) conversationStore.updateSummary(conversationId, summary, version);
+    } catch {}
+    try {
+      const annotationReply = await remoteCompletion({ messages: [{ role: "user", content: `从下面学习文本中选择最多5个真正影响理解的学习术语或学科短语，返回严格 JSON：{"items":[{"term":"原文精确片段","definition":"不超过70字的解释"}]}。优先专业概念、关键名词和首次出现的学科短语；不要选择日常常用词、完整句子、代码、公式、链接、HTML 标签或媒体名称。term 必须是原文中的连续片段；无合适术语时返回空数组。\n\n${source}` }], includeMemory: false, stream: false, temperature: 0, max_tokens: 500, system: "只输出 JSON，不输出 Markdown 或 HTML。" });
+      const parsed = cleanJsonReply(annotationReply?.choices?.[0]?.message?.content); const taken = new Set(); const annotations = [];
+      for (const item of Array.isArray(parsed?.items) ? parsed.items.slice(0, 5) : []) { const term = String(item?.term || "").trim(); const definition = String(item?.definition || "").replace(/<[^>]+>/g, "").trim(); const start = term ? source.indexOf(term) : -1; if (start < 0 || taken.has(start) || !definition) continue; taken.add(start); annotations.push({ id: `term-${start}`, start, end: start + term.length, term, definition }); }
+      const updated = conversationStore.updateDerivedMessage(conversationId, assistantId, { learningAnnotations: annotations });
+      if (updated && workspaceSession.conversation?.id === conversationId) { const index = workspaceSession.messages.findIndex((message) => String(message.id) === String(assistantId)); if (index >= 0) workspaceSession.messages[index] = updated; broadcastSharedSession(); }
+    } catch {}
+  }
+
   function maybeGenerateConversationTitle(user, attachments) {
     const conversationId = workspaceSession.conversation.id;
     const current = conversationStore.readMeta(conversationId);
@@ -3185,7 +3259,7 @@ module.exports = function initMinicpmChat(ctx) {
     maybeGenerateConversationTitle(user, attachments);
     setImmediate(async () => {
       try {
-        const context = messagesAfterBoundary(workspaceSession.messages);
+        const context = branchContext(workspaceSession.conversation);
         const modelMessages = studyAttachments.buildModelContent(workspaceSession.conversation.id, context);
         let webResearch = "";
         if (webSearch) {
@@ -3248,7 +3322,7 @@ module.exports = function initMinicpmChat(ctx) {
         assistant.content = a2ui.content;
         if (parsed.richCards.length) assistant.richCards = parsed.richCards;
         if (a2ui.a2uiSurfaces.length) assistant.a2uiSurfaces = a2ui.a2uiSurfaces;
-        if (assistant.content.trim() || assistant.thinking.trim() || assistant.richCards || assistant.a2uiSurfaces) conversationStore.append(workspaceSession.conversation.id, assistant);
+        if (assistant.content.trim() || assistant.thinking.trim() || assistant.richCards || assistant.a2uiSurfaces) { conversationStore.append(workspaceSession.conversation.id, assistant); void updateConversationLearningMeta(workspaceSession.conversation.id, assistant.id, assistant.content); }
       } catch (error) {
         assistant.generationDurationMs = Math.max(0, Date.now() - assistant.generationStartedAt);
         assistant.streaming = false;
@@ -3287,11 +3361,12 @@ module.exports = function initMinicpmChat(ctx) {
     "chat-workspace:update-message": async (event, payload = {}) => {
       if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
       if (workspaceSession.generating) return { ok: false, error: "当前回复结束后再编辑消息" };
-      const id = String(payload.id || ""); const content = String(payload.content || "").trim();
+      const id = String(payload.id || ""); const content = String(payload.content || "").trim(); const conversationId = String(payload.conversationId || workspaceSession.conversation?.id || "");
       if (!content) return { ok: false, error: "消息不能为空" };
-      const message = conversationStore.updateMessage(workspaceSession.conversation?.id, id, { content });
+      if (!canMutateVisibleInheritedSource(conversationId)) return { ok: false, error: "只能编辑当前分支中可见的继承消息" };
+      const message = conversationStore.updateMessage(conversationId, id, { content });
       if (!message) return { ok: false, error: "消息不存在或无法编辑" };
-      const index = workspaceSession.messages.findIndex((item) => String(item.id) === id);
+      const index = conversationId === workspaceSession.conversation?.id ? workspaceSession.messages.findIndex((item) => String(item.id) === id) : -1;
       if (index >= 0) workspaceSession.messages[index] = message;
       broadcastSharedSession();
       return { ok: true, message };
@@ -3302,10 +3377,10 @@ module.exports = function initMinicpmChat(ctx) {
     "chat-workspace:delete-message": async (event, payload = {}) => {
       if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
       if (workspaceSession.generating) return { ok: false, error: "当前回复结束后再删除消息" };
-      const id = String(payload.id || "");
-      const conversationId = workspaceSession.conversation?.id;
+      const id = String(payload.id || ""); const conversationId = String(payload.conversationId || workspaceSession.conversation?.id || "");
+      if (!canMutateVisibleInheritedSource(conversationId)) return { ok: false, error: "只能删除当前分支中可见的继承消息" };
       if (!conversationStore.removeMessage(conversationId, id)) return { ok: false, error: "消息不存在或无法删除" };
-      workspaceSession.messages = workspaceSession.messages.filter((message) => String(message.id) !== id);
+      if (conversationId === workspaceSession.conversation?.id) workspaceSession.messages = workspaceSession.messages.filter((message) => String(message.id) !== id);
       broadcastSharedSession();
       return { ok: true };
     },
@@ -3317,15 +3392,38 @@ module.exports = function initMinicpmChat(ctx) {
       broadcastSharedSession();
       return { ok: true, conversation };
     },
+    "chat-workspace:create-branch": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || workspaceSession.generating) return { ok: false, error: "当前回复结束后再建立分支" };
+      const parent = workspaceSession.conversation; if (!parent || parent.legacy) return { ok: false, error: "旧版记录不能建立分支" };
+      const branchType = ["inherit", "related", "vocabulary"].includes(payload.type) ? payload.type : "";
+      const messageId = String(payload.messageId || ""); const message = workspaceSession.messages.find((item) => String(item.id) === messageId && ["user", "assistant"].includes(item.role));
+      if (!branchType || !message) return { ok: false, error: "分支点不存在" };
+      const term = String(payload.term || "").slice(0, 160); const sentence = cleanBranchSentence(payload.sentence, term); const definition = String(payload.definition || "").replace(/<[^>]+>/g, "").slice(0, 800);
+      const title = branchType === "vocabulary" && term ? `词汇：${term}` : branchType === "inherit" ? `分支：${parent.title}` : `关联：${parent.title}`;
+      const conversation = conversationStore.create({ title, parentConversationId: parent.id, branchPointMessageId: messageId, branchType, parentSnapshot: { title: parent.title, summary: cleanTopicSummary(parent.topicSummary) || cleanTopicSummary(message.content), sentence, term, definition } });
+      workspaceSession = { conversation, messages: [], generating: false, requestId: null };
+      if (workspace && !workspace.isDestroyed()) workspace.setTitle(`${conversation.title} · TsukuMate`);
+      broadcastSharedSession();
+      return { ok: true, conversation, session: publicSharedSession() };
+    },
     "chat-workspace:list-conversations": async (event) => isWorkspaceSender(event.sender)
       ? { ok: true, conversations: conversationStore.list() } : { ok: false, conversations: [] },
+    "chat-workspace:get-conversation-network": async (event) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, nodes: [], edges: [] };
+      const conversations = conversationStore.list();
+      return { ok: true, nodes: conversations.map((item) => ({ id: item.id, title: item.title, summary: cleanTopicSummary(item.topicSummary), inheritedSummary: cleanTopicSummary(item.parentSnapshot?.summary), branchType: item.branchType || "root", parentConversationId: item.parentConversationId || null, updatedAt: item.updatedAt })), edges: conversations.filter((item) => item.parentConversationId).map((item) => ({ from: item.parentConversationId, to: item.id, type: item.branchType || "related" })), positions: conversationStore.readGraphLayout() };
+    },
+    "chat-workspace:save-conversation-network-layout": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      return { ok: true, positions: conversationStore.writeGraphLayout(payload.positions) };
+    },
     "chat-workspace:delete-conversation": async (event, payload = {}) => {
       if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
       if (workspaceSession.generating) return { ok: false, error: "当前回复结束后再删除对话" };
       const id = String(payload.id || "");
       if (!conversationStore.readMeta(id)) return { ok: false, error: "只能删除新的对话记录" };
       const deletingCurrent = workspaceSession.conversation?.id === id;
-      if (!conversationStore.remove(id)) return { ok: false, error: "删除对话失败" };
+      if (!conversationStore.removeTree(id)) return { ok: false, error: "删除对话失败" };
       if (deletingCurrent) {
         const fallback = conversationStore.list().find((item) => !item.legacy) || conversationStore.create();
         workspaceSession = { conversation: fallback, messages: hydrateA2uiMessages(conversationStore.readMessages(fallback.id)), generating: false, requestId: null };
