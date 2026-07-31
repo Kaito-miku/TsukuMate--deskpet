@@ -37,7 +37,9 @@ jobs:
         run: node scripts/fetch-sidecar-binaries.js --target windows-x64
 
       - name: Build NSIS installer
-        run: npm run build:win:x64
+        # The release upload below uses GitHub's short-lived Actions token.
+        # Prevent electron-builder from trying to publish on its own first.
+        run: npm run build:win:x64 -- --publish never
 
       - name: Upload installer artifact
         if: always()
