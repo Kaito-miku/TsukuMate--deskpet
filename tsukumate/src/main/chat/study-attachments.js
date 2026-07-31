@@ -13,8 +13,11 @@ const MAX_TEXT_PER_FILE = 40000;
 const MAX_TEXT_TOTAL = 80000;
 const TYPES = {
   ".pdf": ["application/pdf", "document"], ".docx": ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "document"],
-  ".txt": ["text/plain", "document"], ".md": ["text/markdown", "document"], ".csv": ["text/csv", "document"],
-  ".png": ["image/png", "image"], ".jpg": ["image/jpeg", "image"], ".jpeg": ["image/jpeg", "image"], ".webp": ["image/webp", "image"],
+  ".txt": ["text/plain", "document"], ".md": ["text/markdown", "document"], ".csv": ["text/csv", "document"], ".json": ["application/json", "document"],
+  ".c": ["text/x-c", "document"], ".cc": ["text/x-c++src", "document"], ".cpp": ["text/x-c++src", "document"], ".h": ["text/x-c", "document"], ".hpp": ["text/x-c++hdr", "document"], ".py": ["text/x-python", "document"], ".js": ["text/javascript", "document"], ".ts": ["text/typescript", "document"], ".css": ["text/css", "document"], ".html": ["text/html", "document"], ".xml": ["application/xml", "document"], ".java": ["text/x-java-source", "document"], ".rs": ["text/x-rust", "document"], ".go": ["text/x-go", "document"],
+  ".png": ["image/png", "image"], ".jpg": ["image/jpeg", "image"], ".jpeg": ["image/jpeg", "image"], ".webp": ["image/webp", "image"], ".gif": ["image/gif", "image"], ".bmp": ["image/bmp", "image"], ".tif": ["image/tiff", "image"], ".tiff": ["image/tiff", "image"],
+  ".mp4": ["video/mp4", "media"], ".webm": ["video/webm", "media"], ".mov": ["video/quicktime", "media"], ".m4v": ["video/x-m4v", "media"],
+  ".glb": ["model/gltf-binary", "model"], ".gltf": ["model/gltf+json", "model"],
 };
 const CLIPBOARD_IMAGE_TYPES = new Map([
   ["image/png", ".png"],
@@ -55,7 +58,7 @@ function createStudyAttachmentService({ dialog, shell, nativeImage, store, getWi
     const result = await dialog.showOpenDialog(getWindow(), {
       title: "选择学习附件", properties: ["openFile", "multiSelections"],
       filters: [
-        { name: "学习文件", extensions: ["pdf", "docx", "txt", "md", "csv", "png", "jpg", "jpeg", "webp"] },
+        { name: "学习附件", extensions: Object.keys(TYPES).map((extension) => extension.slice(1)) },
         { name: "全部文件", extensions: ["*"] },
       ],
     });

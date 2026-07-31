@@ -25,6 +25,9 @@ contextBridge.exposeInMainWorld("chatWorkspace", {
   getConnectionStatus: () => ipcRenderer.invoke("chat-workspace:get-connection-status"),
   send: (payload) => ipcRenderer.invoke("chat-workspace:send", payload || {}),
   cancel: () => ipcRenderer.invoke("chat-workspace:cancel"),
+  updateMessage: (id, content) => ipcRenderer.invoke("chat-workspace:update-message", { id, content }),
+  regenerateMessage: (id) => ipcRenderer.invoke("chat-workspace:regenerate-message", { id }),
+  deleteMessage: (id) => ipcRenderer.invoke("chat-workspace:delete-message", { id }),
   createConversation: () => ipcRenderer.invoke("chat-workspace:create-conversation"),
   listConversations: () => ipcRenderer.invoke("chat-workspace:list-conversations"),
   deleteConversation: (id) => ipcRenderer.invoke("chat-workspace:delete-conversation", { id }),
@@ -48,6 +51,24 @@ contextBridge.exposeInMainWorld("chatWorkspace", {
   startA2uiStream: (streamId, elementId) => startWhepStream(streamId, elementId),
   stopA2uiStream: (elementId) => stopWhepStream(elementId),
   reloadLive2d: () => ipcRenderer.invoke("chat-workspace:reload-live2d"),
+  listCodingQa: () => ipcRenderer.invoke("chat-workspace:coding-qa:list"),
+  getCodingQa: (id) => ipcRenderer.invoke("chat-workspace:coding-qa:get", { id }),
+  createCodingQa: () => ipcRenderer.invoke("chat-workspace:coding-qa:create"),
+  saveCodingQa: (payload) => ipcRenderer.invoke("chat-workspace:coding-qa:save", payload || {}),
+  renameCodingQa: (id, title) => ipcRenderer.invoke("chat-workspace:coding-qa:rename", { id, title }),
+  deleteCodingQa: (id) => ipcRenderer.invoke("chat-workspace:coding-qa:delete", { id }),
+  selectCodingQaImage: (id) => ipcRenderer.invoke("chat-workspace:coding-qa:select-image", { id }),
+  readCodingQaImage: (id) => ipcRenderer.invoke("chat-workspace:coding-qa:read-image", { id }),
+  recognizeCodingQa: (id) => ipcRenderer.invoke("chat-workspace:coding-qa:recognize", { id }),
+  searchCodingOj: (query, source) => ipcRenderer.invoke("chat-workspace:coding-qa:search-oj", { query, source }),
+  importCodingOj: (url) => ipcRenderer.invoke("chat-workspace:coding-qa:import-oj", { url }),
+  openCodingOjSource: (id) => ipcRenderer.invoke("chat-workspace:coding-qa:open-source", { id }),
+  saveCodingRunner: (payload) => ipcRenderer.invoke("chat-workspace:coding-qa:save-runner", payload || {}),
+  runCodingTests: (payload) => ipcRenderer.invoke("chat-workspace:coding-qa:run-tests", payload || {}),
+  runCodingInput: (payload) => ipcRenderer.invoke("chat-workspace:coding-qa:run-input", payload || {}),
+  cancelCodingRun: (id) => ipcRenderer.invoke("chat-workspace:coding-qa:cancel-run", { id }),
+  sendCodingQa: (problemId, text) => ipcRenderer.invoke("chat-workspace:coding-qa:send", { problemId, text }),
+  cancelCodingQa: (problemId) => ipcRenderer.invoke("chat-workspace:coding-qa:cancel", { problemId }),
   getLive2dStatus: () => ({ ...lastLive2dStatus }),
   listHistory: () => ipcRenderer.invoke("chat-workspace:list-history"),
   loadHistory: (date, options = {}) => ipcRenderer.invoke("chat-workspace:load-history", { date, before: options.before, limit: options.limit }),
@@ -78,6 +99,11 @@ contextBridge.exposeInMainWorld("chatWorkspace", {
     const listener = (_event, payload) => callback(payload || {});
     ipcRenderer.on("chat-workspace:session", listener);
     return () => ipcRenderer.removeListener("chat-workspace:session", listener);
+  },
+  onCodingQaDelta: (callback) => {
+    const listener = (_event, payload) => callback(payload || {});
+    ipcRenderer.on("chat-workspace:coding-qa-delta", listener);
+    return () => ipcRenderer.removeListener("chat-workspace:coding-qa-delta", listener);
   },
 });
 

@@ -47,13 +47,35 @@ test("workspace has a conversation-history action and a dedicated Live2D camera 
   assert.match(renderer, /visual-bubble-stable/);
   assert.match(renderer, /clearMessageNode\(row\); row\.replaceChildren\(\)/);
   assert.doesNotMatch(renderer, /function renderMessages\(\) \{[\s\S]{0,180}root\.replaceChildren\(\)/);
+  assert.match(read("renderer/chat-workspace/chat-workspace.html"), /id="coding-qa-tool"/);
+  assert.match(read("renderer/chat-workspace/chat-workspace.html"), /id="coding-qa-layout"/);
+  assert.match(renderer, /function renderCodingQa\(\)/);
+  assert.match(chat, /chat-workspace:coding-qa:send/);
+});
+
+test("full workspace hides the desktop pet only while the workspace is visible", () => {
+  const chat = read("main/chat/minicpm-chat.js");
+  assert.match(chat, /function syncWorkspacePetVisibility\(workspaceVisible\)/);
+  assert.match(chat, /workspace\.on\("show", \(\) => syncWorkspacePetVisibility\(true\)\)/);
+  assert.match(chat, /workspace\.on\("restore", \(\) => syncWorkspacePetVisibility\(true\)\)/);
+  assert.match(chat, /workspace\.on\("minimize", \(\) => syncWorkspacePetVisibility\(false\)\)/);
+  assert.match(chat, /workspace\.on\("hide", \(\) => syncWorkspacePetVisibility\(false\)\)/);
+  assert.match(chat, /syncWorkspacePetVisibility\(true\);\s*if \(workspace\.isMinimized\(\)\) workspace\.restore\(\)/);
 });
 
 test("workspace uses a neutral default visual bubble and isolated code blocks", () => {
   const css = read("renderer/chat-workspace/chat-workspace-bubbles.css");
+  const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
+  const chat = read("main/chat/minicpm-chat.js");
   assert.match(css, /\.message-code-block/);
   assert.match(css, /data-bubble-theme="science"/);
   assert.match(css, /rgba\(42,44,49,\.76\)/);
+  assert.match(css, /\.thinking-card/);
+  assert.match(css, /tm-thinking-flow/);
+  assert.match(renderer, /function renderThinkingCard/);
+  assert.match(renderer, /thinkingState/);
+  assert.match(chat, /frame\?\.event === "think"/);
+  assert.match(chat, /assistant\.thinking \+=/);
 });
 
 test("workspace camera auto-fits tall, regular, and wide drawable bounds without changing aspect", () => {

@@ -3,7 +3,7 @@
 const { test, describe, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");
-const { DEFAULT_API_TIMEOUT_MS, validateConfig, requestJson, makeChatBody } = require("../../src/main/chat/openai-compatible-transport");
+const { DEFAULT_API_TIMEOUT_MS, validateConfig, requestJson, makeChatBody, extractReasoningDelta, extractContentDelta } = require("../../src/main/chat/openai-compatible-transport");
 
 let server;
 afterEach(async () => {
@@ -55,6 +55,18 @@ describe("OpenAI-compatible transport", () => {
       max_tokens: 12, temperature: 0.6, top_p: 0.95,
     });
     assert.deepEqual(events, [{ event: "think", content: "think" }, { event: "delta", content: "answer" }]);
+  });
+
+  test("recognizes UniStudy-compatible reasoning aliases", () => {
+    assert.equal(extractReasoningDelta({ choices: [{ delta: { reasoning: "plan" } }] }), "plan");
+    assert.equal(extractReasoningDelta({ message: { reasoning_content: [{ text: "inspect" }] } }), "inspect");
+  });
+
+  test("recognizes Responses API reasoning and output text events", () => {
+    assert.equal(extractReasoningDelta({ type: "response.reasoning_text.delta", delta: "inspect constraints" }), "inspect constraints");
+    assert.equal(extractReasoningDelta({ type: "response.reasoning_summary_text.delta", delta: { text: "make a plan" } }), "make a plan");
+    assert.equal(extractContentDelta({ type: "response.output_text.delta", delta: "final answer" }), "final answer");
+    assert.equal(extractContentDelta({ type: "response.reasoning_text.delta", delta: "must not leak" }), "");
   });
 
   test("returns provider errors without including the authorization token", async () => {

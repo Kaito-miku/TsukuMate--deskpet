@@ -182,11 +182,11 @@ function workspaceVisualOutputPrompt(input) {
   if (/(纯文字|不要(?:用)?(?:气泡|卡片|html|渲染)|不用(?:气泡|卡片|html)|plain\s*text|no\s*(?:card|bubble|html)|カードなし)/i.test(text)) {
     return "This turn is explicitly plain-text only. Use normal Markdown and do not emit a visual root fragment.";
   }
-  const learningTask = /(单词|词汇|短语|课文|语法|梳理|整理|总结|复习|讲解|分析|对比|时间线|知识点|学习|练习|flashcard|vocabulary|phrase|grammar|lesson|study|review|compare|timeline)/i.test(text);
+  const learningTask = /(单词|词汇|短语|课文|语法|梳理|整理|总结|复习|讲解|分析|对比|时间线|知识点|学习|练习|题目|做题|解题|怎么算|怎么做|附件题目|学习图片|flashcard|vocabulary|phrase|grammar|lesson|study|review|compare|timeline|solve|question)/i.test(text);
   if (!learningTask) return "Visual output is available when it materially improves comprehension; otherwise use concise normal Markdown.";
   return [
     "VISUAL OUTPUT IS REQUIRED FOR THIS TURN. Do not answer this learning-organization request as a plain Markdown wall of text.",
-    "After at most one short introduction, emit one raw <div id='vcp-root' style='...'> visual learning card directly (not fenced). Use semantic headings and grouped sections/cards, strong typography and a restrained fitting color atmosphere. Keep source citations or ordinary prose outside only when necessary.",
+    "After at most one short introduction, emit one raw <div id='vcp-root' style='...'> visual learning card directly (not fenced). Use semantic headings and grouped sections/cards, strong typography and a restrained fitting color atmosphere. For mathematics, do not leave LaTex delimiters such as \\[, \\(, or \\frac as visible plain text: use a tsukumate.formula component, or safe HTML with readable superscripts/fractions. Keep source citations or ordinary prose outside only when necessary.",
     "For vocabulary or phrase organization, use visually separated groups with word/part-of-speech/meaning/example rather than a Markdown table. Never output {{VarDivRender}}.",
   ].join(" ");
 }

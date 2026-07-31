@@ -155,6 +155,9 @@ function handleStatePost(req, res, options) {
         ? data.ghostty_terminal_id.trim()
         : null;
       const toolName = typeof data.tool_name === "string" && data.tool_name ? data.tool_name : null;
+      const toolActivityTarget = typeof data.tool_activity_target === "string"
+        ? data.tool_activity_target
+        : null;
       const toolUseId = normalizeHookToolUseId(
         data.tool_use_id ?? data.toolUseId ?? data.toolUseID
       );
@@ -289,6 +292,7 @@ function handleStatePost(req, res, options) {
             assistantLastOutput,
             assistantLastOutputTruncated,
             toolName,
+            toolActivityTarget,
             transcriptPath,
             permissionSuspect,
             preserveState,

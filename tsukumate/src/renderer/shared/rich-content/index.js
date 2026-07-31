@@ -20,13 +20,47 @@ const unistudyPipeline = createContentPipeline({
   // TsukuMate's renderer responsible for the final safe DOM construction.
   escapeHtml: (value) => String(value || "").replace(/[&<>]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[char])),
   deIndentMisinterpretedCodeBlocks: (value) => String(value || "").replace(/^\s+(```)/gm, "$1"),
-  deIndentHtml: (value) => String(value || "").replace(/^\s+(?=<\/?(?:html|head|body|script|style)\b)/gmi, ""),
+  // Markdown treats four leading spaces as a code block. Visual responses
+  // commonly indent nested <section>/<div>/<p> nodes, so remove that leading
+  // indentation before marked sees the raw HTML (fenced code is protected by
+  // the pipeline before this step).
+  deIndentHtml: (value) => String(value || "").replace(/^\s+(?=<\/?[a-z][\w:-]*\b)/gmi, ""),
   ensureHtmlFenced: (value) => String(value || "").replace(/(^|\n)((?:<!doctype\s+html\b[^>]*>|<html\b[^>]*>)[\s\S]*?<\/html\s*>)/gi, (_all, prefix, document) => `${prefix}\`\`\`html\n${document}\n\`\`\``),
   getCodeFenceRegex: () => /```[\s\S]*?```/g,
 });
 
+// Visual HTML commonly uses tiny floating language labels (for example
+// `TEXT`) above sample input/output.  A model-generated absolute position is
+// fragile at different text scales and can cover the first line.  Recognise
+// only these exact short labels and return them to normal document flow.
+const GENERATED_CODE_LABELS = new Set(["TEXT", "CODE", "INPUT", "OUTPUT", "CPP", "C++", "PYTHON", "JAVASCRIPT", "TYPESCRIPT", "HTML", "CSS", "JSON", "BASH", "SHELL"]);
+function normalizeGeneratedCodeLabels(root) {
+  if (!root?.querySelectorAll) return;
+  root.querySelectorAll("span, div, p, small, strong").forEach((node) => {
+    if (node.children.length || GENERATED_CODE_LABELS.has(String(node.textContent || "").trim().toUpperCase()) === false) return;
+    node.classList.add("tm-generated-code-label");
+  });
+}
+
+function readableLatex(value) {
+  let source = String(value || "");
+  // A controlled fallback for ordinary Markdown replies. Rich A2UI formula
+  // components use KaTeX, but providers occasionally answer with raw \[...\]
+  // despite the visual instruction. Never leave that syntax as a wall of
+  // backslashes in the basic bubble.
+  for (let index = 0; index < 4; index += 1) source = source.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "($1)/($2)");
+  source = source.replace(/\\(?:left|right|displaystyle|textstyle)\b/g, "")
+    .replace(/\\pi\b/g, "π").replace(/\\times\b/g, "×").replace(/\\cdot\b/g, "·")
+    .replace(/\\quad\b/g, " ").replace(/\\Longrightarrow\b/g, "⇒").replace(/\\to\b/g, "→")
+    .replace(/\\boxed\s*\{([^{}]*)\}/g, "<strong class=\"tm-math-answer\">$1</strong>")
+    .replace(/([A-Za-z0-9)])\^\{?([A-Za-z0-9+\-]+)\}?/g, "$1<sup>$2</sup>");
+  return source.replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (_all, math) => `<div class="tm-math-block">${math}</div>`)
+    .replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, (_all, math) => `<span class="tm-math-inline">${math}</span>`);
+}
+
 function prepareMessageContent(value, streaming = false) {
-  return unistudyPipeline.process(String(value || ""), { mode: streaming ? PIPELINE_MODES.STREAM_FAST : PIPELINE_MODES.FULL_RENDER }).text;
+  const processed = unistudyPipeline.process(String(value || ""), { mode: streaming ? PIPELINE_MODES.STREAM_FAST : PIPELINE_MODES.FULL_RENDER }).text;
+  return readableLatex(processed);
 }
 
 function safeCss(value) {
@@ -149,6 +183,7 @@ function renderInlineFragment(host, raw) {
   const style = safeCss(styles.values.join("\n"));
   if (style) { const node = document.createElement("style"); node.textContent = style; shell.append(node); }
   const content = document.createElement("div"); content.className = "tm-inline-visual-content"; content.innerHTML = safeHtml(styles.html);
+  normalizeGeneratedCodeLabels(content);
   content.addEventListener("click", (event) => { const button = event.target.closest?.("[data-tm-input]"); if (!button) return; event.preventDefault(); window.TsukuMateRichContent?.onInput?.(button.getAttribute("data-tm-input") || ""); });
   shell.append(content); host.append(shell);
   return () => shell.remove();
@@ -164,6 +199,35 @@ function splitStreamAtSafeBoundary(source, previousStableLength = 0) {
   const candidates = [text.lastIndexOf("\n\n"), text.lastIndexOf("\n")].filter((index) => index >= previousStableLength);
   const stableLength = candidates.length ? Math.max(...candidates) + 1 : previousStableLength;
   return { stableLength: Math.min(stableLength, text.length), tail: text.slice(Math.min(stableLength, text.length)) };
+}
+
+function completeDivRootEnd(source, start) {
+  const tags = /<\/?div\b[^>]*>/gi; tags.lastIndex = start;
+  let depth = 0; let match;
+  while ((match = tags.exec(source))) {
+    if (/^<\/div/i.test(match[0])) depth -= 1;
+    else depth += 1;
+    if (depth === 0) return tags.lastIndex;
+  }
+  return -1;
+}
+
+function hideIncompleteVisualSource(source) {
+  const text = String(source || "");
+  // A partially emitted response-root must never go through marked as text:
+  // users would briefly see the model's HTML/CSS source before it becomes a
+  // card. UniStudy keeps that fragment in its tail buffer until the root is
+  // structurally complete; do the same here.
+  const root = /<div\b[^>]*\bid\s*=\s*(["'])(?:vcp-root|response-root)\1[^>]*>/gi;
+  let match;
+  while ((match = root.exec(text))) {
+    if (completeDivRootEnd(text, match.index) < 0) return text.slice(0, match.index);
+  }
+  const styleStart = text.lastIndexOf("<style");
+  if (styleStart >= 0 && text.indexOf("</style>", styleStart) < 0) return text.slice(0, styleStart);
+  const documentStart = text.lastIndexOf("<html");
+  if (documentStart >= 0 && text.indexOf("</html>", documentStart) < 0) return text.slice(0, documentStart);
+  return text;
 }
 
 function scopedVisualStyles(source, scopeId) {
@@ -227,13 +291,15 @@ function renderVisualMessage(host, value, options = {}) {
   host._tmVisualState = state;
   host.id = state.scopeId;
   host.classList.add("tm-unistudy-message-content");
-  const source = prepareMessageContent(value, !!options.streaming);
+  const prepared = prepareMessageContent(value, !!options.streaming);
+  const source = options.streaming ? hideIncompleteVisualSource(prepared) : prepared;
   const { stable, tail } = ensureStreamingRoots(host);
 
   if (!options.streaming) {
     state.stableLength = source.length;
     state.stableSource = source;
     stable.innerHTML = markdownHtml(source, state);
+    normalizeGeneratedCodeLabels(stable);
     tail.replaceChildren();
     return () => cleanupVisualMessage(host);
   }
@@ -242,6 +308,7 @@ function renderVisualMessage(host, value, options = {}) {
   if (split.stableLength > state.stableLength) {
     state.stableSource = source.slice(0, split.stableLength);
     stable.innerHTML = markdownHtml(state.stableSource, state);
+    normalizeGeneratedCodeLabels(stable);
     state.stableLength = split.stableLength;
   }
   const tailSource = source.slice(state.stableLength);
@@ -257,9 +324,10 @@ function renderVisualMessage(host, value, options = {}) {
       },
     });
   } catch {
-    // Incomplete streamed HTML is normal.  Keep the last valid DOM until the
+    // Incomplete streamed HTML is normal. Keep the last valid DOM until the
     // next chunk can be parsed, exactly as UniStudy's stream manager does.
   }
+  normalizeGeneratedCodeLabels(tail);
   return () => cleanupVisualMessage(host);
 }
 

@@ -204,6 +204,10 @@ function createContentPipeline(deps = {}) {
         // 流式快路径只保留轻量、幂等、低风险修正
         step(ctx, 'normalize-emoticon-urls', (text) => fixEmoticonUrlsInMarkdown(text));
         step(ctx, 'deindent-misinterpreted-code-blocks', (text) => deIndentMisinterpretedCodeBlocks(text));
+        // Raw visual fragments can arrive with nested indentation while they
+        // stream. Apply the same HTML de-indentation as the final path so
+        // Marked never momentarily renders <section>/<svg>/<table> as code.
+        step(ctx, 'deindent-html', (text) => deIndentHtml(text));
         step(ctx, 'escape-start-end-markers', (text) => processStartEndMarkers(text));
         step(ctx, 'apply-common-content-processors', (text) => applyContentProcessors(text));
 

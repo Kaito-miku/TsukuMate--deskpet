@@ -133,6 +133,7 @@ function createPetWindowRuntime(options = {}) {
   const flushRuntimeStateToPrefs = options.flushRuntimeStateToPrefs || noop;
   const handleMiniDisplayChange = options.handleMiniDisplayChange || noop;
   const exitMiniMode = options.exitMiniMode || noop;
+  const setTimeoutFn = options.setTimeout || setTimeout;
   const shouldReloadAfterRenderProcessGone = createRenderProcessGoneReloadGuard(options);
 
   function reloadRuntimeWindowWebContents(win, reloadOptions = {}) {
@@ -260,6 +261,19 @@ function createPetWindowRuntime(options = {}) {
     }
   }
 
+  // macOS may reorder a just-shown inactive panel after the current app
+  // finishes its activation transition. Reasserting its native all-Spaces,
+  // screen-saver-level behavior one tick later keeps the pet visible over
+  // ordinary apps without focusing TsukuMate or stealing keyboard input.
+  function reapplyMacVisibilityAfterShow() {
+    reapplyMacVisibility();
+    if (!isMac) return;
+    const timer = setTimeoutFn(() => {
+      if (!petHidden) reapplyMacVisibility();
+    }, 120);
+    if (timer && typeof timer.unref === "function") timer.unref();
+  }
+
   function hidePetWindows() {
     const win = getRenderWindow();
     if (isLiveWindow(win)) win.hide();
@@ -282,8 +296,8 @@ function createPetWindowRuntime(options = {}) {
       // becoming visible
       showPetWindows();
       showFloatingSurfacesForPet();
-      reapplyMacVisibility();
       petHidden = false;
+      reapplyMacVisibilityAfterShow();
     } else {
       // becoming hidden
       hidePetWindows();

@@ -59,10 +59,33 @@ function titleFor(session) {
 
 function progressFor(session) {
   const tool = String(session && session.lastToolName || "").trim();
+  const target = String(session && session.lastToolActivityTarget || "").trim();
   if (session && session.state === "notification") return "等待你的确认";
   if (session && session.badge === "done") return "任务已完成";
-  const map = { Read: "正在读取文件", View: "正在读取文件", Write: "正在写入文件", Edit: "正在编辑文件", Bash: "正在运行命令", Exec: "正在运行命令", Search: "正在搜索代码", Grep: "正在搜索代码", WebSearch: "正在搜索网页" };
-  return map[tool] || (tool ? `正在执行：${tool}` : "正在思考与处理任务");
+  const rawEvent = session && session.lastEvent && session.lastEvent.rawEvent;
+  const eventMap = {
+    PreCompact: "正在整理上下文",
+    PreCompress: "正在整理上下文",
+    WorktreeCreate: "正在准备工作区",
+    SubagentStart: "正在协调子任务",
+    SubagentStop: "正在汇总子任务",
+    PermissionRequest: "等待你的确认",
+    Elicitation: "等待你的确认",
+  };
+  if (eventMap[rawEvent]) return eventMap[rawEvent];
+  const map = {
+    Read: "正在读取", View: "正在读取", read: "正在读取",
+    Write: "正在写入", Edit: "正在修改", write: "正在写入", edit: "正在修改", apply_patch: "正在修改",
+    Bash: "正在运行检查或命令", Exec: "正在运行检查或命令", shell: "正在运行检查或命令", run_command: "正在运行检查或命令",
+    Search: "正在搜索项目内容", Grep: "正在搜索项目内容", grep_search: "正在搜索项目内容", find_by_name: "正在搜索项目内容",
+    WebSearch: "正在搜索网页资料", search_web: "正在搜索网页资料",
+  };
+  const action = map[tool];
+  if (action) return target ? `${action}：${target}` : action;
+  if (session && session.state === "thinking") return "正在分析你的问题";
+  if (session && session.state === "juggling") return "正在协调多个任务";
+  if (session && session.state === "working") return "正在处理当前任务";
+  return tool ? `正在执行 ${tool}` : "正在准备处理任务";
 }
 
 function titleUnits(value) {

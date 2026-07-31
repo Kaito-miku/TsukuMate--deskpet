@@ -122,6 +122,7 @@ function createRuntime(overrides = {}) {
     crashReloadWindowMs: overrides.crashReloadWindowMs,
     crashReloadLog: overrides.crashReloadLog,
     now: overrides.now,
+    setTimeout: overrides.setTimeout,
   });
   return {
     runtime,
@@ -603,6 +604,27 @@ describe("pet-window-runtime setPetHidden contract (#416)", () => {
     assert.deepEqual(r, { applied: true, deferred: false, changed: true });
     assert.equal(h.runtime.isPetHidden(), false);
     assert.ok(h.renderWin.calls.some((c) => c[0] === "showInactive"));
+  });
+
+  it("reasserts macOS visibility after an inactive show without re-focusing the pet", () => {
+    const timers = [];
+    const h = createRuntime({
+      isMac: true,
+      isWin: false,
+      setTimeout: (callback, delay) => {
+        timers.push({ callback, delay, unref() {} });
+        return timers[timers.length - 1];
+      },
+    });
+    h.runtime.setPetHidden(true);
+    h.runtime.setPetHidden(false);
+
+    assert.equal(timers.length, 1);
+    assert.equal(timers[0].delay, 120);
+    assert.equal(h.renderWin.calls.filter((c) => c[0] === "showInactive").length, 1);
+    assert.equal(h.calls.filter((c) => c[0] === "reapplyMacVisibility").length, 1);
+    timers[0].callback();
+    assert.equal(h.calls.filter((c) => c[0] === "reapplyMacVisibility").length, 2);
   });
 
   it("defers without changing state during a mini transition", () => {

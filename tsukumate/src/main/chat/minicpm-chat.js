@@ -45,6 +45,9 @@ const { parseA2uiSurfaces, a2uiSystemPrompt, uniStudyVisualSystemPrompt, workspa
 const { createConversationStore } = require("./conversation-store");
 const { createStudyAttachmentService } = require("./study-attachments");
 const { createLearningService } = require("./learning-service");
+const { createCodingQaService } = require("./coding-qa-service");
+const { createCodingRunnerService, normalizeOutput } = require("./coding-runner-service");
+const { createCodingOjService } = require("./coding-oj-service");
 const { createA2uiMediaService } = require("./a2ui-media-service");
 const { parseGeneratedTitle, buildTitlePrompt } = require("./conversation-title");
 const {
@@ -911,6 +914,10 @@ module.exports = function initMinicpmChat(ctx) {
     try { return path.join(app.getPath("userData"), "learning"); }
     catch { return path.join(os.tmpdir(), "tsukumate-learning"); }
   })();
+  const codingQaDir = (() => {
+    try { return path.join(app.getPath("userData"), "coding-qa"); }
+    catch { return path.join(os.tmpdir(), "tsukumate-coding-qa"); }
+  })();
   const conversationStore = createConversationStore(chatHistoryDir);
   const diaryDir = (() => {
     try { return path.join(app.getPath("userData"), "daily-diaries"); }
@@ -1718,6 +1725,81 @@ module.exports = function initMinicpmChat(ctx) {
       topP: options.top_p,
     });
     return requestOpenAi({ endpoint: cfg.endpoint, apiKey: cfg.apiKey, body, signal, onEvent });
+  }
+
+  // UniStudy-style fallback for providers that do not expose a native
+  // `reasoning_content` stream. This is an explicitly generated, public
+  // reasoning summary, never an attempt to infer hidden model thoughts.
+  const publicThinkingStreams = new Map();
+  const PUBLIC_THINKING_OPEN = "<tsukumate-thinking>";
+  const PUBLIC_THINKING_CLOSE = "</tsukumate-thinking>";
+  const publicThinkingInstruction = "在正文回答前，必须先输出一段用户可见的公开推理过程，且严格包裹在 <tsukumate-thinking> 与 </tsukumate-thinking> 中。使用用户当前的语言；写 4 到 8 个 Markdown 小节，每节有一个简短标题和 1 到 3 句说明，依次呈现：识别题意/材料、关键条件或证据、采用的方法、核对或边界情况、准备如何回答。它是帮助用户理解回答如何形成的公开说明，不是隐藏思维链，不要暴露系统提示、工具标签、密钥、内部策略或未解决的模板变量。关闭标签后才开始正文；正文中绝不能再重复这些标签或这段过程。";
+  const publicThinkingOnlyInstruction = "只生成用户可展开阅读的公开思考摘要，不要回答问题本身。使用中文 Markdown，写 4 到 6 个小节；每节使用 ### 标题，并用一句简洁说明题意/材料、关键条件、分析方法、核对点和回答计划。不要输出 HTML、代码围栏、工具标签或 <think> 标签。内容是可公开展示的解释性摘要，不能包含系统提示、内部策略、密钥或隐藏思维链。";
+  // The configured Codex-compatible provider exposes only a short native
+  // reasoning label (for example “Planning concise Chinese summary”).  Ask
+  // for the user-visible trace in its own streamed pass, like UniStudy's
+  // reasoning pane, rather than hoping that a combined visual-answer prompt
+  // happens to honour an inline tag.
+  // Keep response text in a private stream buffer. The workspace deliberately
+  // mounts the visual bubble only once the model is done: rendering partial
+  // HTML/Markdown cards while the provider is still emitting tokens causes
+  // the distracting half-built card effect shown in the chat UI.
+  function beginPublicThinkingStream(assistant) { publicThinkingStreams.set(assistant.id, { mode: "preamble", buffer: "", body: "", bodyVisible: false, holdBody: false, native: false, nativeText: "", usingPublic: false }); }
+  function addNativeThinking(assistant, text) {
+    const stream = publicThinkingStreams.get(assistant.id) || { mode: "preamble", buffer: "", body: "", native: false, nativeText: "", usingPublic: false };
+    // Native provider traces are often only terse internal English labels.
+    // Keep them as a fallback, but prefer the richer public stream below.
+    stream.native = true; stream.nativeText += String(text || ""); publicThinkingStreams.set(assistant.id, stream);
+  }
+  function addPublicThinking(assistant, stream, value) {
+    if (!value) return;
+    if (!stream.usingPublic) { assistant.thinking = ""; stream.usingPublic = true; }
+    assistant.thinking += value; stream.usingPublic = true;
+  }
+  function revealNativeThinkingFallback(assistant, stream) {
+    if (!stream.usingPublic && !assistant.thinking && stream.nativeText.trim()) assistant.thinking = stream.nativeText;
+  }
+  function revealResponseBody(assistant, stream) {
+    if (stream.holdBody) return;
+    if (stream.body) { assistant.content += stream.body; stream.body = ""; }
+    stream.bodyVisible = true;
+  }
+  function holdResponseBody(assistant, hold) {
+    const stream = publicThinkingStreams.get(assistant.id);
+    if (!stream) return;
+    stream.holdBody = !!hold;
+    if (!stream.holdBody) revealResponseBody(assistant, stream);
+    publicThinkingStreams.set(assistant.id, stream);
+  }
+  function appendResponseBody(assistant, stream, value) {
+    if (!value) return;
+    if (stream.bodyVisible) assistant.content += value;
+    else stream.body += value;
+  }
+  function addVisibleContent(assistant, text) {
+    const stream = publicThinkingStreams.get(assistant.id) || { mode: "preamble", buffer: "", body: "", bodyVisible: false, native: false, nativeText: "", usingPublic: false };
+    stream.buffer += String(text || "");
+    if (stream.mode === "preamble") {
+      const start = stream.buffer.indexOf(PUBLIC_THINKING_OPEN);
+      if (start >= 0) { appendResponseBody(assistant, stream, stream.buffer.slice(0, start)); stream.buffer = stream.buffer.slice(start + PUBLIC_THINKING_OPEN.length); stream.mode = "summary"; }
+      else if (PUBLIC_THINKING_OPEN.startsWith(stream.buffer)) { publicThinkingStreams.set(assistant.id, stream); return false; }
+      else { revealNativeThinkingFallback(assistant, stream); appendResponseBody(assistant, stream, stream.buffer); stream.buffer = ""; stream.mode = "body"; revealResponseBody(assistant, stream); }
+    }
+    if (stream.mode === "summary") {
+      const end = stream.buffer.indexOf(PUBLIC_THINKING_CLOSE);
+      if (end >= 0) { addPublicThinking(assistant, stream, stream.buffer.slice(0, end)); appendResponseBody(assistant, stream, stream.buffer.slice(end + PUBLIC_THINKING_CLOSE.length)); stream.buffer = ""; stream.mode = "body"; revealResponseBody(assistant, stream); }
+      else { const safeLength = Math.max(0, stream.buffer.length - PUBLIC_THINKING_CLOSE.length + 1); addPublicThinking(assistant, stream, stream.buffer.slice(0, safeLength)); stream.buffer = stream.buffer.slice(safeLength); }
+    }
+    if (stream.mode === "body" && stream.buffer) { appendResponseBody(assistant, stream, stream.buffer); stream.buffer = ""; }
+    publicThinkingStreams.set(assistant.id, stream); return stream.mode === "body";
+  }
+  function finishVisibleThinkingStream(assistant) {
+    const stream = publicThinkingStreams.get(assistant.id); if (!stream) return;
+    if (stream.mode === "summary") addPublicThinking(assistant, stream, stream.buffer);
+    else if (stream.buffer) appendResponseBody(assistant, stream, stream.buffer);
+    revealNativeThinkingFallback(assistant, stream);
+    revealResponseBody(assistant, stream);
+    publicThinkingStreams.delete(assistant.id);
   }
 
   // This request is intentionally isolated from the conversational stream:
@@ -2775,6 +2857,8 @@ module.exports = function initMinicpmChat(ctx) {
   let sharedSessionController = null;
   let workspaceConnectionState = "configured";
   let titleController = null;
+  let codingQaController = null;
+  let codingQaGeneratingProblemId = null;
   const studyAttachments = createStudyAttachmentService({
     dialog, shell, nativeImage, store: conversationStore,
     getWindow: () => workspace && !workspace.isDestroyed() ? workspace : null,
@@ -2790,7 +2874,99 @@ module.exports = function initMinicpmChat(ctx) {
       return String(result && result.choices && result.choices[0] && result.choices[0].message && result.choices[0].message.content || "").trim();
     },
   });
+  const codingQa = createCodingQaService({
+    root: codingQaDir, dialog,
+    getWindow: () => workspace && !workspace.isDestroyed() ? workspace : null,
+    ocr: async (dataUrl) => {
+      const response = await remoteCompletion({
+        messages: [{ role: "user", content: [{ type: "text", text: "请将图片中的编程题完整、逐字转写为可编辑 Markdown。不得遗漏：题号和标题、时间/内存限制、题目描述、输入格式、输出格式、注意事项、全部样例输入和样例输出。程序源码、样例输入、样例输出必须放入各自的 Markdown 代码围栏，并严格保留空格、换行和代码缩进。数学表达式请直接用可读的 Unicode/纯文本（例如 n、r、≤、…），绝不要使用 $…$、\\(…\\) 或任何 LaTeX 命令。只返回题面 Markdown；不要分析、提示、解答、翻译或补写内容。" }, { type: "image_url", image_url: { url: dataUrl } }] }],
+        includeMemory: false, stream: false, temperature: 0, max_tokens: 4000,
+        system: "You are an exact OCR and Markdown typesetter for programming problems. Preserve every visible problem field and sample verbatim. Return only Markdown, never LaTeX math delimiters or commands.",
+      });
+      return String(response?.choices?.[0]?.message?.content || "").trim();
+    },
+  });
+  const codingRunner = createCodingRunnerService();
+  const codingOj = createCodingOjService();
+
+  async function runCodingTests(problemId, payload = {}) {
+    const problem = codingQa.get(problemId); if (!problem) return { ok: false, error: "题目不存在" };
+    const language = payload.language === "python" ? "python" : payload.language === "cpp" ? "cpp" : null;
+    if (!language) return { ok: false, error: "仅支持 C++17 或 Python 3" };
+    const runner = codingQa.readRunner(problemId); const code = typeof payload.code === "string" ? payload.code : runner.code[language];
+    const selected = Array.isArray(payload.testIds) && payload.testIds.length ? new Set(payload.testIds.map(String)) : null;
+    const tests = runner.tests.filter((item) => !selected || selected.has(item.id)); if (!tests.length) return { ok: false, error: "请先添加至少一个样例或测试组" };
+    const results = [];
+    for (const test of tests) {
+      const run = await codingRunner.run({ key: `coding:${problemId}`, language, code, input: test.input });
+      const passed = run.ok && normalizeOutput(run.stdout) === normalizeOutput(test.output);
+      results.push({ id: test.id, source: test.source, input: test.input, expected: test.output, actual: run.stdout || "", stderr: run.stderr || "", phase: run.phase, durationMs: run.durationMs || 0, passed, status: run.timedOut ? "TLE" : run.outputLimited ? "OLE" : run.phase === "compile" ? "CE" : run.ok ? (passed ? "AC" : "WA") : "RE" });
+      if (!run.ok && run.phase === "compile") break;
+    }
+    const summary = { language, completedAt: new Date().toISOString(), passed: results.filter((item) => item.passed).length, total: results.length, results };
+    const updated = codingQa.saveRunner(problemId, { language, code: { ...runner.code, [language]: String(code || "") }, lastRun: summary });
+    return { ok: true, problem: updated, summary };
+  }
+  async function runCodingInput(problemId, payload = {}) {
+    const problem = codingQa.get(problemId); if (!problem) return { ok: false, error: "题目不存在" };
+    const language = payload.language === "python" ? "python" : payload.language === "cpp" ? "cpp" : null;
+    if (!language) return { ok: false, error: "仅支持 C++17 或 Python 3" };
+    const runner = codingQa.readRunner(problemId); const code = typeof payload.code === "string" ? payload.code.slice(0, 200000) : runner.code[language]; const input = typeof payload.input === "string" ? payload.input.slice(0, 100000) : "";
+    if (!String(code || "").trim()) return { ok: false, error: "请先编写代码" };
+    const run = await codingRunner.run({ key: `coding:${problemId}`, language, code, input });
+    return { ok: true, run: { stdout: run.stdout || "", stderr: run.stderr || "", durationMs: run.durationMs || 0, phase: run.phase || "run", status: run.timedOut ? "TLE" : run.outputLimited ? "OLE" : run.phase === "compile" ? "CE" : run.ok ? "OK" : "RE" } };
+  }
   const a2uiMedia = createA2uiMediaService({ root: learningDir, dialog, shell });
+
+  async function sendCodingQaMessage(problemId, text) {
+    const clean = String(text || "").trim().slice(0, 16000);
+    const problem = codingQa.get(problemId);
+    if (!problem) return { ok: false, error: "题目不存在" };
+    if (!clean) return { ok: false, error: "请输入你的问题" };
+    if (codingQaController) return { ok: false, error: "上一条答疑仍在生成" };
+    const user = { id: `user-${Date.now()}`, role: "user", content: clean, timestamp: new Date().toISOString() };
+    codingQa.appendMessage(problemId, user);
+    codingQaGeneratingProblemId = problemId;
+    const controller = new AbortController(); codingQaController = controller;
+    const assistant = { id: `assistant-${Date.now()}`, role: "assistant", content: "", thinking: "", thinkingState: "thinking", timestamp: new Date().toISOString(), generationStartedAt: Date.now(), streaming: true };
+    beginPublicThinkingStream(assistant);
+    try { if (workspace && !workspace.isDestroyed()) workspace.webContents.send("chat-workspace:coding-qa-delta", { problemId, assistant, generating: true }); } catch {}
+    setImmediate(async () => {
+      try {
+        const history = codingQa.readMessages(problemId).slice(-80).map((item) => ({ role: item.role, content: item.content }));
+        await remoteCompletion({
+          messages: [{ role: "user", content: `当前编程题（Markdown）：\n\n${problem.markdown || "（题面尚未填写）"}\n\n请仅围绕这道题答疑。` }, ...history],
+          system: `你是耐心的编程答疑伙伴。默认先解释思路、拆分步骤、指出关键边界和给出必要的局部代码；只有用户明确要求完整解法时才给完整可运行答案。不要混入其他对话内容。\n\n${publicThinkingInstruction}`,
+          stream: true,
+          max_tokens: 1600,
+        }, (frame) => {
+          if (frame?.event === "think") addNativeThinking(assistant, frame.content);
+          else if (frame?.event === "delta") {
+            if (addVisibleContent(assistant, frame.content)) assistant.thinkingState = "complete";
+          } else return;
+          try { if (workspace && !workspace.isDestroyed()) workspace.webContents.send("chat-workspace:coding-qa-delta", { problemId, assistant, generating: true }); } catch {}
+        }, controller.signal);
+        assistant.generationDurationMs = Math.max(0, Date.now() - assistant.generationStartedAt);
+        assistant.streaming = false;
+        finishVisibleThinkingStream(assistant);
+        if (assistant.thinkingState === "thinking") assistant.thinkingState = assistant.thinking ? "complete" : "unavailable";
+        if (assistant.content.trim() || assistant.thinking.trim()) codingQa.appendMessage(problemId, assistant);
+      } catch (error) {
+        assistant.generationDurationMs = Math.max(0, Date.now() - assistant.generationStartedAt);
+        assistant.streaming = false;
+        finishVisibleThinkingStream(assistant);
+        const hasPartialAnswer = !!assistant.content.trim();
+        assistant.error = !hasPartialAnswer;
+        assistant.thinkingState = hasPartialAnswer || assistant.thinking ? "complete" : "unavailable";
+        assistant.content = assistant.content || `请求失败：${localizeError(error)}`;
+        try { codingQa.appendMessage(problemId, assistant); } catch {}
+      } finally {
+        if (codingQaController === controller) { codingQaController = null; codingQaGeneratingProblemId = null; }
+        try { if (workspace && !workspace.isDestroyed()) workspace.webContents.send("chat-workspace:coding-qa-delta", { problemId, assistant, generating: false, complete: true }); } catch {}
+      }
+    });
+    return { ok: true, assistant };
+  }
 
   function readHistoryLines(day) {
     if (!DATE_ID_RE.test(String(day || ""))) return [];
@@ -2865,6 +3041,18 @@ module.exports = function initMinicpmChat(ctx) {
     };
   }
 
+  // The full workspace already includes its own Live2D panel, so the desktop
+  // pet should be out of the way while it is actually on screen. Keep the
+  // user's pre-existing hidden choice intact when the workspace goes away.
+  function syncWorkspacePetVisibility(workspaceVisible) {
+    if (typeof ctx.setPetHidden !== "function") return;
+    if (workspaceVisible) {
+      ctx.setPetHidden(true);
+    } else if (!workspacePetWasHidden) {
+      ctx.setPetHidden(false);
+    }
+  }
+
   function ensureWorkspace() {
     if (workspace && !workspace.isDestroyed()) return workspace;
     const desktopThemeConfig = typeof ctx.getPetRendererConfig === "function" ? ctx.getPetRendererConfig() : {};
@@ -2886,22 +3074,34 @@ module.exports = function initMinicpmChat(ctx) {
       try { workspace.webContents.send("state-change", typeof ctx.getCurrentState === "function" ? ctx.getCurrentState() : "idle"); } catch {}
       try { workspace.webContents.send("chat-emotion", ctx.getChatEmotion && ctx.getChatEmotion()); } catch {}
     });
+    workspace.on("show", () => syncWorkspacePetVisibility(true));
+    workspace.on("restore", () => syncWorkspacePetVisibility(true));
+    workspace.on("minimize", () => syncWorkspacePetVisibility(false));
+    workspace.on("hide", () => syncWorkspacePetVisibility(false));
     workspace.on("closed", () => {
       try { if (workspaceSenderId != null) studyAttachments.discardForSender(workspaceSenderId); } catch {}
       workspaceSenderId = null;
       workspace = null;
-      if (!shuttingDown && !workspacePetWasHidden && typeof ctx.setPetHidden === "function") ctx.setPetHidden(false);
+      if (!shuttingDown) syncWorkspacePetVisibility(false);
       workspacePetWasHidden = false;
     });
     return workspace;
   }
 
   function openWorkspace() {
-    if (workspace && !workspace.isDestroyed()) { workspace.show(); workspace.focus(); return true; }
+    if (workspace && !workspace.isDestroyed()) {
+      // `show()` is a no-op for an already visible window. Reassert the rule
+      // here so manually revealing the pet cannot leave both Live2D surfaces
+      // visible together.
+      syncWorkspacePetVisibility(true);
+      if (workspace.isMinimized()) workspace.restore();
+      workspace.show(); workspace.focus();
+      return true;
+    }
     workspacePetWasHidden = typeof ctx.isPetHidden === "function" ? !!ctx.isPetHidden() : false;
     if (quickWorkspaceHideBubble()) void 0;
     if (typeof ctx.hideQuickLauncher === "function") ctx.hideQuickLauncher();
-    if (typeof ctx.setPetHidden === "function") ctx.setPetHidden(true);
+    syncWorkspacePetVisibility(true);
     const target = ensureWorkspace(); target.show(); target.focus();
     return true;
   }
@@ -2951,21 +3151,34 @@ module.exports = function initMinicpmChat(ctx) {
     });
   }
 
-  async function sendWorkspaceMessage(text, attachmentIds, senderId, webSearch = false) {
+  async function sendWorkspaceMessage(text, attachmentIds, senderId, webSearch = false, options = {}) {
     let clean = String(text || "").trim().slice(0, 16000);
-    if (!clean && !(Array.isArray(attachmentIds) && attachmentIds.length)) return { ok: false, error: "消息不能为空" };
+    const regeneratingId = String(options.regeneratingAssistantId || "");
+    if (!clean && !(Array.isArray(attachmentIds) && attachmentIds.length) && !regeneratingId) return { ok: false, error: "消息不能为空" };
     if (workspaceSession.generating) return { ok: false, error: "上一条回复仍在生成" };
-    let attachments;
-    try { attachments = studyAttachments.commit(workspaceSession.conversation.id, attachmentIds, senderId); }
-    catch (error) { return { ok: false, error: String(error && error.message || error) }; }
-    // An image-only paste is a valid question. Keep a useful, visible prompt
-    // rather than sending an empty text part to providers with stricter schemas.
-    if (!clean && attachments.length) clean = "请分析我上传的附件。";
-    const user = { id: `user-${Date.now()}`, role: "user", content: clean, attachments, timestamp: new Date().toISOString() };
-    const assistant = { id: `assistant-${Date.now()}`, role: "assistant", content: "", timestamp: new Date().toISOString(), streaming: true };
-    workspaceSession.messages.push(user, assistant);
+    let attachments; let user;
+    if (regeneratingId) {
+      const assistantIndex = workspaceSession.messages.findIndex((message) => String(message.id) === regeneratingId && message.role === "assistant");
+      if (assistantIndex < 1 || assistantIndex !== workspaceSession.messages.length - 1) return { ok: false, error: "只能重新生成当前会话最后一条 AI 回复" };
+      const previous = workspaceSession.messages[assistantIndex - 1];
+      if (previous?.role !== "user") return { ok: false, error: "找不到可重新生成的用户提问" };
+      user = previous; clean = user.content; attachments = Array.isArray(user.attachments) ? user.attachments : [];
+      if (!conversationStore.removeMessage(workspaceSession.conversation.id, regeneratingId)) return { ok: false, error: "原回复无法移除" };
+      workspaceSession.messages.splice(assistantIndex, 1);
+    } else {
+      try { attachments = studyAttachments.commit(workspaceSession.conversation.id, attachmentIds, senderId); }
+      catch (error) { return { ok: false, error: String(error && error.message || error) }; }
+      // An image-only paste is a valid question. Keep a useful, visible prompt
+      // rather than sending an empty text part to providers with stricter schemas.
+      if (!clean && attachments.length) clean = "请分析我上传的附件。";
+      user = { id: `user-${Date.now()}`, role: "user", content: clean, attachments, timestamp: new Date().toISOString() };
+      workspaceSession.messages.push(user);
+      conversationStore.append(workspaceSession.conversation.id, user);
+    }
+    const assistant = { id: `assistant-${Date.now()}`, role: "assistant", content: "", thinking: "", thinkingState: "thinking", timestamp: new Date().toISOString(), generationStartedAt: Date.now(), streaming: true };
+    beginPublicThinkingStream(assistant);
+    workspaceSession.messages.push(assistant);
     workspaceSession.generating = true;
-    conversationStore.append(workspaceSession.conversation.id, user);
     broadcastSharedSession();
     const controller = new AbortController(); sharedSessionController = controller;
     void classifyChatEmotion(workspaceSession.messages, user.id).catch(() => {});
@@ -2982,29 +3195,70 @@ module.exports = function initMinicpmChat(ctx) {
           const ids = new Map(registered.map((source) => [source.url, source.id]));
           webResearch = `\n\n联网检索资料（仅供本轮回答参考；请基于内容回答，必要时说明不确定性）。若要以 A2UI 显示图片或视频，只可引用下列 sourceId：\n${sources.map((source, index) => `[${index + 1}] ${source.name}\n${source.text}\n来源：${source.url}\nsourceId：${ids.get(source.url) || "不可用"}`).join("\n\n")}`.slice(0, 16000);
         }
-        await remoteCompletion({
+        // An image/document attachment is usually a learning problem even
+        // when the accompanying text is only “这题怎么做”. Feed that signal
+        // into the visual-output classifier so it cannot fall back to a raw
+        // Markdown wall after the public-thinking preamble.
+        const visualPrompt = workspaceVisualOutputPrompt(`${clean}${attachments.length ? "\n学习附件题目" : ""}`);
+        // The configured provider only exposes a one-line native reasoning
+        // label. Generate a safe, user-visible reasoning summary in parallel
+        // with the answer instead of serially before it. The final answer is
+        // buffered until this short trace finishes, so the UI keeps the
+        // AI-Studio order without doubling the waiting time.
+        holdResponseBody(assistant, true);
+        const publicThinkingPromise = remoteCompletion({
           messages: modelMessages,
-          system: `${getLearningConfig().a2uiEnabled === false ? studyCardSystemPrompt(studyCardMode(clean)) : `${uniStudyVisualSystemPrompt()}\n\n${workspaceVisualOutputPrompt(clean)}\n\n${a2uiSystemPrompt()}${getLearningConfig().visualBubbleEnabled === false ? "" : " Every response is displayed as a visual learning bubble; choose the most fitting declared theme."}${getLearningConfig().whepEndpoint ? " A configured realtime stream may be referenced only as streamId whep-default." : ""}${a2uiMedia.listModels().length ? ` Available local 3D models: ${a2uiMedia.listModels().map((model) => `${model.name} (${model.id})`).join(", ")}. Only reference these modelId values.` : ""}`}${webResearch}`,
+          includeMemory: false,
+          system: publicThinkingOnlyInstruction,
           stream: true,
+          max_tokens: 280,
         }, (frame) => {
-          if (frame && frame.event === "delta") {
-            assistant.content += String(frame.content || frame.reasoning_content || "");
-            broadcastSharedSession();
-          }
+          if (frame?.event !== "delta" || !frame.content) return;
+          addPublicThinking(assistant, publicThinkingStreams.get(assistant.id) || {}, String(frame.content));
+          assistant.thinkingState = "thinking";
+          broadcastSharedSession();
+        }, controller.signal).catch((error) => {
+          if (controller.signal.aborted) throw error;
+        }).finally(() => {
+          const stream = publicThinkingStreams.get(assistant.id);
+          if (assistant.thinking.trim()) assistant.thinkingState = "complete";
+          if (stream) holdResponseBody(assistant, false);
+          broadcastSharedSession();
+        });
+        const answerPromise = remoteCompletion({
+          messages: modelMessages,
+          system: `${getLearningConfig().a2uiEnabled === false ? studyCardSystemPrompt(studyCardMode(clean)) : `${uniStudyVisualSystemPrompt()}\n\n${visualPrompt}\n\n${a2uiSystemPrompt()}${getLearningConfig().visualBubbleEnabled === false ? "" : " Every response is displayed as a visual learning bubble; choose the most fitting declared theme."}${getLearningConfig().whepEndpoint ? " A configured realtime stream may be referenced only as streamId whep-default." : ""}${a2uiMedia.listModels().length ? ` Available local 3D models: ${a2uiMedia.listModels().map((model) => `${model.name} (${model.id})`).join(", ")}. Only reference these modelId values.` : ""}`}\n\nA public reasoning trace has already been displayed separately. Begin the final response immediately and obey this final-answer rendering rule with highest priority: ${visualPrompt}${webResearch}`,
+          stream: true,
+          max_tokens: 1600,
+        }, (frame) => {
+          if (frame?.event === "think") addNativeThinking(assistant, frame.content);
+          else if (frame?.event === "delta") {
+            if (addVisibleContent(assistant, frame.content)) assistant.thinkingState = "complete";
+          } else return;
+          broadcastSharedSession();
         }, controller.signal);
+        await Promise.all([answerPromise, publicThinkingPromise]);
+        assistant.generationDurationMs = Math.max(0, Date.now() - assistant.generationStartedAt);
         assistant.streaming = false;
+        finishVisibleThinkingStream(assistant);
+        if (assistant.thinkingState === "thinking") assistant.thinkingState = assistant.thinking ? "complete" : "unavailable";
         workspaceConnectionState = "available";
         const parsed = parseRichStudyCards(assistant.content);
         const a2ui = parseA2uiSurfaces(parsed.content);
         assistant.content = a2ui.content;
         if (parsed.richCards.length) assistant.richCards = parsed.richCards;
         if (a2ui.a2uiSurfaces.length) assistant.a2uiSurfaces = a2ui.a2uiSurfaces;
-        if (assistant.content.trim() || assistant.richCards || assistant.a2uiSurfaces) conversationStore.append(workspaceSession.conversation.id, assistant);
+        if (assistant.content.trim() || assistant.thinking.trim() || assistant.richCards || assistant.a2uiSurfaces) conversationStore.append(workspaceSession.conversation.id, assistant);
       } catch (error) {
+        assistant.generationDurationMs = Math.max(0, Date.now() - assistant.generationStartedAt);
         assistant.streaming = false;
-        assistant.error = true;
-        workspaceConnectionState = "error";
+        finishVisibleThinkingStream(assistant);
+        const hasPartialAnswer = !!assistant.content.trim();
+        assistant.error = !hasPartialAnswer;
+        assistant.thinkingState = hasPartialAnswer || assistant.thinking ? "complete" : "unavailable";
+        workspaceConnectionState = hasPartialAnswer ? "available" : "error";
         assistant.content = assistant.content || `请求失败：${localizeError(error)}`;
+        try { conversationStore.append(workspaceSession.conversation.id, assistant); } catch {}
       } finally {
         workspaceSession.generating = false; sharedSessionController = null; broadcastSharedSession();
       }
@@ -3028,6 +3282,31 @@ module.exports = function initMinicpmChat(ctx) {
     "chat-workspace:cancel": async (event) => {
       if (!isWorkspaceSender(event.sender)) return { ok: false };
       if (sharedSessionController) sharedSessionController.abort();
+      return { ok: true };
+    },
+    "chat-workspace:update-message": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      if (workspaceSession.generating) return { ok: false, error: "当前回复结束后再编辑消息" };
+      const id = String(payload.id || ""); const content = String(payload.content || "").trim();
+      if (!content) return { ok: false, error: "消息不能为空" };
+      const message = conversationStore.updateMessage(workspaceSession.conversation?.id, id, { content });
+      if (!message) return { ok: false, error: "消息不存在或无法编辑" };
+      const index = workspaceSession.messages.findIndex((item) => String(item.id) === id);
+      if (index >= 0) workspaceSession.messages[index] = message;
+      broadcastSharedSession();
+      return { ok: true, message };
+    },
+    "chat-workspace:regenerate-message": async (event, payload = {}) => isWorkspaceSender(event.sender)
+      ? sendWorkspaceMessage("", [], event.sender.id, false, { regeneratingAssistantId: payload.id })
+      : { ok: false, error: "Invalid workspace sender" },
+    "chat-workspace:delete-message": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "Invalid workspace sender" };
+      if (workspaceSession.generating) return { ok: false, error: "当前回复结束后再删除消息" };
+      const id = String(payload.id || "");
+      const conversationId = workspaceSession.conversation?.id;
+      if (!conversationStore.removeMessage(conversationId, id)) return { ok: false, error: "消息不存在或无法删除" };
+      workspaceSession.messages = workspaceSession.messages.filter((message) => String(message.id) !== id);
+      broadcastSharedSession();
       return { ok: true };
     },
     "chat-workspace:create-conversation": async (event) => {
@@ -3158,6 +3437,67 @@ module.exports = function initMinicpmChat(ctx) {
       if (config.live2d) config.live2d = { ...config.live2d, reloadToken: Date.now() };
       event.sender.send("theme-config", config);
       return { ok: true };
+    },
+    "chat-workspace:coding-qa:list": async (event) => isWorkspaceSender(event.sender)
+      ? { ok: true, problems: codingQa.list() } : { ok: false, problems: [] },
+    "chat-workspace:coding-qa:get": async (event, payload = {}) => isWorkspaceSender(event.sender)
+      ? { ok: true, problem: codingQa.get(payload.id) } : { ok: false, problem: null },
+    "chat-workspace:coding-qa:create": async (event) => {
+      if (!isWorkspaceSender(event.sender) || codingQaController) return { ok: false, error: codingQaController ? "正在生成答疑，暂不能新建题目" : "无权访问题目" };
+      return { ok: true, problem: codingQa.create() };
+    },
+    "chat-workspace:coding-qa:save": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || codingQaController) return { ok: false, error: codingQaController ? "正在生成答疑，暂不能修改题目" : "无权访问题目" };
+      try { return { ok: true, problem: codingQa.save(payload.id, { title: payload.title, markdown: payload.markdown }) }; } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:coding-qa:rename": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || codingQaController) return { ok: false, error: codingQaController ? "正在生成答疑，暂不能重命名" : "无权访问题目" };
+      try { return { ok: true, problem: codingQa.rename(payload.id, payload.title) }; } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:coding-qa:delete": async (event, payload = {}) => ({ ok: isWorkspaceSender(event.sender) && !codingQaController && codingQa.remove(payload.id) }),
+    "chat-workspace:coding-qa:select-image": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || codingQaController) return { ok: false, error: codingQaController ? "正在生成答疑，暂不能识别图片" : "无权访问题目" };
+      try { return await codingQa.selectImage(payload.id); } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:coding-qa:read-image": async (event, payload = {}) => isWorkspaceSender(event.sender)
+      ? codingQa.readImage(payload.id) : { ok: false, error: "无权查看图片" },
+    "chat-workspace:coding-qa:recognize": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || codingQaController) return { ok: false, error: codingQaController ? "正在生成答疑，暂不能识别图片" : "无权访问题目" };
+      try { return await codingQa.recognize(payload.id); } catch (error) { return { ok: false, error: `题目识别失败：${localizeError(error)}` }; }
+    },
+    "chat-workspace:coding-qa:search-oj": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, results: [], error: "无权搜索题目" };
+      const source = ["all", "codeforces", "atcoder", "luogu"].includes(payload.source) ? payload.source : "all";
+      try { return { ok: true, results: await codingOj.search(String(payload.query || ""), source) }; } catch (error) { return { ok: false, results: [], error: localizeError(error) }; }
+    },
+    "chat-workspace:coding-qa:import-oj": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || codingQaController) return { ok: false, error: codingQaController ? "正在生成答疑，暂不能导入题目" : "无权导入题目" };
+      try { const imported = await codingOj.importProblem(String(payload.url || "")); return { ok: true, problem: codingQa.importProblem({ title: imported.title, markdown: imported.markdown, tests: imported.tests, source: { provider: imported.source, url: imported.sourceUrl } }) }; } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:coding-qa:open-source": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "无权打开题目来源" };
+      const problem = codingQa.get(String(payload.id || ""));
+      if (!problem?.source?.url || !codingOj.sourceForUrl(problem.source.url)) return { ok: false, error: "该题没有可安全打开的官方来源" };
+      await shell.openExternal(problem.source.url); return { ok: true };
+    },
+    "chat-workspace:coding-qa:save-runner": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || codingQaController) return { ok: false, error: codingQaController ? "正在生成答疑，暂不能修改代码" : "无权保存代码" };
+      try { return { ok: true, problem: codingQa.saveRunner(payload.id, { language: payload.language, code: payload.code, tests: payload.tests }) }; } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:coding-qa:run-tests": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "无权运行代码" };
+      try { return await runCodingTests(payload.id, payload); } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:coding-qa:run-input": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false, error: "无权运行代码" };
+      try { return await runCodingInput(payload.id, payload); } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:coding-qa:cancel-run": async (event, payload = {}) => ({ ok: isWorkspaceSender(event.sender) && codingRunner.cancel(`coding:${String(payload.id || "")}`) }),
+    "chat-workspace:coding-qa:send": async (event, payload = {}) => isWorkspaceSender(event.sender)
+      ? sendCodingQaMessage(payload.problemId, payload.text) : { ok: false, error: "无权发送答疑" },
+    "chat-workspace:coding-qa:cancel": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender) || !codingQaController || codingQaGeneratingProblemId !== String(payload.problemId || "")) return { ok: false };
+      codingQaController.abort(); return { ok: true };
     },
     "chat-workspace:list-history": async (event) => isWorkspaceSender(event.sender)
       ? { ok: true, dates: listDatedFiles(chatHistoryDir, ".jsonl") }

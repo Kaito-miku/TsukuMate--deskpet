@@ -21,3 +21,10 @@ test("rich card preview runs common web code in an opaque, capability-limited sa
   assert.match(file, /url\\s\*/);
   assert.match(file, /查看源码/); assert.match(file, /返回卡片/);
 });
+
+test("rich content de-indents every raw visual HTML tag in final and streaming paths", () => {
+  const renderer = fs.readFileSync(path.join(__dirname, "../../src/renderer/shared/rich-content/index.js"), "utf8");
+  const pipeline = fs.readFileSync(path.join(__dirname, "../../src/renderer/shared/rich-content/unistudy-content-pipeline.js"), "utf8");
+  assert.ok(renderer.includes('(?=<\\/?[a-z][\\w:-]*\\b)'));
+  assert.match(pipeline, /step\(ctx, 'deindent-html', \(text\) => deIndentHtml\(text\)\)/);
+});

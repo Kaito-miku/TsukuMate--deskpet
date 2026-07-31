@@ -172,6 +172,13 @@ function normalizeToolName(value) {
   return text;
 }
 
+function normalizeToolActivityTarget(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.replace(/[\u0000-\u001F\u007F-\u009F]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+  return normalized.slice(0, 96);
+}
+
 // ── Hit-test bounding boxes (from theme) ──
 let HIT_BOXES = {};
 let FILE_HIT_BOXES = {};
@@ -1245,6 +1252,7 @@ function updateSession(sessionId, state, event, opts = {}) {
     assistantLastOutput = null,
     assistantLastOutputTruncated = false,
     toolName = null,
+    toolActivityTarget = null,
     transcriptPath = null,
     permissionSuspect = false,
     preserveState = false,
@@ -1380,7 +1388,16 @@ function updateSession(sessionId, state, event, opts = {}) {
   const srcContextUsage = normalizeContextUsage(contextUsage) || (existing && existing.contextUsage) || null;
   const srcAssistantLastOutput = normalizeAssistantOutput(assistantLastOutput);
   const srcAssistantLastOutputTruncated = !!(srcAssistantLastOutput && assistantLastOutputTruncated === true);
-  const srcToolName = normalizeToolName(toolName) || (existing && existing.lastToolName) || null;
+  const incomingToolName = normalizeToolName(toolName);
+  const srcToolName = incomingToolName || (existing && existing.lastToolName) || null;
+  // A tool target describes one particular tool invocation. It must not leak
+  // into the next invocation (for example, a previous file name next to a
+  // later shell command). Keep it only on state-only updates that did not
+  // carry a tool name at all.
+  const srcToolActivityTarget = incomingToolName
+    ? normalizeToolActivityTarget(toolActivityTarget)
+    : (normalizeToolActivityTarget(toolActivityTarget)
+      || (existing && existing.lastToolActivityTarget) || null);
   const srcTranscriptPath = normalizeTranscriptPath(transcriptPath) || (existing && existing.transcriptPath) || null;
   const srcResumeState = (existing && existing.resumeState) || null;
   const isSubagentStart = event === "SubagentStart" || event === "subagentStart";
@@ -1499,7 +1516,7 @@ function updateSession(sessionId, state, event, opts = {}) {
   const srcLastStopAt = isStopBoundary
     ? Date.now()
     : (existing && Number.isFinite(existing.lastStopAt) ? existing.lastStopAt : null);
-  const base = { sourcePid: srcPid, wtHwnd: srcWtHwnd, cwd: srcCwd, editor: srcEditor, pidChain: srcPidChain, tmuxSocket: srcTmuxSocket, tmuxClient: srcTmuxClient, agentPid: srcAgentPid, agentId: srcAgentId, host: srcHost, headless: srcHeadless, platform: srcPlatform, model: srcModel, provider: srcProvider, codexOriginator: srcCodexOriginator, codexSource: srcCodexSource, ghosttyTerminalId: srcGhosttyTerminalId, sessionTitle: srcSessionTitle, contextUsage: srcContextUsage, assistantLastOutput: srcAssistantLastOutput, assistantLastOutputTruncated: srcAssistantLastOutputTruncated, lastToolName: srcToolName, transcriptPath: srcTranscriptPath, recentEvents, pidReachable, lastToolBoundaryAt: srcLastToolBoundaryAt, lastStopAt: srcLastStopAt, awaitingInputSinceStop: resolveAwaitingInputSinceStop(existing, event), muteNotificationSound: state === "notification" && muteNotificationSound === true };
+  const base = { sourcePid: srcPid, wtHwnd: srcWtHwnd, cwd: srcCwd, editor: srcEditor, pidChain: srcPidChain, tmuxSocket: srcTmuxSocket, tmuxClient: srcTmuxClient, agentPid: srcAgentPid, agentId: srcAgentId, host: srcHost, headless: srcHeadless, platform: srcPlatform, model: srcModel, provider: srcProvider, codexOriginator: srcCodexOriginator, codexSource: srcCodexSource, ghosttyTerminalId: srcGhosttyTerminalId, sessionTitle: srcSessionTitle, contextUsage: srcContextUsage, assistantLastOutput: srcAssistantLastOutput, assistantLastOutputTruncated: srcAssistantLastOutputTruncated, lastToolName: srcToolName, lastToolActivityTarget: srcToolActivityTarget, transcriptPath: srcTranscriptPath, recentEvents, pidReachable, lastToolBoundaryAt: srcLastToolBoundaryAt, lastStopAt: srcLastStopAt, awaitingInputSinceStop: resolveAwaitingInputSinceStop(existing, event), muteNotificationSound: state === "notification" && muteNotificationSound === true };
   if (preserveCompletionAck) base.requiresCompletionAck = true;
 
   // Evict oldest session if at capacity and this is a new session.
