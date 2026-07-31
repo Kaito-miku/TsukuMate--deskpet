@@ -152,6 +152,7 @@ test("workspace exposes hierarchical branches, vocabulary annotation, and a loca
   assert.match(renderer, /vocabularyMode/);
   assert.match(preload, /chat-workspace:create-branch/);
   assert.match(preload, /chat-workspace:get-conversation-network/);
+  assert.match(preload, /chat-workspace:save-conversation-network-layout/);
   assert.match(chat, /function branchContext/);
   assert.match(chat, /chat-workspace:create-branch/);
   assert.match(chat, /conversationStore\.removeTree/);
@@ -159,6 +160,13 @@ test("workspace exposes hierarchical branches, vocabulary annotation, and a loca
   assert.match(css, /learning-vocabulary-term/);
   assert.match(css, /conversation-network-canvas/);
   assert.match(css, /vocabulary-plain/);
+  assert.match(renderer, /renderConversationNetwork/);
+  assert.match(renderer, /conversation-tree-toggle/);
+  assert.match(renderer, /vocabulary-learning-intro/);
+  assert.match(renderer, /vocabularySourceSentence/);
+  assert.match(renderer, /replace\(\/```/);
+  assert.match(chat, /save-conversation-network-layout/);
+  assert.match(chat, /writeGraphLayout/);
 });
 
 test("quick launcher opens the workspace while the legacy shortcut still targets the bubble", () => {

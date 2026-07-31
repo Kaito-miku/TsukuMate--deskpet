@@ -25,6 +25,7 @@ function createConversationStore(root, options = {}) {
   const sessionDir = (id) => path.join(sessionsRoot, id);
   const metaPath = (id) => path.join(sessionDir(id), "meta.json");
   const messagesPath = (id) => path.join(sessionDir(id), "messages.jsonl");
+  const graphLayoutPath = path.join(root, "conversation-network.json");
 
   function validId(id) { return ID_RE.test(String(id || "")) || LEGACY_RE.test(String(id || "")); }
   function readMeta(id) {
@@ -172,12 +173,27 @@ function createConversationStore(root, options = {}) {
     return messages[index];
   }
   function updateSummary(id, summary, version) { const meta = readMeta(id); if (!meta) return null; return writeMeta({ ...meta, topicSummary: String(summary || "").slice(0, 2400), summaryUpdatedAt: now(), summaryVersion: Math.max(0, Number(version) || meta.contentVersion || 0) }); }
-  function removeTree(id) { if (!ID_RE.test(String(id || "")) || !readMeta(id)) return false; const ids = new Set([id]); let changed = true; while (changed) { changed = false; for (const meta of list()) if (meta.parentConversationId && ids.has(meta.parentConversationId) && !ids.has(meta.id)) { ids.add(meta.id); changed = true; } } for (const childId of ids) { const dir = sessionDir(childId); if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: false }); } return true; }
+  function removeTree(id) { if (!ID_RE.test(String(id || "")) || !readMeta(id)) return false; const ids = new Set([id]); let changed = true; while (changed) { changed = false; for (const meta of list()) if (meta.parentConversationId && ids.has(meta.parentConversationId) && !ids.has(meta.id)) { ids.add(meta.id); changed = true; } } for (const childId of ids) { const dir = sessionDir(childId); if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: false }); } const layout = readGraphLayout(); for (const childId of ids) delete layout[childId]; writeGraphLayout(layout); return true; }
+  function readGraphLayout() {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(graphLayoutPath, "utf8"));
+      const positions = parsed && typeof parsed.positions === "object" ? parsed.positions : {};
+      return Object.fromEntries(Object.entries(positions).flatMap(([id, point]) => ID_RE.test(id) && Number.isFinite(point?.x) && Number.isFinite(point?.y)
+        ? [[id, { x: Math.max(-12000, Math.min(12000, Math.round(point.x))), y: Math.max(-12000, Math.min(12000, Math.round(point.y))) }]] : []));
+    } catch { return {}; }
+  }
+  function writeGraphLayout(positions) {
+    const allowed = new Set(list().filter((item) => !item.legacy).map((item) => item.id));
+    const safe = Object.fromEntries(Object.entries(positions || {}).flatMap(([id, point]) => allowed.has(id) && Number.isFinite(point?.x) && Number.isFinite(point?.y)
+      ? [[id, { x: Math.max(-12000, Math.min(12000, Math.round(point.x))), y: Math.max(-12000, Math.min(12000, Math.round(point.y))) }]] : []));
+    atomicJson(graphLayoutPath, { positions: safe, updatedAt: now() });
+    return safe;
+  }
   function attachmentDir(id) {
     if (!ID_RE.test(String(id || ""))) throw new Error("Attachments require a current conversation");
     const dir = path.join(sessionDir(id), "attachments"); fs.mkdirSync(dir, { recursive: true }); return dir;
   }
-  return { validId, create, list, readMeta, readMessages, append, updateTitle, incrementTitleAttempt, remove, removeTree, removeMessage, updateMessage, updateDerivedMessage, updateSummary, attachmentDir, cleanTitle };
+  return { validId, create, list, readMeta, readMessages, append, updateTitle, incrementTitleAttempt, remove, removeTree, removeMessage, updateMessage, updateDerivedMessage, updateSummary, readGraphLayout, writeGraphLayout, attachmentDir, cleanTitle };
 }
 
 module.exports = { createConversationStore, cleanTitle, ID_RE, LEGACY_RE };

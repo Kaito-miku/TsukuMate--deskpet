@@ -72,6 +72,16 @@ test("conversation store persists branch metadata, annotations, and deletes a co
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test("conversation store persists only signed graph node positions", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tsukumate-conversation-"));
+  const store = createConversationStore(root); const conversation = store.create();
+  assert.deepEqual(store.writeGraphLayout({ [conversation.id]: { x: 136.8, y: -44.2 }, outsider: { x: 1, y: 2 }, [conversation.id + "x"]: { x: Infinity, y: 2 } }), { [conversation.id]: { x: 137, y: -44 } });
+  assert.deepEqual(store.readGraphLayout(), { [conversation.id]: { x: 137, y: -44 } });
+  store.removeTree(conversation.id);
+  assert.deepEqual(store.readGraphLayout(), {});
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 test("generated titles accept fenced JSON but reject malformed or excessive titles", () => {
   assert.equal(parseGeneratedTitle('```json\n{"title":"复合情绪测试"}\n```', "zh-CN"), "复合情绪测试");
   assert.equal(parseGeneratedTitle("not json", "zh-CN"), "");

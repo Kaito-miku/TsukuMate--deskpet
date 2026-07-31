@@ -51,6 +51,8 @@ let previewDrawing = false;
 let previewLastPoint = null;
 let contextAttachmentId = null;
 let conversationDrawerTab = "tree";
+let conversationNetworkOpen = false;
+const collapsedConversationNodes = new Set();
 let previewZoom = 1;
 let previewFitZoom = 1;
 let annotationOps = [];
@@ -299,7 +301,7 @@ function bubbleTheme(message) {
   if (/(代码|python|javascript|终端|debug)/.test(value)) return "terminal";
   return "default";
 }
-function clearMessageNode(row) { for (const cleanup of row._tmCleanups || []) { try { cleanup(); } catch {} } if (row._tmThinkingTimer) clearInterval(row._tmThinkingTimer); delete row._tmThinkingTimer; row._tmCleanups = []; delete row._tmVisualText; delete row._tmCompletedAssistantBlocks; }
+function clearMessageNode(row) { for (const cleanup of row._tmCleanups || []) { try { cleanup(); } catch {} } if (row._tmThinkingTimer) clearInterval(row._tmThinkingTimer); delete row._tmThinkingTimer; row._tmCleanups = []; delete row._tmVisualText; delete row._tmCompletedAssistantBlocks; delete row._tmInheritedMessageActions; }
 async function copyMessageText(value, status = "内容已复制") { try { await navigator.clipboard.writeText(String(value || "")); $("send-status").textContent = status; } catch { $("send-status").textContent = "复制失败"; } }
 const MESSAGE_ACTION_ICONS = {
   // Original TsukuMate line marks — intentionally not copied from AI Studio.
@@ -321,7 +323,7 @@ function appendMessageMore(actions, items) {
 }
 async function deleteWorkspaceMessage(message) {
   if (!message?.id || !confirm("删除这条消息吗？此操作无法撤销。")) return;
-  const result = await api.deleteMessage(message.id);
+  const result = await api.deleteMessage(message.id, message.inheritedSourceConversationId);
   $("send-status").textContent = result?.ok ? "已删除消息" : (result?.error || "删除失败");
 }
 async function editWorkspaceMessage(message) {
@@ -349,7 +351,7 @@ function cancelInlineMessageEdit(replacement) {
 async function saveInlineMessageEdit() {
   const edit = activeMessageEdit; const content = edit?.editor.value.trim();
   if (!edit || !content) { if (edit) $("send-status").textContent = "消息不能为空"; return; }
-  edit.save.disabled = true; const result = await api.updateMessage(edit.message.id, content); edit.save.disabled = false;
+  edit.save.disabled = true; const result = await api.updateMessage(edit.message.id, content, edit.message.inheritedSourceConversationId); edit.save.disabled = false;
   if (!result?.ok) { $("send-status").textContent = result?.error || "保存失败"; return; }
   cancelInlineMessageEdit({ ...edit.message, ...result.message }); $("send-status").textContent = "已保存编辑";
 }
@@ -364,9 +366,10 @@ function openBranchPicker(message, vocabulary = null) {
   const term = vocabulary?.term || ""; const definition = vocabulary?.definition || ""; dialog.innerHTML = `<section><header><div><strong>${term ? `围绕“${term}”继续学习` : "建立对话分支"}</strong><small>${term ? definition : "选择新话题应如何使用当前对话"}</small></div><button type="button" aria-label="关闭">×</button></header><div class="branch-picker-options"></div></section>`;
   const close = () => dialog.remove(); dialog.onclick = (event) => { if (event.target === dialog) close(); }; dialog.querySelector("header button").onclick = close;
   const options = term ? [["词汇关联分支", "带入父话题摘要、原句和词汇解释", "vocabulary"]] : [["继承分支", "继承分支点前的对话与上下文", "inherit"], ["关联主题", "只带入父话题标题和摘要", "related"]]; const root = dialog.querySelector(".branch-picker-options");
-  for (const [title, description, type] of options) { const button = document.createElement("button"); button.type = "button"; button.innerHTML = `<strong>${title}</strong><span>${description}</span>`; button.onclick = async () => { button.disabled = true; const result = await api.createBranch({ messageId: message.id, type, sentence: term ? String(message.content || "").slice(0, 1400) : "", term, definition }); if (!result?.ok) { $("send-status").textContent = result?.error || "建立分支失败"; button.disabled = false; return; } session = result.session || session; viewState = { content: "chat", drawer: null }; renderView(); $("send-status").textContent = "已创建分支对话"; close(); }; root.append(button); }
+  for (const [title, description, type] of options) { const button = document.createElement("button"); button.type = "button"; button.innerHTML = `<strong>${title}</strong><span>${description}</span>`; button.onclick = async () => { button.disabled = true; const result = await api.createBranch({ messageId: message.id, type, sentence: term ? vocabularySourceSentence(message.content, term) : "", term, definition }); if (!result?.ok) { $("send-status").textContent = result?.error || "建立分支失败"; button.disabled = false; return; } session = result.session || session; viewState = { content: "chat", drawer: null }; renderView(); $("send-status").textContent = "已创建分支对话"; close(); }; root.append(button); }
   document.body.append(dialog);
 }
+function vocabularySourceSentence(content, term) { const plain = String(content || "").replace(/```[\s\S]*?```/g, " ").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim(); if (!plain) return ""; const index = term ? plain.indexOf(String(term)) : -1; if (index < 0) return plain.slice(0, 500); const start = Math.max(0, plain.lastIndexOf("。", index - 1) + 1, plain.lastIndexOf("！", index - 1) + 1, plain.lastIndexOf("？", index - 1) + 1, plain.lastIndexOf(".", index - 1) + 1); const endCandidates = [plain.indexOf("。", index + String(term).length), plain.indexOf("！", index + String(term).length), plain.indexOf("？", index + String(term).length), plain.indexOf(".", index + String(term).length)].filter((value) => value >= 0); const end = endCandidates.length ? Math.min(...endCandidates) + 1 : Math.min(plain.length, start + 500); return plain.slice(start, end).slice(0, 800); }
 function closeVocabularyPopover() { document.querySelector(".learning-vocabulary-popover")?.remove(); }
 function showVocabularyPopover(anchor, annotation, message) { closeVocabularyPopover(); const popover = document.createElement("section"); popover.className = "learning-vocabulary-popover"; popover.innerHTML = '<button type="button" class="vocabulary-close" aria-label="关闭">×</button><strong></strong><p></p><button type="button" class="vocabulary-branch">围绕此词继续学习</button>'; popover.querySelector("strong").textContent = annotation.term; popover.querySelector("p").textContent = annotation.definition; popover.querySelector(".vocabulary-close").onclick = closeVocabularyPopover; popover.querySelector(".vocabulary-branch").onclick = () => { closeVocabularyPopover(); openBranchPicker(message, annotation); }; document.body.append(popover); const rect = anchor.getBoundingClientRect(); popover.style.left = `${Math.max(12, Math.min(window.innerWidth - 350, rect.left))}px`; popover.style.top = `${Math.min(window.innerHeight - 180, rect.bottom + 10)}px`; }
 function applyLearningAnnotations(root, message) { const annotations = Array.isArray(message.learningAnnotations) ? message.learningAnnotations.filter((item) => item?.term && item?.definition).slice(0, 5) : []; const fingerprint = JSON.stringify(annotations.map((item) => [item.id, item.start, item.end, item.term])); if (!annotations.length || !root || root.dataset.annotationsFor === fingerprint) return; const terms = annotations.slice().sort((a, b) => String(b.term).length - String(a.term).length); const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); const nodes = []; let node; while ((node = walker.nextNode())) if (node.parentElement && !node.parentElement.closest("code,pre,a,button,textarea,input,.thinking-card,.message-actions,.tm-inline-visual-fragment,.study-card-list,.a2ui-surface-list")) nodes.push(node); for (const textNode of nodes) { const value = textNode.data; const matches = terms.map((annotation) => ({ annotation, start: value.indexOf(annotation.term) })).filter((item) => item.start >= 0).sort((a, b) => a.start - b.start); if (!matches.length) continue; const fragment = document.createDocumentFragment(); let cursor = 0; for (const match of matches) { const end = match.start + match.annotation.term.length; if (match.start < cursor) continue; fragment.append(document.createTextNode(value.slice(cursor, match.start))); const mark = document.createElement("button"); mark.type = "button"; mark.className = "learning-vocabulary-term"; mark.textContent = value.slice(match.start, end); mark.title = `查看“${match.annotation.term}”解释`; mark.onclick = () => showVocabularyPopover(mark, match.annotation, message); fragment.append(mark); cursor = end; } fragment.append(document.createTextNode(value.slice(cursor))); textNode.replaceWith(fragment); } root.dataset.annotationsFor = fingerprint; }
@@ -387,6 +390,18 @@ function appendUserMessageActions(row, message) {
   actions.append(createMessageAction("edit", "编辑消息", () => editWorkspaceMessage(message)));
   appendMessageMore(actions, [["建立分支", () => openBranchPicker(message)], ["复制", () => copyMessageText(message.content, "已复制发送内容")], ["删除", () => deleteWorkspaceMessage(message), true]]);
   row.prepend(actions); row._tmUserMessageActions = actions;
+}
+async function openInheritedOriginal(message) {
+  const conversationId = String(message?.inheritedSourceConversationId || ""); if (!conversationId) return;
+  const result = await api.loadConversation(conversationId); if (!result?.ok) { $("send-status").textContent = result?.error || "无法打开原对话"; return; }
+  session = result.session || session; conversationNetworkOpen = false; conversationDrawerTab = "tree"; viewState = { content: "chat", drawer: null }; renderView(); requestAnimationFrame(() => document.querySelector(`[data-message-id="${CSS.escape(message.id)}"]`)?.scrollIntoView({ block: "center" }));
+}
+function appendInheritedMessageActions(row, message) {
+  if (row._tmInheritedMessageActions) return;
+  const actions = document.createElement("div"); actions.className = "message-actions message-learning-actions";
+  actions.append(createMessageAction("edit", message.role === "assistant" ? "编辑原回复" : "编辑原消息", () => editWorkspaceMessage(message)));
+  appendMessageMore(actions, [["复制", () => copyMessageText(message.content, "已复制继承消息")], ["查看原对话", () => openInheritedOriginal(message)], ["删除", () => deleteWorkspaceMessage(message), true]]);
+  row.prepend(actions); row._tmInheritedMessageActions = actions;
 }
 function appendCompletedAssistantBlocks(row, message) {
   if (row._tmCompletedAssistantBlocks) return;
@@ -506,7 +521,7 @@ function renderThinkingCard(row, message) {
   detail.hidden = !expanded;
 }
 function renderMessageNode(row, message) {
-  const signature = JSON.stringify({ content: message.content || "", thinking: message.thinking || "", thinkingState: message.thinkingState || "", streaming: !!message.streaming, error: !!message.error, attachments: message.attachments || [], richCards: message.richCards || [], a2ui: message.a2uiSurfaces || [], annotations: message.learningAnnotations || [] });
+  const signature = JSON.stringify({ content: message.content || "", thinking: message.thinking || "", thinkingState: message.thinkingState || "", streaming: !!message.streaming, error: !!message.error, inherited: !!message.inherited, attachments: message.attachments || [], richCards: message.richCards || [], a2ui: message.a2uiSurfaces || [], annotations: message.learningAnnotations || [] });
   if (row.dataset.signature === signature) return;
   // Saving an edit deliberately removes any derived visual cards. Rebuild
   // this one settled row once so stale cards and its old action toolbar cannot
@@ -516,11 +531,12 @@ function renderMessageNode(row, message) {
   // keeps the bubble and only morphs its unfinished tail.  Apart from looking
   // smoother, that preserves visual cards, focus and future interactive state.
   const vocabularyMode = session.conversation?.branchType === "vocabulary";
-  if (message.role === "assistant" && row._tmVisualText && window.TsukuMateRichContent?.renderVisualMessage && !vocabularyMode) {
+  if (message.role === "assistant" && row._tmVisualText && window.TsukuMateRichContent?.renderVisualMessage && !vocabularyMode && !message.inherited) {
     row.dataset.signature = signature;
     // Do not reassign className on every delta: Chromium may restart the
     // descendant glass entry animation when its selector is recalculated.
     row.classList.add("message", "assistant");
+    row.classList.toggle("inherited", !!message.inherited);
     row.classList.toggle("streaming", !!message.streaming);
     row.classList.toggle("error", !!message.error);
     renderThinkingCard(row, message);
@@ -532,7 +548,7 @@ function renderMessageNode(row, message) {
     if (!message.streaming) appendCompletedAssistantBlocks(row, message);
     return;
   }
-  clearMessageNode(row); row.replaceChildren(); row.dataset.signature = signature; row.dataset.messageEditedAt = message.editedAt || ""; row.className = `message ${message.role}${message.streaming ? " streaming" : ""}${message.error ? " error" : ""}${vocabularyMode && message.role === "assistant" ? " vocabulary-plain" : ""}`; row.dataset.messageId = message.id || "";
+  clearMessageNode(row); row.replaceChildren(); row.dataset.signature = signature; row.dataset.messageEditedAt = message.editedAt || ""; row.className = `message ${message.role}${message.streaming ? " streaming" : ""}${message.error ? " error" : ""}${message.inherited ? " inherited" : ""}${vocabularyMode && message.role === "assistant" ? " vocabulary-plain" : ""}`; row.dataset.messageId = message.id || "";
   if (message.role === "user") row.dataset.messageIndex = String([...$("messages").querySelectorAll(".message.user")].length + 1);
   const text = document.createElement("div"); text.className = "message-text";
   text.dataset.bubbleTheme = message.role === "assistant" ? bubbleTheme(message) : "user";
@@ -547,8 +563,20 @@ function renderMessageNode(row, message) {
   }
   row.append(text); if (vocabularyMode || message.role !== "assistant") applyLearningAnnotations(text, message); renderThinkingCard(row, message);
   if (Array.isArray(message.attachments) && message.attachments.length) { const list = document.createElement("div"); list.className = "message-attachments"; for (const attachment of message.attachments) list.append(renderAttachment(attachment)); row.append(list); }
-  if (message.role === "user") appendUserMessageActions(row, message);
-  if (message.role === "assistant" && !message.streaming) appendCompletedAssistantBlocks(row, message);
+  if (message.inherited) appendInheritedMessageActions(row, message);
+  else if (message.role === "user") appendUserMessageActions(row, message);
+  else if (message.role === "assistant" && !message.streaming) appendCompletedAssistantBlocks(row, message);
+}
+function renderVocabularyIntro(root) {
+  const snapshot = session.conversation?.branchType === "vocabulary" ? session.conversation?.parentSnapshot : null;
+  root.querySelector(".vocabulary-learning-intro")?.remove();
+  if (!snapshot?.term || !snapshot?.definition) return null;
+  const intro = document.createElement("section"); intro.className = "vocabulary-learning-intro";
+  const label = document.createElement("span"); label.className = "vocabulary-learning-label"; label.textContent = "词汇学习";
+  const term = document.createElement("h2"); term.textContent = snapshot.term;
+  const definition = document.createElement("p"); definition.className = "vocabulary-learning-definition"; definition.textContent = snapshot.definition;
+  const sentence = document.createElement("blockquote"); sentence.textContent = snapshot.sentence ? `原句：${vocabularySourceSentence(snapshot.sentence, snapshot.term)}` : "围绕这个词汇继续提问，获得例句、辨析或练习。";
+  intro.append(label, term, definition, sentence); root.insertBefore(intro, root.firstChild); return intro;
 }
 function renderMessages() {
   const follow = nearBottom();
@@ -557,7 +585,7 @@ function renderMessages() {
     for (const row of messageNodeCache.values()) clearMessageNode(row); messageNodeCache.clear(); root.replaceChildren();
     const empty = document.createElement("div"); empty.className = "chat-empty";
     empty.innerHTML = "<strong>从一个问题开始</strong><span>上传讲义、PDF、文档或图片，也可以要求 TsukuMate 用学习卡片整理。</span>";
-    root.append(empty); requestAnimationFrame(updateConversationNavigator); return;
+    root.append(empty); renderVocabularyIntro(root); requestAnimationFrame(updateConversationNavigator); return;
   }
   // Never append an already-mounted row on every streamed token.  Doing so
   // briefly detaches/reinserts the user row and then the assistant row, which
@@ -575,14 +603,21 @@ function renderMessages() {
     previous = node;
   };
   const live = new Set();
+  let inheritedDividerPlaced = false;
   for (const message of session.messages) {
     if (message.role === "context-boundary") {
       const key = message.id || `boundary-${live.size}`; live.add(key); let boundary = messageNodeCache.get(key); if (!boundary) { boundary = document.createElement("div"); boundary.className = "context-boundary"; boundary.textContent = "已清除此处之前的对话上下文"; messageNodeCache.set(key, boundary); } placeInOrder(boundary); continue;
+    }
+    if (message.inherited && !inheritedDividerPlaced) {
+      const dividerKey = "__inherited-context-divider__"; live.add(dividerKey); let divider = messageNodeCache.get(dividerKey);
+      if (!divider) { divider = document.createElement("div"); divider.className = "inherited-context-divider"; divider.textContent = "继承的上游对话"; messageNodeCache.set(dividerKey, divider); }
+      placeInOrder(divider); inheritedDividerPlaced = true;
     }
     const key = message.id || `${message.role}-${live.size}`; live.add(key); let row = messageNodeCache.get(key); if (!row) { row = document.createElement("article"); messageNodeCache.set(key, row); } renderMessageNode(row, message);
     placeInOrder(row);
   }
   for (const [key, row] of messageNodeCache) if (!live.has(key)) { clearMessageNode(row); row.remove(); messageNodeCache.delete(key); }
+  renderVocabularyIntro(root);
   requestAnimationFrame(() => { if (follow) scrollToLatest(); else updateJumpBottom(); updateConversationNavigator(); });
 }
 function renderSession(value) {
@@ -632,7 +667,8 @@ function renderView() {
   const codingQa = viewState.content === "coding-qa";
   const editingDiary = diary && !!selectedDiary;
   $("diary-view").hidden = !diary; $("notes-view").hidden = viewState.content !== "notes"; $("practice-view").hidden = viewState.content !== "practice"; $("coding-qa-view").hidden = !codingQa;
-  $("chat-reading-area").hidden = diary || learning || codingQa; $("composer").hidden = diary || learning || codingQa; $("jump-bottom").hidden = diary || learning || codingQa || nearBottom(); $("conversation-navigator").hidden = diary || learning || codingQa;
+  const network = conversationNetworkOpen && !diary && !learning && !codingQa;
+  $("content-header").hidden = network; $("chat-reading-area").hidden = diary || learning || codingQa || network; $("conversation-network-view").hidden = !network; $("composer").hidden = diary || learning || codingQa || network; $("jump-bottom").hidden = diary || learning || codingQa || network || nearBottom(); $("conversation-navigator").hidden = diary || learning || codingQa || network;
   $("diary-empty-state").hidden = editingDiary; $("diary-editor").hidden = !editingDiary; $("diary-view").querySelector("footer").hidden = !editingDiary;
   $("back-button").hidden = !(diary || learning || codingQa); $("back-button").textContent = "‹ 返回对话"; $("drawer").setAttribute("aria-hidden", String(!viewState.drawer));
   document.querySelector(".workspace").classList.toggle("drawer-open", !!viewState.drawer);
@@ -823,21 +859,40 @@ function closePracticeAnswer() { activePractice = null; practiceDrafts = new Map
 async function submitPracticeBatch() { if (!activePractice) return; const button = $("practice-submit-all"); button.disabled = true; button.textContent = "正在交卷…"; const answers = activePractice.questions.map((question) => { const draft = draftFor(question); return { questionId: question.id, answer: draft.answer, imageDataUrl: draft.imageDataUrl, mastered: draft.mastered }; }); const result = await api.submitPracticeBatch({ practiceId: activePractice.id, answers }); button.disabled = false; button.textContent = "交卷"; if (!result?.ok || !result.practice) return alert(result?.error || "交卷失败"); activePractice = result.practice; practiceDrafts = new Map(); for (const question of activePractice.questions || []) draftFor(question); renderPracticeAnswer(); }
 async function openLearning(kind) { if (!(await confirmDiaryDiscard())) return; viewState = { content: kind === "practice" ? "practice" : "notes", drawer: null }; if (viewState.content === "notes") await loadLearningNotes(); else { closePracticeAnswer(); await loadPractices(); } renderView(); }
 async function openPracticeModal() { await loadLearningNotes(); const search = await api.getLearningSearchStatus(); $("practice-source-row").hidden = !search?.available; $("practice-source").value = "local"; $("practice-notes-picker").replaceChildren(...learningNotes.map((note) => { const label = document.createElement("label"); const box = document.createElement("input"); box.type = "checkbox"; box.value = note.id; label.append(box, document.createTextNode(` ${note.title}`)); return label; })); $("practice-resources-picker").replaceChildren(...learningResources.filter((r) => r.status === "ready").map((resource) => { const label = document.createElement("label"); const box = document.createElement("input"); box.type = "checkbox"; box.value = resource.id; label.append(box, document.createTextNode(` ${resource.name}`)); return label; })); $("practice-generate-status").textContent = ""; $("practice-modal").hidden = false; }
+function branchTypeLabel(type) { return type === "inherit" ? "继承分支" : type === "related" ? "关联主题" : type === "vocabulary" ? "词汇学习" : "主话题"; }
+function branchTypeIcon(type) { return type === "inherit" ? "↳" : type === "related" ? "◇" : type === "vocabulary" ? "⌁" : "●"; }
+function renderConversationNetwork(body, network, openConversation, rootConversationId) {
+  body.replaceChildren();
+  const allNodes = network?.nodes || []; const rootId = String(rootConversationId || ""); const children = new Map(); for (const node of allNodes) { if (!node.parentConversationId) continue; const list = children.get(node.parentConversationId) || []; list.push(node.id); children.set(node.parentConversationId, list); } const allowed = new Set(); const include = (id) => { if (!id || allowed.has(id)) return; allowed.add(id); for (const childId of children.get(id) || []) include(childId); }; include(rootId); const nodes = allNodes.filter((node) => allowed.has(node.id)); const edges = (network?.edges || []).filter((edge) => allowed.has(edge.from) && allowed.has(edge.to)); const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const depths = new Map(); const depthFor = (node, seen = new Set()) => { if (depths.has(node.id)) return depths.get(node.id); if (seen.has(node.id)) return 0; seen.add(node.id); const parent = node.parentConversationId && nodeById.get(node.parentConversationId); const value = parent ? depthFor(parent, seen) + 1 : 0; depths.set(node.id, value); return value; };
+  nodes.forEach((node) => depthFor(node)); const rows = new Map(); const positions = {}; const saved = network?.positions || {};
+  for (const node of nodes) { const depth = depthFor(node); const row = rows.get(depth) || 0; rows.set(depth, row + 1); const fallback = { x: 72 + depth * 250, y: 72 + row * 145 }; const savedPoint = saved[node.id]; positions[node.id] = savedPoint && savedPoint.x >= 24 && savedPoint.y >= 24 ? savedPoint : fallback; }
+  const canvas = document.createElement("section"); canvas.className = "conversation-network-canvas"; canvas.setAttribute("aria-label", "对话主题关系图"); const viewport = document.createElement("div"); viewport.className = "conversation-network-viewport"; const stage = document.createElement("div"); stage.className = "conversation-network-stage"; viewport.append(stage); canvas.append(viewport);
+  const controls = document.createElement("div"); controls.className = "conversation-network-controls"; const zoomOut = document.createElement("button"); zoomOut.type = "button"; zoomOut.textContent = "−"; zoomOut.title = "缩小"; const zoomIn = document.createElement("button"); zoomIn.type = "button"; zoomIn.textContent = "+"; zoomIn.title = "放大"; const reset = document.createElement("button"); reset.type = "button"; reset.textContent = "⌂"; reset.title = "重置视图"; controls.append(zoomOut, zoomIn, reset); canvas.append(controls);
+  const detail = document.createElement("article"); detail.className = "conversation-network-summary"; detail.hidden = true; canvas.append(detail); canvas.addEventListener("pointerdown", (event) => { if (!detail.hidden && !detail.contains(event.target)) detail.hidden = true; }); body.append(canvas);
+  // v2 deliberately ignores the former drawer-sized viewport transform. A
+  // negative carry-over translation clipped the first column in the full view.
+  let transform = { x: 0, y: 0, scale: 1 }; const savedView = JSON.parse(localStorage.getItem("tsukumate.conversation-network-view-v2") || "null"); if (savedView && Number.isFinite(savedView.x) && Number.isFinite(savedView.y) && Number.isFinite(savedView.scale)) transform = { x: savedView.x, y: savedView.y, scale: Math.max(.45, Math.min(1.8, savedView.scale)) };
+  const persistView = () => localStorage.setItem("tsukumate.conversation-network-view-v2", JSON.stringify(transform));
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("class", "conversation-network-lines"); svg.innerHTML = '<defs><marker id="conversation-network-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z"/></marker></defs>'; stage.append(svg);
+  const paint = () => { const values = Object.values(positions); const maxX = Math.max(720, ...values.map((point) => point.x + 190)); const maxY = Math.max(480, ...values.map((point) => point.y + 100)); stage.style.width = `${maxX}px`; stage.style.height = `${maxY}px`; stage.style.transform = `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`; svg.setAttribute("width", String(maxX)); svg.setAttribute("height", String(maxY)); [...svg.querySelectorAll(".network-edge, .network-edge-label")].forEach((line) => line.remove()); for (const edge of edges) { const from = positions[edge.from]; const to = positions[edge.to]; if (!from || !to) continue; const path = document.createElementNS("http://www.w3.org/2000/svg", "path"); path.classList.add("network-edge", edge.type || "related"); const startX = from.x + 166; const startY = from.y + 38; const endX = to.x; const endY = to.y + 38; path.setAttribute("d", `M ${startX} ${startY} C ${startX + 56} ${startY}, ${endX - 56} ${endY}, ${endX} ${endY}`); path.setAttribute("marker-end", "url(#conversation-network-arrow)"); svg.append(path); const label = document.createElementNS("http://www.w3.org/2000/svg", "text"); label.classList.add("network-edge-label", edge.type || "related"); label.setAttribute("x", String((startX + endX) / 2)); label.setAttribute("y", String((startY + endY) / 2 - 8)); label.textContent = branchTypeLabel(edge.type); svg.append(label); } for (const node of nodes) { const button = stage.querySelector(`[data-network-id="${CSS.escape(node.id)}"]`); if (button) { button.style.left = `${positions[node.id].x}px`; button.style.top = `${positions[node.id].y}px`; } } };
+  const showNode = (node, anchor) => { detail.hidden = false; detail.replaceChildren(); const eyebrow = document.createElement("span"); eyebrow.className = `conversation-network-detail-type ${node.branchType || "root"}`; eyebrow.textContent = branchTypeLabel(node.branchType); const title = document.createElement("strong"); title.textContent = node.title; const summary = document.createElement("p"); const hasOwnSummary = !!String(node.summary || "").trim(); summary.textContent = hasOwnSummary ? node.summary : (node.inheritedSummary ? `该分支尚无新的回复；以下为创建分支时引用的父话题摘要：${node.inheritedSummary}` : "该对话还没有可总结的 AI 回复。开始对话后会在这里显示基于你与 AI 对话生成的主题摘要。"); const open = document.createElement("button"); open.type = "button"; open.textContent = "打开对话"; open.onclick = () => openConversation(node); detail.append(eyebrow, title, summary, open); const canvasRect = canvas.getBoundingClientRect(); const anchorRect = anchor.getBoundingClientRect(); const cardWidth = Math.min(360, canvasRect.width - 28); const left = Math.max(14, Math.min(canvasRect.width - cardWidth - 14, anchorRect.left - canvasRect.left)); detail.style.width = `${cardWidth}px`; detail.style.left = `${left}px`; detail.style.top = `${Math.max(14, anchorRect.bottom - canvasRect.top + 10)}px`; detail.style.right = "auto"; detail.style.bottom = "auto"; };
+  let dragging = null; let panning = null; const savePositions = () => api.saveConversationNetworkLayout(positions).catch(() => { $("send-status").textContent = "保存网络布局失败"; });
+  for (const node of nodes) { const button = document.createElement("button"); button.type = "button"; button.dataset.networkId = node.id; button.className = `conversation-network-node ${node.branchType || "root"}`; button.title = `查看主题总结：${node.title}`; button.innerHTML = `<span>${branchTypeIcon(node.branchType)}</span><strong></strong>`; button.querySelector("strong").textContent = node.title; button.addEventListener("pointerdown", (event) => { event.stopPropagation(); dragging = { id: node.id, x: event.clientX, y: event.clientY, moved: false }; button.setPointerCapture(event.pointerId); }); button.addEventListener("pointermove", (event) => { if (!dragging || dragging.id !== node.id) return; const dx = (event.clientX - dragging.x) / transform.scale; const dy = (event.clientY - dragging.y) / transform.scale; if (Math.abs(dx) + Math.abs(dy) > 2) dragging.moved = true; positions[node.id].x += dx; positions[node.id].y += dy; dragging.x = event.clientX; dragging.y = event.clientY; paint(); }); button.addEventListener("pointerup", (event) => { if (!dragging || dragging.id !== node.id) return; const moved = dragging.moved; dragging = null; button.releasePointerCapture?.(event.pointerId); if (moved) savePositions(); else showNode(node, button); }); stage.append(button); }
+  viewport.addEventListener("pointerdown", (event) => { if (event.target instanceof Element && event.target.closest(".conversation-network-node, .conversation-network-controls, .conversation-network-summary")) return; panning = { x: event.clientX, y: event.clientY }; viewport.setPointerCapture(event.pointerId); }); viewport.addEventListener("pointermove", (event) => { if (!panning) return; transform.x += event.clientX - panning.x; transform.y += event.clientY - panning.y; panning = { x: event.clientX, y: event.clientY }; paint(); }); viewport.addEventListener("pointerup", (event) => { if (!panning) return; panning = null; viewport.releasePointerCapture?.(event.pointerId); persistView(); }); viewport.addEventListener("wheel", (event) => { event.preventDefault(); transform.scale = Math.max(.45, Math.min(1.8, transform.scale * Math.exp(-event.deltaY * .0015))); paint(); persistView(); }, { passive: false }); zoomOut.onclick = () => { transform.scale = Math.max(.45, transform.scale - .15); paint(); persistView(); }; zoomIn.onclick = () => { transform.scale = Math.min(1.8, transform.scale + .15); paint(); persistView(); }; reset.onclick = () => { transform = { x: 0, y: 0, scale: 1 }; paint(); persistView(); }; paint();
+}
 async function showConversationDrawer() {
   if (!(await confirmDiaryDiscard())) return; viewState = { content: "chat", drawer: "history" }; renderView();
   $("drawer-title").textContent = "对话"; const root = $("date-list"); root.innerHTML = '<div class="drawer-status">正在加载…</div>';
   const result = await api.listConversations(); root.replaceChildren(); if (!result?.ok) { root.innerHTML = '<div class="drawer-status error">读取失败</div>'; return; }
-  const tabs = document.createElement("nav"); tabs.className = "conversation-drawer-tabs"; for (const [id, label] of [["tree", "对话树"], ["network", "思维网络"]]) { const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.classList.toggle("active", conversationDrawerTab === id); button.onclick = () => { conversationDrawerTab = id; void showConversationDrawer(); }; tabs.append(button); } root.append(tabs);
+  const tabs = document.createElement("nav"); tabs.className = "conversation-drawer-tabs"; for (const [id, label] of [["tree", "对话树"], ["network", "思维网络"]]) { const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.classList.toggle("active", conversationDrawerTab === id); button.onclick = () => { conversationDrawerTab = id; conversationNetworkOpen = id === "network"; void showConversationDrawer(); }; tabs.append(button); } root.append(tabs);
   const body = document.createElement("div"); body.className = "conversation-drawer-body"; root.append(body); const conversations = result.conversations || [];
-  const openConversation = async (item) => { await discardPendingAttachments(); const loaded = await api.loadConversation(item.id); if (!loaded?.ok) { $("send-status").textContent = loaded?.error || "切换失败"; return; } session = loaded.session || session; syncConversationSelection(); };
+  const openConversation = async (item, keepNetwork = false) => { await discardPendingAttachments(); const loaded = await api.loadConversation(item.id); if (!loaded?.ok) { $("send-status").textContent = loaded?.error || "切换失败"; return; } session = loaded.session || session; conversationNetworkOpen = keepNetwork; conversationDrawerTab = keepNetwork ? "network" : "tree"; renderView(); syncConversationSelection(); if (keepNetwork) await showConversationDrawer(); };
   const removeConversation = async (item) => { if (!confirm(`删除对话“${item.title}”及其全部子分支？其中的消息和已发送附件将被永久删除。`)) return; const deleted = await api.deleteConversation(item.id); if (!deleted?.ok) { $("send-status").textContent = deleted?.error || "删除失败"; return; } if (deleted.session) session = deleted.session; await showConversationDrawer(); };
-  if (conversationDrawerTab === "tree") {
-    const byParent = new Map(); for (const item of conversations) { const key = item.parentConversationId || "root"; if (!byParent.has(key)) byParent.set(key, []); byParent.get(key).push(item); } for (const items of byParent.values()) items.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
-    const draw = (item, depth) => { const row = document.createElement("div"); row.className = `conversation-tree-row${item.id === (session.conversation?.id || session.conversationId) ? " active" : ""}`; row.style.setProperty("--conversation-depth", String(depth)); const open = document.createElement("button"); open.type = "button"; open.className = "conversation-tree-open"; open.disabled = !!session.generating; const icon = item.branchType === "inherit" ? "↳" : item.branchType === "vocabulary" ? "⌁" : item.branchType === "related" ? "◇" : "▾"; open.innerHTML = `<span class="conversation-tree-icon">${icon}</span><span><strong></strong><small></small></span>`; open.querySelector("strong").textContent = item.title; open.querySelector("small").textContent = item.branchType === "inherit" ? "继承分支" : item.branchType === "related" ? "关联主题" : item.branchType === "vocabulary" ? "词汇学习" : (item.legacy ? "旧版记录" : new Date(item.updatedAt).toLocaleDateString()); open.onclick = () => openConversation(item); row.append(open); if (!item.legacy) { const remove = document.createElement("button"); remove.type = "button"; remove.className = "conversation-tree-delete"; remove.textContent = "×"; remove.title = `删除对话：${item.title}`; remove.disabled = !!session.generating; remove.onclick = () => removeConversation(item); row.append(remove); } body.append(row); for (const child of byParent.get(item.id) || []) draw(child, depth + 1); };
-    for (const item of byParent.get("root") || []) draw(item, 0);
-  } else {
-    const network = await api.getConversationNetwork(); const nodes = network?.nodes || conversations.map((item) => ({ ...item, branchType: item.branchType || "root" })); const byId = new Map(nodes.map((item) => [item.id, item])); const depths = new Map(); const depth = (item) => { if (depths.has(item.id)) return depths.get(item.id); const next = item.parentConversationId && byId.has(item.parentConversationId) ? depth(byId.get(item.parentConversationId)) + 1 : 0; depths.set(item.id, next); return next; }; nodes.forEach(depth); const canvas = document.createElement("div"); canvas.className = "conversation-network-canvas"; const columns = Math.max(1, ...nodes.map((item) => depth(item) + 1)); canvas.style.minHeight = `${Math.max(260, nodes.length * 72)}px`; const positions = new Map(); nodes.forEach((item, index) => positions.set(item.id, { x: 18 + depth(item) * 120, y: 18 + index * 68 })); const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("class", "conversation-network-lines"); svg.setAttribute("width", String(columns * 130 + 60)); svg.setAttribute("height", String(Math.max(260, nodes.length * 72))); for (const edge of network?.edges || nodes.filter((item) => item.parentConversationId).map((item) => ({ from: item.parentConversationId, to: item.id }))) { const from = positions.get(edge.from); const to = positions.get(edge.to); if (!from || !to) continue; const line = document.createElementNS("http://www.w3.org/2000/svg", "path"); line.setAttribute("d", `M ${from.x + 92} ${from.y + 23} C ${from.x + 108} ${from.y + 23}, ${to.x - 16} ${to.y + 23}, ${to.x} ${to.y + 23}`); svg.append(line); } canvas.append(svg); const detail = document.createElement("article"); detail.className = "conversation-network-summary"; detail.hidden = true; body.append(canvas, detail); for (const item of nodes) { const point = positions.get(item.id); const button = document.createElement("button"); button.type = "button"; button.className = `conversation-network-node ${item.branchType || "root"}`; button.style.left = `${point.x}px`; button.style.top = `${point.y}px`; button.textContent = item.title; button.onclick = () => { detail.hidden = false; detail.replaceChildren(); const title = document.createElement("strong"); title.textContent = item.title; const summary = document.createElement("p"); summary.textContent = item.summary || "尚未生成摘要，将在下一次回复完成后更新。"; const open = document.createElement("button"); open.type = "button"; open.textContent = "打开对话"; open.onclick = () => openConversation(item); detail.append(title, summary, open); }; canvas.append(button); }
-  }
+  const byParent = new Map(); for (const item of conversations) { const key = item.parentConversationId || "root"; if (!byParent.has(key)) byParent.set(key, []); byParent.get(key).push(item); } for (const items of byParent.values()) items.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  const draw = (item, depth, hasNext) => { const children = byParent.get(item.id) || []; const row = document.createElement("div"); row.className = `conversation-tree-row${depth === 0 ? " root" : ""}${item.id === (session.conversation?.id || session.conversationId) ? " active" : ""}`; row.style.setProperty("--conversation-depth", String(depth)); row.style.setProperty("--tree-branch", hasNext ? "1" : "0"); const toggle = document.createElement("button"); toggle.type = "button"; toggle.className = "conversation-tree-toggle"; toggle.disabled = !children.length; toggle.setAttribute("aria-label", children.length ? "展开或收起子话题" : "没有子话题"); toggle.textContent = children.length ? (collapsedConversationNodes.has(item.id) ? "›" : "⌄") : ""; toggle.onclick = () => { if (collapsedConversationNodes.has(item.id)) collapsedConversationNodes.delete(item.id); else collapsedConversationNodes.add(item.id); void showConversationDrawer(); }; const open = document.createElement("button"); open.type = "button"; open.className = "conversation-tree-open"; open.disabled = !!session.generating; open.innerHTML = `<span class="conversation-tree-type ${item.branchType || "root"}">${branchTypeIcon(item.branchType)}</span><span><strong></strong><small></small></span>`; open.querySelector("strong").textContent = item.title; open.querySelector("small").textContent = branchTypeLabel(item.branchType); open.onclick = () => openConversation(item, conversationNetworkOpen); row.append(toggle, open); if (!item.legacy) { const remove = document.createElement("button"); remove.type = "button"; remove.className = "conversation-tree-delete"; remove.title = `删除对话：${item.title}`; remove.setAttribute("aria-label", remove.title); remove.disabled = !!session.generating; remove.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M9 7l1-3h4l1 3m-9 0 1 13h10l1-13"/></svg>'; remove.onclick = () => removeConversation(item); row.append(remove); } body.append(row); if (!collapsedConversationNodes.has(item.id)) children.forEach((child, index) => draw(child, depth + 1, index < children.length - 1)); };
+  const roots = byParent.get("root") || []; if (!roots.length) body.innerHTML = '<p class="conversation-tree-empty">还没有可显示的对话。</p>'; roots.forEach((item, index) => draw(item, 0, index < roots.length - 1));
+  if (conversationNetworkOpen) { const graph = await api.getConversationNetwork(); const title = graph?.nodes?.find((item) => item.id === session.conversation?.id)?.title || session.conversation?.title || "当前对话"; $("conversation-network-view").querySelector(".conversation-network-header strong").textContent = `${title} 的分支网络`; renderConversationNetwork($("conversation-network-main"), graph, openConversation, session.conversation?.id); }
 }
 async function showDiaryDrawer() {
   if (!(await confirmDiaryDiscard())) return; selectedDiary = null; diaryOriginal = ""; viewState = { content: "diary", drawer: "diary" }; renderView(); $("drawer-title").textContent = "日记";
@@ -906,7 +961,7 @@ $("annotation-scale-up").onclick = () => { const box = selectedAnnotationBounds(
 document.addEventListener("keydown", (event) => { if ($("image-viewer").hidden || !selectedAnnotationIndexes.size || !["Backspace", "Delete"].includes(event.key)) return; event.preventDefault(); annotationOps = annotationOps.filter((_op, index) => !selectedAnnotationIndexes.has(index)); selectedAnnotationIndexes.clear(); hideAnnotationSelectionMenu(); commitAnnotations(); renderAnnotations(); });
 $("image-ocr").onclick = async () => { if (!previewAttachmentId) return; const button = $("image-ocr"); button.disabled = true; button.textContent = "识别中…"; const result = await api.ocrAttachmentImage(previewAttachmentId); button.disabled = false; button.textContent = "识别文字"; $("image-ocr-result").hidden = false; $("image-ocr-text").value = result?.ok ? result.text : (result?.error || "文字识别失败"); };
 $("image-ocr-copy").onclick = async () => { try { await navigator.clipboard.writeText($("image-ocr-text").value); $("send-status").textContent = "识别文字已复制"; } catch { $("send-status").textContent = "复制文字失败"; } };
-$("chat-tool").onclick = () => viewState.content === "chat" && viewState.drawer === "history" ? (viewState.drawer = null, renderView()) : showConversationDrawer(); $("diary-tool").onclick = showDiaryDrawer; $("drawer-close").onclick = () => { viewState.drawer = null; renderView(); }; $("back-button").onclick = returnToChat;
+$("chat-tool").onclick = () => viewState.content === "chat" && viewState.drawer === "history" ? (viewState.drawer = null, renderView()) : showConversationDrawer(); $("diary-tool").onclick = showDiaryDrawer; $("drawer-close").onclick = () => { viewState.drawer = null; renderView(); }; $("conversation-network-back").onclick = () => { conversationNetworkOpen = false; conversationDrawerTab = "tree"; renderView(); void showConversationDrawer(); }; $("back-button").onclick = returnToChat;
 function bindTool(id, action) {
   const node = $(id); let lastPointerAt = 0;
   node.addEventListener("pointerdown", (event) => { if (event.button !== 0) return; lastPointerAt = Date.now(); event.preventDefault(); void action(); });
