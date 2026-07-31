@@ -21,7 +21,10 @@
 <body>
   <main class="workspace">
     <nav class="tool-rail" aria-label="工具栏">
-      <button class="tool avatar" disabled title="头像功能将在后续加入"><span>月</span></button>
+      <div class="workspace-brand" aria-label="TsukuMate">
+        <span class="workspace-brand-name">TsukuMate</span>
+        <span class="workspace-brand-moon" aria-hidden="true">☾</span>
+      </div>
       <button class="tool chat-tool" id="chat-tool" title="对话与历史" aria-label="对话与历史">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 5.5h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-6l-4.8 3v-3h-.2a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z"/></svg>
       </button>
@@ -31,7 +34,7 @@
       <button class="tool" id="coding-qa-tool" title="编程答疑" aria-label="编程答疑">&lt;/&gt;</button>
     </nav>
     <aside class="drawer" id="drawer" aria-hidden="true">
-      <header><strong id="drawer-title">聊天历史</strong><button id="drawer-close">×</button></header>
+      <header><div class="drawer-heading"><strong id="drawer-title">聊天历史</strong><button id="drawer-close">×</button></div><div class="diary-kind-tabs drawer-diary-kind-tabs" id="diary-kind-tabs" role="tablist" aria-label="日记类别" hidden><button id="diary-normal-tab" type="button" class="active">平常日记</button><button id="diary-special-tab" type="button">特殊日记</button></div></header>
       <div class="date-list" id="date-list"></div>
     </aside>
     <section class="content-pane">
@@ -61,7 +64,7 @@
       <div class="diary-view" id="diary-view" hidden>
         <div class="diary-empty-state" id="diary-empty-state">请点击需要查看的日记</div>
         <textarea id="diary-editor" spellcheck="false" placeholder="选择左侧的一篇日记"></textarea>
-        <footer><span id="diary-status"></span><button id="diary-generate">重新生成</button><button id="diary-folder">打开文件夹</button><button class="primary" id="diary-save">保存</button></footer>
+        <footer><span id="diary-status"></span><button id="diary-delete" hidden>删除特殊日记</button><button id="diary-generate">重新生成</button><button id="diary-folder">打开文件夹</button><button class="primary" id="diary-save">保存</button></footer>
       </div>
       <section class="learning-view" id="notes-view" hidden>
         <header class="learning-header"><div><h2 id="notes-heading">我的笔记</h2><p id="notes-subheading">从 AI 回复保存、整理并用于生成练习</p></div><div class="learning-tabs"><button id="notes-tab" class="active">我的笔记</button><button id="resources-tab">学习资源</button></div></header>

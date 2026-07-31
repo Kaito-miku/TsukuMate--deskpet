@@ -19,7 +19,7 @@
 > **Development status:** TsukuMate is under active development. This README is an initial draft and interfaces may still change.
 
 - **Bring your own model service** — connect a self-hosted local service or one of several saved OpenAI Chat Completions-compatible API profiles.
-- **Personas and memory** — manage multiple personas, daily chat history, journals, and explicit “remember this” notes.
+- **Personas and memory** — manage multiple personas, daily chat history, scheduled daily journals, AI-created special journals, and explicit “remember this” notes.
 - **Sprite and Live2D pets** — transparent, resizable pets with clicks, dragging, system actions, compound reactions, and persistent moods.
 - **Private screen context** — explicitly select a display and attach one in-memory screenshot to the next vision request only.
 - **Codex task card** — show real task and tool activity from existing Codex hooks and session events.
@@ -93,6 +93,15 @@ The model and API settings let you:
 ### Personas
 
 Create and switch between persona prompts from the dedicated Persona settings page.
+
+### Journals
+
+TsukuMate writes a regular daily journal at the configured local time. You can
+also ask it to preserve an important event, commitment, goal, decision, or
+turning point as a separate **Special Diary** with natural language or
+`/diary [focus]`. Special diaries are stored locally, can be edited or deleted
+from the Journal drawer, and contribute only compact local summaries to later
+relevant conversations.
 
 ## Roadmap
 

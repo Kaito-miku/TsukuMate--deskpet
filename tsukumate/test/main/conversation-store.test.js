@@ -72,6 +72,18 @@ test("conversation store persists branch metadata, annotations, and deletes a co
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+test("conversation store preserves a signed special diary receipt on an assistant message", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "tsukumate-conversation-"));
+  const store = createConversationStore(root); const meta = store.create();
+  store.append(meta.id, { id: "a1", role: "assistant", content: "重要决定", timestamp: new Date().toISOString() });
+  store.updateDerivedMessage(meta.id, "a1", { learningAnnotations: [{ id: "term", start: 0, end: 2, term: "重要", definition: "有长期影响" }] });
+  const updated = store.updateDerivedMessage(meta.id, "a1", { specialDiary: { id: "special-m5abc-1234567890", title: "新的学习计划", summary: "决定每晚复习", createdAt: "2026-07-31T12:00:00.000Z", trigger: "command" } });
+  assert.equal(updated.specialDiary.id, "special-m5abc-1234567890");
+  assert.equal(updated.specialDiary.trigger, "command");
+  assert.equal(updated.learningAnnotations[0].term, "重要");
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 test("conversation store persists only signed graph node positions", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "tsukumate-conversation-"));
   const store = createConversationStore(root); const conversation = store.create();
