@@ -129,6 +129,17 @@ test("workspace preload exposes only constrained conversation, attachment and di
   assert.doesNotMatch(preload, /openPath/);
 });
 
+test("workspace exposes special diary storage and a persistent diary receipt", () => {
+  const preload = fs.readFileSync(path.join(__dirname, "../../src/preload/preload-chat-workspace.js"), "utf8");
+  const renderer = fs.readFileSync(path.join(__dirname, "../../src/renderer/chat-workspace/chat-workspace-renderer.js"), "utf8");
+  const html = fs.readFileSync(path.join(__dirname, "../../src/renderer/chat-workspace/chat-workspace.html"), "utf8");
+  assert.match(preload, /listSpecialDiaries/);
+  assert.match(renderer, /special-diary-receipt/);
+  assert.match(html, /diary-special-tab/);
+  assert.match(renderer, /showDiaryDrawer\(true, true\)/);
+  assert.doesNotMatch(renderer, /confirm\("日记有未保存修改/);
+});
+
 test("conversation drawer provides a guarded delete control for new sessions", () => {
   const renderer = read("renderer/chat-workspace/chat-workspace-renderer.js");
   const chat = read("main/chat/minicpm-chat.js");

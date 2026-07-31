@@ -167,8 +167,11 @@ function createConversationStore(root, options = {}) {
     const file = messagesPath(id); if (!fs.existsSync(file)) return null;
     const messages = readMessages(id); const index = messages.findIndex((message) => String(message.id) === String(messageId));
     if (index < 0 || messages[index].role !== "assistant") return null;
-    const annotations = Array.isArray(patch.learningAnnotations) ? patch.learningAnnotations.slice(0, 8).map((item, itemIndex) => ({ id: String(item?.id || `term-${itemIndex + 1}`).slice(0, 80), start: Math.max(0, Math.min(16000, Number(item?.start) || 0)), end: Math.max(0, Math.min(16000, Number(item?.end) || 0)), term: String(item?.term || "").slice(0, 160), definition: String(item?.definition || "").slice(0, 800) })).filter((item) => item.end > item.start && item.term && item.definition) : [];
-    messages[index] = { ...messages[index], learningAnnotations: annotations };
+    const annotations = Array.isArray(patch.learningAnnotations) ? patch.learningAnnotations.slice(0, 8).map((item, itemIndex) => ({ id: String(item?.id || `term-${itemIndex + 1}`).slice(0, 80), start: Math.max(0, Math.min(16000, Number(item?.start) || 0)), end: Math.max(0, Math.min(16000, Number(item?.end) || 0)), term: String(item?.term || "").slice(0, 160), definition: String(item?.definition || "").slice(0, 800) })).filter((item) => item.end > item.start && item.term && item.definition) : messages[index].learningAnnotations;
+    const specialDiary = patch.specialDiary && typeof patch.specialDiary === "object" && /^special-[a-z0-9-]{8,100}$/i.test(String(patch.specialDiary.id || ""))
+      ? { id: String(patch.specialDiary.id), title: String(patch.specialDiary.title || "特殊日记").slice(0, 100), summary: String(patch.specialDiary.summary || "").slice(0, 280), createdAt: String(patch.specialDiary.createdAt || "").slice(0, 40), trigger: patch.specialDiary.trigger === "command" ? "command" : "auto" }
+      : null;
+    messages[index] = { ...messages[index], learningAnnotations: annotations, ...(specialDiary ? { specialDiary } : {}) };
     const rewrite = `${file}.tmp-${process.pid}-${Date.now()}`; fs.writeFileSync(rewrite, messages.map((message) => JSON.stringify(message)).join("\n") + "\n", "utf8"); fs.renameSync(rewrite, file);
     return messages[index];
   }

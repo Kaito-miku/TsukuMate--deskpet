@@ -33,6 +33,7 @@ const fs = require("fs");
 const http = require("http");
 const os = require("os");
 const path = require("path");
+const crypto = require("crypto");
 const { APP_ROOT, PRELOAD_ROOT, RENDERER_ROOT } = require("../paths");
 const { validateConfig: validateApiConfig, requestJson: requestOpenAi, makeChatBody } = require("./openai-compatible-transport");
 const { runAppleMusicCommand } = require("../integrations/apple-music/apple-music-control");
@@ -924,6 +925,11 @@ module.exports = function initMinicpmChat(ctx) {
     catch { return path.join(os.tmpdir(), "minicpm-daily-diaries"); }
   })();
   const diaryStatePath = path.join(diaryDir, ".state.json");
+  const specialDiaryDir = (() => {
+    try { return path.join(app.getPath("userData"), "special-diaries"); }
+    catch { return path.join(os.tmpdir(), "minicpm-special-diaries"); }
+  })();
+  const specialDiaryIndexPath = path.join(specialDiaryDir, "index.json");
   const memoryNotesDir = (() => {
     try { return path.join(app.getPath("userData"), "memory-notes"); }
     catch { return path.join(os.tmpdir(), "minicpm-memory-notes"); }
@@ -1694,6 +1700,51 @@ module.exports = function initMinicpmChat(ctx) {
   }
 
   let diaryMemoryCache = { at: 0, text: "" };
+  const SPECIAL_DIARY_ID_RE = /^special-[a-z0-9-]{8,100}$/i;
+  function readSpecialDiaryIndex() {
+    try { const parsed = JSON.parse(fs.readFileSync(specialDiaryIndexPath, "utf8")); return Array.isArray(parsed?.entries) ? parsed.entries.filter((item) => SPECIAL_DIARY_ID_RE.test(String(item?.id || ""))) : []; } catch { return []; }
+  }
+  function writeSpecialDiaryIndex(entries) { writeDiaryAtomically(specialDiaryIndexPath, JSON.stringify({ entries: entries.slice(0, 600), updatedAt: new Date().toISOString() }, null, 2)); }
+  function specialDiaryMeta(item) { return { id: item.id, title: String(item.title || "特殊日记").slice(0, 100), summary: String(item.summary || "").slice(0, 280), createdAt: String(item.createdAt || ""), trigger: item.trigger === "command" ? "command" : "auto" }; }
+  function listSpecialDiaries() { return readSpecialDiaryIndex().map(specialDiaryMeta).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))); }
+  function readSpecialDiary(id) {
+    if (!SPECIAL_DIARY_ID_RE.test(String(id || ""))) return null;
+    const meta = readSpecialDiaryIndex().find((item) => item.id === id); if (!meta) return null;
+    try { return { ...specialDiaryMeta(meta), content: fs.readFileSync(path.join(specialDiaryDir, `${id}.md`), "utf8") }; } catch { return null; }
+  }
+  function saveSpecialDiary(id, content) {
+    if (!SPECIAL_DIARY_ID_RE.test(String(id || ""))) throw new Error("Invalid special diary");
+    const entry = readSpecialDiaryIndex().find((item) => item.id === id); if (!entry) throw new Error("Special diary not found");
+    writeDiaryAtomically(path.join(specialDiaryDir, `${id}.md`), String(content || "").slice(0, 30000)); diaryMemoryCache.at = 0; return specialDiaryMeta(entry);
+  }
+  function deleteSpecialDiary(id) {
+    if (!SPECIAL_DIARY_ID_RE.test(String(id || ""))) return false;
+    const entries = readSpecialDiaryIndex(); if (!entries.some((item) => item.id === id)) return false;
+    try { fs.rmSync(path.join(specialDiaryDir, `${id}.md`), { force: true }); } catch {}
+    writeSpecialDiaryIndex(entries.filter((item) => item.id !== id)); diaryMemoryCache.at = 0; return true;
+  }
+  function parseSpecialDiaryDecision(value) {
+    const raw = String(value || "").trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+    try { const item = JSON.parse(raw); if (!item || item.create !== true) return null; const title = String(item.title || "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 100); const summary = String(item.summary || "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 280); const content = String(item.content || "").trim().slice(0, 10000); return title && summary && content ? { title, summary, content } : null; } catch { return null; }
+  }
+  function specialDiaryRequest(text) {
+    const raw = String(text || "").trim(); const command = raw.match(/^\/diary\b\s*(.*)$/i);
+    if (command) return { force: true, command: true, focus: command[1].slice(0, 800), visible: command[1].trim() || "请记录当前对话中的重要内容。" };
+    return { force: /(帮我|请|给我).{0,12}(记(一篇)?日记|记录(下来|这件事|一下))|把.{0,30}记下来/.test(raw), command: false, focus: "", visible: raw };
+  }
+  async function maybeCreateSpecialDiary({ conversationId, assistantId, userText, assistantText, force, focus }) {
+    if (!isApiMode() || !conversationStore.validId(conversationId) || !String(assistantText || "").trim()) return null;
+    if (readSpecialDiaryIndex().some((item) => item.sourceConversationId === conversationId && item.sourceMessageId === assistantId)) return null;
+    const source = `用户：${String(userText || "").slice(0, 2800)}\n\nAI 回复：${String(assistantText || "").slice(0, 6000)}`;
+    const result = await remoteCompletion({ messages: [{ role: "user", content: `根据下列已完成对话，判断是否应建立一篇“特殊日记”。只有长期目标、明确决定或承诺、重要生活经历、稳定偏好、关系或明显情绪转折才建立；普通问答、代码细节、短暂状态和重复内容不要建立。${force ? `用户明确要求记录，必须建立。额外重点：${String(focus || "无").slice(0, 800)}` : ""}\n返回严格 JSON：{"create":true|false,"title":"不超过30字","summary":"不超过80字","content":"Markdown 日记正文"}。不得虚构事实，不得输出思维链、HTML、密钥或其他字段。\n\n${source}` }], includeMemory: false, stream: false, temperature: 0.2, max_tokens: 700, system: "你是本地日记整理器，只输出严格 JSON。" });
+    const raw = String(result?.choices?.[0]?.message?.content || ""); const decision = parseSpecialDiaryDecision(raw); if (!decision) return null;
+    const id = `special-${Date.now().toString(36)}-${crypto.randomBytes(5).toString("hex")}`; const createdAt = new Date().toISOString();
+    const content = decision.content.replace(/^\s*#\s+[^\n]+\n+/, "").trim();
+    const entry = { id, ...decision, content, createdAt, trigger: force ? "command" : "auto", sourceConversationId: conversationId, sourceMessageId: assistantId };
+    writeDiaryAtomically(path.join(specialDiaryDir, `${id}.md`), `# ${decision.title}\n\n${content}\n`);
+    writeSpecialDiaryIndex([entry, ...readSpecialDiaryIndex()]); diaryMemoryCache.at = 0;
+    return specialDiaryMeta(entry);
+  }
   function getDiaryMemory() {
     if (Date.now() - diaryMemoryCache.at < 300000) return diaryMemoryCache.text;
     let text = "";
@@ -1702,6 +1753,8 @@ module.exports = function initMinicpmChat(ctx) {
       text = files.map((n) => fs.readFileSync(path.join(diaryDir, n), "utf8").slice(0, 800)).join("\n\n");
       const notes = fs.existsSync(memoryNotesDir) ? fs.readdirSync(memoryNotesDir).filter((n) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(n)).sort().slice(-3).flatMap((n) => fs.readFileSync(path.join(memoryNotesDir, n), "utf8").trim().split("\n").map((line) => { try { return JSON.parse(line).content; } catch { return ""; } })) : [];
       if (notes.length) text += `\n\nExplicit memory notes:\n${notes.filter(Boolean).slice(-12).map((n) => `- ${n}`).join("\n")}`;
+      const special = listSpecialDiaries().slice(0, 6).map((item) => `- ${item.title}: ${item.summary}`);
+      if (special.length) text += `\n\nSpecial diary memories:\n${special.join("\n")}`;
       text = text.slice(0, 2200);
     } catch {}
     diaryMemoryCache = { at: Date.now(), text };
@@ -3227,6 +3280,8 @@ module.exports = function initMinicpmChat(ctx) {
 
   async function sendWorkspaceMessage(text, attachmentIds, senderId, webSearch = false, options = {}) {
     let clean = String(text || "").trim().slice(0, 16000);
+    const diaryRequest = specialDiaryRequest(clean);
+    if (diaryRequest.command) clean = diaryRequest.visible;
     const regeneratingId = String(options.regeneratingAssistantId || "");
     if (!clean && !(Array.isArray(attachmentIds) && attachmentIds.length) && !regeneratingId) return { ok: false, error: "消息不能为空" };
     if (workspaceSession.generating) return { ok: false, error: "上一条回复仍在生成" };
@@ -3322,7 +3377,14 @@ module.exports = function initMinicpmChat(ctx) {
         assistant.content = a2ui.content;
         if (parsed.richCards.length) assistant.richCards = parsed.richCards;
         if (a2ui.a2uiSurfaces.length) assistant.a2uiSurfaces = a2ui.a2uiSurfaces;
-        if (assistant.content.trim() || assistant.thinking.trim() || assistant.richCards || assistant.a2uiSurfaces) { conversationStore.append(workspaceSession.conversation.id, assistant); void updateConversationLearningMeta(workspaceSession.conversation.id, assistant.id, assistant.content); }
+        if (assistant.content.trim() || assistant.thinking.trim() || assistant.richCards || assistant.a2uiSurfaces) {
+          conversationStore.append(workspaceSession.conversation.id, assistant); void updateConversationLearningMeta(workspaceSession.conversation.id, assistant.id, assistant.content);
+          const completedConversationId = workspaceSession.conversation.id;
+          void maybeCreateSpecialDiary({ conversationId: completedConversationId, assistantId: assistant.id, userText: user.content, assistantText: assistant.content, force: diaryRequest.force, focus: diaryRequest.focus }).then((specialDiary) => {
+            if (!specialDiary) return; const updated = conversationStore.updateDerivedMessage(completedConversationId, assistant.id, { specialDiary });
+            if (updated && workspaceSession.conversation?.id === completedConversationId) { const index = workspaceSession.messages.findIndex((item) => item.id === assistant.id); if (index >= 0) workspaceSession.messages[index] = updated; broadcastSharedSession(); }
+          }).catch((error) => log(`[special-diary] failed: ${error && error.message || error}`));
+        }
       } catch (error) {
         assistant.generationDurationMs = Math.max(0, Date.now() - assistant.generationStartedAt);
         assistant.streaming = false;
@@ -3635,6 +3697,13 @@ module.exports = function initMinicpmChat(ctx) {
       fs.mkdirSync(diaryDir, { recursive: true }); const error = await shell.openPath(diaryDir);
       return error ? { ok: false, error } : { ok: true };
     },
+    "chat-workspace:list-special-diaries": async (event) => isWorkspaceSender(event.sender) ? { ok: true, entries: listSpecialDiaries() } : { ok: false, entries: [] },
+    "chat-workspace:load-special-diary": async (event, payload = {}) => isWorkspaceSender(event.sender) ? (() => { const diary = readSpecialDiary(String(payload.id || "")); return diary ? { ok: true, diary } : { ok: false, error: "找不到特殊日记" }; })() : { ok: false },
+    "chat-workspace:save-special-diary": async (event, payload = {}) => {
+      if (!isWorkspaceSender(event.sender)) return { ok: false }; try { return { ok: true, diary: saveSpecialDiary(String(payload.id || ""), String(payload.content || "")) }; } catch (error) { return { ok: false, error: localizeError(error) }; }
+    },
+    "chat-workspace:delete-special-diary": async (event, payload = {}) => ({ ok: isWorkspaceSender(event.sender) && deleteSpecialDiary(String(payload.id || "")) }),
+    "chat-workspace:open-special-diary-folder": async (event) => { if (!isWorkspaceSender(event.sender)) return { ok: false }; fs.mkdirSync(specialDiaryDir, { recursive: true }); const error = await shell.openPath(specialDiaryDir); return error ? { ok: false, error } : { ok: true }; },
     "chat-workspace:list-learning-notes": async (event) => isWorkspaceSender(event.sender) ? { ok: true, notes: learning.listNotes() } : { ok: false, notes: [] },
     "chat-workspace:get-learning-note": async (event, payload = {}) => isWorkspaceSender(event.sender) ? { ok: true, note: learning.getNote(payload.id) } : { ok: false, note: null },
     "chat-workspace:save-learning-note": async (event, payload = {}) => {

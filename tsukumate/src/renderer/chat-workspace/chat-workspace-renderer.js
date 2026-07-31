@@ -6,6 +6,7 @@ let session = { messages: [], generating: false, conversation: null };
 let pendingAttachments = [];
 let selectedDiary = null;
 let diaryOriginal = "";
+let diaryKind = "normal";
 let viewState = { content: "chat", drawer: null };
 let learningTab = "notes";
 let selectedNoteId = null;
@@ -404,11 +405,18 @@ function appendInheritedMessageActions(row, message) {
   row.prepend(actions); row._tmInheritedMessageActions = actions;
 }
 function appendCompletedAssistantBlocks(row, message) {
-  if (row._tmCompletedAssistantBlocks) return;
+  if (row._tmCompletedAssistantBlocks) { appendSpecialDiaryReceipt(row, message); return; }
   row._tmCompletedAssistantBlocks = true;
   if (Array.isArray(message.richCards) && window.TsukuMateRichContent) { const cards = document.createElement("div"); cards.className = "study-card-list"; row.append(cards); for (const card of message.richCards.slice(0, 3)) row._tmCleanups.push(window.TsukuMateRichContent.renderCard(cards, card)); }
   if (Array.isArray(message.a2uiSurfaces) && window.TsukuMateA2UI) { const surfaces = document.createElement("div"); surfaces.className = "a2ui-surface-list"; row.append(surfaces); for (const surface of message.a2uiSurfaces.slice(0, 2)) row._tmCleanups.push(window.TsukuMateA2UI.renderSurface(surfaces, surface)); }
   if (message.id) { const actions = document.createElement("div"); actions.className = "message-actions message-learning-actions"; actions.append(createMessageAction("edit", "编辑回复", () => editWorkspaceMessage(message)), createMessageAction("regenerate", "重新生成", () => regenerateWorkspaceMessage(message))); appendMessageMore(actions, [["建立分支", () => openBranchPicker(message)], ["记入笔记", async () => { const result = await api.noteFromMessage(message.id); if (!result?.ok) { $("send-status").textContent = result?.error || "创建笔记失败"; return; } selectedNoteId = result.note.id; await openLearning("notes"); }], ["复制", () => copyMessageText(message.content, "已复制 AI 回复")], ["下载", () => downloadAssistantMessage(message)], ["删除", () => deleteWorkspaceMessage(message), true]]); row.prepend(actions); }
+  appendSpecialDiaryReceipt(row, message);
+}
+function appendSpecialDiaryReceipt(row, message) {
+  const diary = message?.specialDiary; if (!diary?.id) return;
+  let card = row.querySelector(".special-diary-receipt");
+  if (!card) { card = document.createElement("section"); card.className = "special-diary-receipt"; card.innerHTML = '<div class="special-diary-receipt-icon" aria-hidden="true">✒</div><div class="special-diary-receipt-copy"><span class="special-diary-receipt-label">特殊日记 · SPECIAL DIARY</span><strong></strong><p></p></div><button type="button">打开日记</button>'; card.querySelector("button").onclick = () => openSpecialDiary(diary.id); row.append(card); }
+  card.querySelector("strong").textContent = diary.title || "AI 已记录一则特殊日记"; card.querySelector("p").textContent = `${diary.trigger === "command" ? "指令记录" : "AI 自主记忆"} · ${String(diary.createdAt || "").slice(0, 10)} · ${diary.summary || "已整理为本地长期记忆"}`;
 }
 function renderThinkingMarkdown(value) {
   const root = document.createElement("div"); root.className = "thinking-card-markdown"; let list = null; let code = null;
@@ -670,6 +678,10 @@ function renderView() {
   const network = conversationNetworkOpen && !diary && !learning && !codingQa;
   $("content-header").hidden = network; $("chat-reading-area").hidden = diary || learning || codingQa || network; $("conversation-network-view").hidden = !network; $("composer").hidden = diary || learning || codingQa || network; $("jump-bottom").hidden = diary || learning || codingQa || network || nearBottom(); $("conversation-navigator").hidden = diary || learning || codingQa || network;
   $("diary-empty-state").hidden = editingDiary; $("diary-editor").hidden = !editingDiary; $("diary-view").querySelector("footer").hidden = !editingDiary;
+  $("diary-kind-tabs").hidden = !diary;
+  $("drawer").classList.toggle("diary-drawer-open", diary);
+  $("diary-normal-tab").classList.toggle("active", diaryKind === "normal"); $("diary-special-tab").classList.toggle("active", diaryKind === "special");
+  $("diary-generate").hidden = diaryKind === "special"; $("diary-delete").hidden = diaryKind !== "special";
   $("back-button").hidden = !(diary || learning || codingQa); $("back-button").textContent = "‹ 返回对话"; $("drawer").setAttribute("aria-hidden", String(!viewState.drawer));
   document.querySelector(".workspace").classList.toggle("drawer-open", !!viewState.drawer);
   document.querySelectorAll(".tool").forEach((node) => node.classList.remove("active"));
@@ -822,7 +834,10 @@ async function sendCodingQa() {
   renderCodingQa();
 }
 function openCodingQaView() { viewState = { content: "coding-qa", drawer: null }; activeCodingQa = null; codingOjResults = []; $("coding-oj-status").textContent = "输入关键词、题号或公开题目链接开始搜索。"; renderView(); void loadCodingQa("__home__"); }
-async function confirmDiaryDiscard() { return viewState.content !== "diary" || $("diary-editor").value === diaryOriginal || confirm("日记有未保存修改，确定放弃吗？"); }
+// Diary editing is intentionally non-blocking.  Switching views must never
+// trap the user behind a native confirmation dialog; explicit Save remains
+// available for changes they want to keep.
+async function confirmDiaryDiscard() { return true; }
 async function returnToChat() { if (!(await confirmDiaryDiscard())) return; viewState = { content: "chat", drawer: null }; renderView(); $("prompt").focus(); }
 function empty(node, text) { node.replaceChildren(); const item = document.createElement("div"); item.className = "learning-empty"; item.textContent = text; node.append(item); }
 function noteListItem(note) { const button = document.createElement("button"); button.className = `learning-list-item${note.id === selectedNoteId ? " active" : ""}`; const title = document.createElement("strong"); title.textContent = note.title || "未命名笔记"; const date = document.createElement("small"); date.textContent = new Date(note.updatedAt).toLocaleString(); button.append(title, date); button.onclick = () => { selectedNoteId = note.id; renderNotes(); }; return button; }
@@ -894,16 +909,21 @@ async function showConversationDrawer() {
   const roots = byParent.get("root") || []; if (!roots.length) body.innerHTML = '<p class="conversation-tree-empty">还没有可显示的对话。</p>'; roots.forEach((item, index) => draw(item, 0, index < roots.length - 1));
   if (conversationNetworkOpen) { const graph = await api.getConversationNetwork(); const title = graph?.nodes?.find((item) => item.id === session.conversation?.id)?.title || session.conversation?.title || "当前对话"; $("conversation-network-view").querySelector(".conversation-network-header strong").textContent = `${title} 的分支网络`; renderConversationNetwork($("conversation-network-main"), graph, openConversation, session.conversation?.id); }
 }
-async function showDiaryDrawer() {
-  if (!(await confirmDiaryDiscard())) return; selectedDiary = null; diaryOriginal = ""; viewState = { content: "diary", drawer: "diary" }; renderView(); $("drawer-title").textContent = "日记";
+async function showDiaryDrawer(keepSelection = false, skipDiscardConfirm = false) {
+  if (!skipDiscardConfirm && !(await confirmDiaryDiscard())) return; if (!keepSelection) { selectedDiary = null; diaryOriginal = ""; } viewState = { content: "diary", drawer: "diary" }; renderView(); $("drawer-title").textContent = "日记";
   const root = $("date-list"); root.innerHTML = '<div class="drawer-status">正在加载…</div>';
-  const result = await api.listDiaries(); root.replaceChildren();
-  for (const date of result && result.dates || []) { const button = document.createElement("button"); button.className = "date-item"; button.textContent = date; button.onclick = () => loadDiary(date); root.append(button); }
+  const result = diaryKind === "special" ? await api.listSpecialDiaries() : await api.listDiaries(); root.replaceChildren();
+  if (diaryKind === "special") for (const item of result?.entries || []) { const button = document.createElement("button"); button.className = "date-item special-diary-item"; button.innerHTML = '<strong></strong><small></small>'; button.querySelector("strong").textContent = item.title; button.querySelector("small").textContent = `${item.trigger === "command" ? "指令记录" : "AI 自主记忆"} · ${String(item.createdAt || "").slice(0, 10)}`; button.onclick = () => openSpecialDiary(item.id); root.append(button); }
+  else for (const date of result?.dates || []) { const button = document.createElement("button"); button.className = "date-item"; button.textContent = date; button.onclick = () => loadDiary(date); root.append(button); }
 }
 async function loadDiary(date) {
   if (!(await confirmDiaryDiscard())) return; const result = await api.loadDiary(date); if (!result.ok) return;
-  selectedDiary = date; diaryOriginal = result.content || ""; $("diary-editor").value = diaryOriginal; $("diary-status").textContent = "";
+  diaryKind = "normal"; selectedDiary = date; diaryOriginal = result.content || ""; $("diary-editor").value = diaryOriginal; $("diary-status").textContent = "";
   viewState.content = "diary"; renderView();
+}
+async function openSpecialDiary(id) {
+  if (!(await confirmDiaryDiscard())) return; const result = await api.loadSpecialDiary(id); if (!result?.ok) { $("diary-status").textContent = result?.error || "无法加载特殊日记"; return; }
+  diaryKind = "special"; selectedDiary = result.diary.id; diaryOriginal = result.diary.content || ""; $("diary-editor").value = diaryOriginal; $("diary-status").textContent = "AI 特殊日记"; viewState = { content: "diary", drawer: "diary" }; renderView(); await showDiaryDrawer(true, true);
 }
 async function send() {
   const text = $("prompt").value.trim(); if ((!text && !pendingAttachments.length) || session.generating) return;
@@ -1001,9 +1021,12 @@ $("conversation-nav-track").addEventListener("pointerdown", (event) => { if (eve
 $("conversation-nav-track").addEventListener("pointermove", (event) => { if (navigatorDragging) scrollNavigatorTo(event.clientY); });
 $("conversation-nav-track").addEventListener("pointerup", (event) => { navigatorDragging = false; $("conversation-navigator").classList.remove("is-dragging"); event.currentTarget.releasePointerCapture?.(event.pointerId); activateConversationNavigator(); });
 $("conversation-nav-track").addEventListener("keydown", (event) => { const view = $("chat-view"); const amount = Math.max(40, view.clientHeight * .12); if (event.key === "ArrowDown" || event.key === "PageDown") { event.preventDefault(); view.scrollTop += amount; } else if (event.key === "ArrowUp" || event.key === "PageUp") { event.preventDefault(); view.scrollTop -= amount; } else if (event.key === "Home") { event.preventDefault(); view.scrollTop = 0; } else if (event.key === "End") { event.preventDefault(); scrollToLatest("smooth"); } });
-$("diary-save").onclick = async () => { if (!selectedDiary) return; const result = await api.saveDiary(selectedDiary, $("diary-editor").value); if (result.ok) { diaryOriginal = $("diary-editor").value; $("diary-status").textContent = "已保存"; } };
 $("diary-generate").onclick = async () => { if (!selectedDiary || !confirm("重新生成会覆盖当前日记，确定吗？")) return; const result = await api.generateDiary(selectedDiary); if (result.ok) await loadDiary(selectedDiary); };
-$("diary-folder").onclick = () => api.openDiaryFolder();
+$("diary-save").onclick = async () => { if (!selectedDiary) return; const result = diaryKind === "special" ? await api.saveSpecialDiary(selectedDiary, $("diary-editor").value) : await api.saveDiary(selectedDiary, $("diary-editor").value); if (result?.ok) { diaryOriginal = $("diary-editor").value; $("diary-status").textContent = "已保存"; } else $("diary-status").textContent = result?.error || "保存失败"; };
+$("diary-delete").onclick = async () => { if (diaryKind !== "special" || !selectedDiary || !confirm("删除这篇特殊日记？此操作无法撤销。")) return; const result = await api.deleteSpecialDiary(selectedDiary); if (!result?.ok) { $("diary-status").textContent = result?.error || "删除失败"; return; } selectedDiary = null; diaryOriginal = ""; await showDiaryDrawer(false, true); };
+$("diary-folder").onclick = () => diaryKind === "special" ? api.openSpecialDiaryFolder() : api.openDiaryFolder();
+$("diary-normal-tab").onclick = async () => { if (!(await confirmDiaryDiscard())) return; diaryKind = "normal"; selectedDiary = null; diaryOriginal = ""; await showDiaryDrawer(false, true); };
+$("diary-special-tab").onclick = async () => { if (!(await confirmDiaryDiscard())) return; diaryKind = "special"; selectedDiary = null; diaryOriginal = ""; await showDiaryDrawer(false, true); };
 
 api.onSession(scheduleSessionRender);
 api.onCodingQaDelta((payload) => {
