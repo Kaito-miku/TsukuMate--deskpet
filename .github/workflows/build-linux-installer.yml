@@ -1,0 +1,57 @@
+name: Build Linux installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional existing GitHub Release tag to receive the installers (for example beta-26.01)"
+        required: false
+        default: "beta-26.01"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Linux x64 installers
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tsukumate
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tsukumate/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Fetch verified Linux sidecar
+        run: node scripts/fetch-sidecar-binaries.js --target linux-x64
+
+      - name: Build AppImage and Debian package
+        run: npm run build:linux -- --publish never
+
+      - name: Upload installer artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TsukuMate-Linux-x64-installers
+          path: |
+            tsukumate/dist/TsukuMate-*.AppImage
+            tsukumate/dist/TsukuMate-*.deb
+          if-no-files-found: warn
+
+      - name: Add installers to release
+        if: success() && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: gh release upload "$RELEASE_TAG" dist/TsukuMate-*.AppImage dist/TsukuMate-*.deb --clobber
