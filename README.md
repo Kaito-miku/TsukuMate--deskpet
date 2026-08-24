@@ -16,7 +16,12 @@
 
 ## Highlights
 
-> **Development status:** TsukuMate is under active development. This README is an initial draft and interfaces may still change.
+> **Development status:** Due to certain special reasons, updates for this project will cease.
+>                         特別な事情により、このプロジェクトは中止となります。
+>                         Aus bestimmten Gründen wird dieses Projekt eingestellt.
+>                         В связи с рядом особых причин данный проект будет прекращен.
+>                         특별한 사정으로 인해 이 프로젝트는 중단될 예정입니다.
+>                         Ob causas quasdam speciales, hoc proiectum intermittetur.
 
 - **Bring your own model service** — connect a self-hosted local service or one of several saved OpenAI Chat Completions-compatible API profiles.
 - **Personas and memory** — manage multiple personas, daily chat history, scheduled daily journals, AI-created special journals, and explicit “remember this” notes.
